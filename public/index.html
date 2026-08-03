@@ -6,6 +6,25 @@
   <title>敦煌金检测中心 LIMS 系统</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <!-- Lucide Icons (2026-08-03 升级：以专业线性图标替换 emoji) -->
+  <script src="/vendor/lucide.min.js"></script>
+  <style>
+    /* Lucide 图标样式 — 与现有设计系统对齐 */
+    .icon, [data-lucide] { width: 1em; height: 1em; vertical-align: -0.125em; }
+    .nav-icon i[data-lucide] { font-size: 16px; color: inherit; }
+    .home-stat-icon i[data-lucide] { font-size: 28px; color: #fff; }
+    .home-chart-title i[data-lucide],
+    .home-list-title i[data-lucide],
+    .home-section-title i[data-lucide] { font-size: 18px; margin-right: 6px; vertical-align: -3px; color: #8B6F47; }
+    .page-section h2 i[data-lucide] { font-size: 22px; margin-right: 8px; vertical-align: -3px; color: #5C3317; }
+    .brand i[data-lucide] { font-size: 24px; margin-right: 8px; vertical-align: -4px; }
+    .login-logo i[data-lucide] { font-size: 56px; color: #5C3317; }
+    /* 空饼图状态 */
+    .home-empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 24px 12px; color: #8B6F47; font-size: 13px; gap: 8px; min-height: 160px; }
+    .home-empty-state i[data-lucide] { font-size: 36px; opacity: 0.4; color: #8B6F47; }
+    .home-empty-state .home-empty-action { margin-top: 4px; padding: 4px 12px; background: #8B6F47; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s; }
+    .home-empty-state .home-empty-action:hover { background: #5C3317; }
+  </style>
 </head>
 <body>
 
@@ -15,7 +34,7 @@
 <!-- ========== LOGIN MODAL ========== -->
 <div id="loginModal" class="login-page">
   <div class="login-box">
-    <div class="login-logo">🔬</div>
+    <div class="login-logo"><i data-lucide="flask-conical"></i></div>
     <div class="login-title">敦煌金检测中心<br>LIMS 实验室信息管理系统</div>
     <div class="form-group">
       <input type="text" id="login-username" class="form-control" placeholder="用户名" autocomplete="username">
@@ -34,7 +53,7 @@
   <!-- ========== SIDEBAR ========== -->
   <nav class="sidebar">
     <div class="sidebar-header">
-      <div class="brand">🔬 敦煌金检测 LIMS</div>
+      <div class="brand"><i data-lucide="flask-conical"></i> 敦煌金检测 LIMS</div>
       <div class="brand-sub">CNAS 认证实验室</div>
     </div>
     <div class="sidebar-nav">
@@ -42,61 +61,61 @@
       <!-- 首页 -->
       <div class="nav-section">
         <div class="nav-section-title">概览</div>
-        <a class="nav-item" href="#home"><span class="nav-icon">🏠</span><span class="nav-text">首页</span></a>
+        <a class="nav-item" href="#home"><span class="nav-icon"><i data-lucide="home"></i></span><span class="nav-text">首页</span></a>
       </div>
 
       <!-- CNAS体系功能 -->
       <div class="nav-section">
         <div class="nav-section-title">CNAS体系功能</div>
-        <a class="nav-item" href="#personnel"><span class="nav-icon">👤</span><span class="nav-text">人员管理</span></a>
-        <a class="nav-item" href="#departments"><span class="nav-icon">🏢</span><span class="nav-text">部门管理</span></a>
-        <a class="nav-item" href="#projects"><span class="nav-icon">📋</span><span class="nav-text">项目管理</span></a>
+        <a class="nav-item" href="#personnel"><span class="nav-icon"><i data-lucide="user"></i></span><span class="nav-text">人员管理</span></a>
+        <a class="nav-item" href="#departments"><span class="nav-icon"><i data-lucide="building-2"></i></span><span class="nav-text">部门管理</span></a>
+        <a class="nav-item" href="#projects"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span><span class="nav-text">项目管理</span></a>
       </div>
 
       <!-- 样品管理 -->
       <div class="nav-section">
         <div class="nav-section-title">样品管理</div>
-        <a class="nav-item" href="#appointments"><span class="nav-icon">📅</span><span class="nav-text">样品预约</span></a>
-        <a class="nav-item" href="#sample-processing"><span class="nav-icon">🧪</span><span class="nav-text">样品处理</span></a>
+        <a class="nav-item" href="#appointments"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-text">样品预约</span></a>
+        <a class="nav-item" href="#sample-processing"><span class="nav-icon"><i data-lucide="test-tube"></i></span><span class="nav-text">样品处理</span></a>
       </div>
 
       <!-- 设备管理 -->
       <div class="nav-section">
         <div class="nav-section-title">设备管理</div>
-        <a class="nav-item" href="#equipment"><span class="nav-icon">⚙️</span><span class="nav-text">设备台账</span></a>
-        <a class="nav-item" href="#maintenance"><span class="nav-icon">🔧</span><span class="nav-text">设备维护</span></a>
-        <a class="nav-item" href="#calibration"><span class="nav-icon">📏</span><span class="nav-text">设备校准</span></a>
-        <a class="nav-item" href="#equipment-repairs"><span class="nav-icon">🔩</span><span class="nav-text">设备维修</span></a>
+        <a class="nav-item" href="#equipment"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-text">设备台账</span></a>
+        <a class="nav-item" href="#maintenance"><span class="nav-icon"><i data-lucide="wrench"></i></span><span class="nav-text">设备维护</span></a>
+        <a class="nav-item" href="#calibration"><span class="nav-icon"><i data-lucide="ruler"></i></span><span class="nav-text">设备校准</span></a>
+        <a class="nav-item" href="#equipment-repairs"><span class="nav-icon"><i data-lucide="hammer"></i></span><span class="nav-text">设备维修</span></a>
       </div>
 
       <!-- 库房功能 -->
       <div class="nav-section">
         <div class="nav-section-title">库房功能</div>
-        <a class="nav-item" href="#consumables"><span class="nav-icon">📦</span><span class="nav-text">耗材管理</span></a>
-        <a class="nav-item" href="#glassware"><span class="nav-icon">🫙</span><span class="nav-text">玻璃器皿</span></a>
-        <a class="nav-item" href="#reagents"><span class="nav-icon">🧴</span><span class="nav-text">试剂管理</span></a>
-        <a class="nav-item" href="#gases"><span class="nav-icon">💨</span><span class="nav-text">气体管理</span></a>
+        <a class="nav-item" href="#consumables"><span class="nav-icon"><i data-lucide="package"></i></span><span class="nav-text">耗材管理</span></a>
+        <a class="nav-item" href="#glassware"><span class="nav-icon"><i data-lucide="flask-round"></i></span><span class="nav-text">玻璃器皿</span></a>
+        <a class="nav-item" href="#reagents"><span class="nav-icon"><i data-lucide="beaker"></i></span><span class="nav-text">试剂管理</span></a>
+        <a class="nav-item" href="#gases"><span class="nav-icon"><i data-lucide="wind"></i></span><span class="nav-text">气体管理</span></a>
       </div>
 
       <!-- 后勤保障 -->
       <div class="nav-section">
         <div class="nav-section-title">后勤保障</div>
-        <a class="nav-item" href="#fumehood"><span class="nav-icon">🌬️</span><span class="nav-text">通风柜管理</span></a>
-        <a class="nav-item" href="#training"><span class="nav-icon">🎓</span><span class="nav-text">培训记录</span></a>
+        <a class="nav-item" href="#fumehood"><span class="nav-icon"><i data-lucide="fan"></i></span><span class="nav-text">通风柜管理</span></a>
+        <a class="nav-item" href="#training"><span class="nav-icon"><i data-lucide="graduation-cap"></i></span><span class="nav-text">培训记录</span></a>
       </div>
 
       <!-- EHS管理 -->
       <div class="nav-section">
         <div class="nav-section-title">EHS管理</div>
-        <a class="nav-item" href="#ehs-inspection"><span class="nav-icon">🔍</span><span class="nav-text">日常巡检</span></a>
-        <a class="nav-item" href="#ehs-incident"><span class="nav-icon">🚨</span><span class="nav-text">事故记录</span></a>
-        <a class="nav-item" href="#ehs-hazard"><span class="nav-icon">⚠️</span><span class="nav-text">隐患管理</span></a>
+        <a class="nav-item" href="#ehs-inspection"><span class="nav-icon"><i data-lucide="search"></i></span><span class="nav-text">日常巡检</span></a>
+        <a class="nav-item" href="#ehs-incident"><span class="nav-icon"><i data-lucide="siren"></i></span><span class="nav-text">事故记录</span></a>
+        <a class="nav-item" href="#ehs-hazard"><span class="nav-icon"><i data-lucide="alert-triangle"></i></span><span class="nav-text">隐患管理</span></a>
       </div>
 
       <!-- 系统管理 -->
       <div class="nav-section">
         <div class="nav-section-title">系统管理</div>
-        <a class="nav-item" href="#experimental-data"><span class="nav-icon">📊</span><span class="nav-text">实验数据报告</span></a>
+        <a class="nav-item" href="#experimental-data"><span class="nav-icon"><i data-lucide="bar-chart-3"></i></span><span class="nav-text">实验数据报告</span></a>
       </div>
 
       <!-- User Info & Logout -->
@@ -127,39 +146,39 @@
       </div>
 
       <!-- 模块直达按钮区 -->
-      <div class="home-section-title">🏛️ 功能模块</div>
+      <div class="home-section-title"><i data-lucide="landmark"></i> 功能模块</div>
       <div class="home-module-grid" id="home-module-grid"></div>
 
       <!-- 统计卡片 -->
-      <div class="home-section-title" style="margin-top:28px;">📊 数据概览</div>
+      <div class="home-section-title" style="margin-top:28px;"><i data-lucide="bar-chart-3"></i> 数据概览</div>
       <div class="home-stats-row">
         <div class="home-stat-card home-stat-gold">
-          <div class="home-stat-icon">👤</div>
+          <div class="home-stat-icon"><i data-lucide="user"></i></div>
           <div class="home-stat-num" id="stat-personnel">—</div>
           <div class="home-stat-label">人员</div>
         </div>
         <div class="home-stat-card home-stat-teal">
-          <div class="home-stat-icon">⚙️</div>
+          <div class="home-stat-icon"><i data-lucide="settings"></i></div>
           <div class="home-stat-num" id="stat-equipment">—</div>
           <div class="home-stat-label">设备</div>
         </div>
         <div class="home-stat-card home-stat-rust">
-          <div class="home-stat-icon">🧪</div>
+          <div class="home-stat-icon"><i data-lucide="test-tube"></i></div>
           <div class="home-stat-num" id="stat-samples">—</div>
           <div class="home-stat-label">样品</div>
         </div>
         <div class="home-stat-card home-stat-warm">
-          <div class="home-stat-icon">📦</div>
+          <div class="home-stat-icon"><i data-lucide="package"></i></div>
           <div class="home-stat-num" id="stat-consumables">—</div>
           <div class="home-stat-label">耗材</div>
         </div>
         <div class="home-stat-card home-stat-teal2">
-          <div class="home-stat-icon">🧴</div>
+          <div class="home-stat-icon"><i data-lucide="beaker"></i></div>
           <div class="home-stat-num" id="stat-reagents">—</div>
           <div class="home-stat-label">试剂</div>
         </div>
         <div class="home-stat-card home-stat-rust2">
-          <div class="home-stat-icon">⚠️</div>
+          <div class="home-stat-icon"><i data-lucide="alert-triangle"></i></div>
           <div class="home-stat-num" id="stat-hazards">—</div>
           <div class="home-stat-label">隐患</div>
         </div>
@@ -169,57 +188,63 @@
       <div class="home-charts-row">
 
         <!-- 饼图区 -->
-        <div class="home-chart-panel">
-          <div class="home-chart-title">📈 样品检测方法分布</div>
+        <div class="home-chart-panel" data-chart="chart-sample-method">
+          <div class="home-chart-title"><i data-lucide="trending-up"></i> 样品检测方法分布</div>
           <div class="home-chart-body">
-            <div class="home-pie-wrap">
+            <div class="home-pie-wrap" id="wrap-chart-sample-method">
               <canvas id="chart-sample-method" width="160" height="160"></canvas>
+              <div class="home-empty-state" style="display:none;" id="empty-chart-sample-method">
+                <i data-lucide="pie-chart"></i>
+                <div>暂无检测方法数据</div>
+                <button class="home-empty-action" onclick="window.location.hash='#projects'">录入项目</button>
+              </div>
             </div>
             <div class="home-pie-legend" id="legend-sample-method"></div>
           </div>
-        </div>
-
-        <div class="home-chart-panel">
-          <div class="home-chart-title">🔧 设备状态分布</div>
+        </div><div class="home-chart-panel" data-chart="chart-equip-status">
+          <div class="home-chart-title"><i data-lucide="trending-up"></i> 设备状态分布</div>
           <div class="home-chart-body">
-            <div class="home-pie-wrap">
+            <div class="home-pie-wrap" id="wrap-chart-equip-status">
               <canvas id="chart-equip-status" width="160" height="160"></canvas>
+              <div class="home-empty-state" style="display:none;" id="empty-chart-equip-status">
+                <i data-lucide="settings"></i>
+                <div>暂无设备数据</div>
+                <button class="home-empty-action" onclick="window.location.hash='#equipment'">录入设备</button>
+              </div>
             </div>
             <div class="home-pie-legend" id="legend-equip-status"></div>
           </div>
-        </div>
-
-        <div class="home-chart-panel">
-          <div class="home-chart-title">🧪 试剂库存状态</div>
+        </div><div class="home-chart-panel" data-chart="chart-reagent-status">
+          <div class="home-chart-title"><i data-lucide="trending-up"></i> 试剂库存状态</div>
           <div class="home-chart-body">
-            <div class="home-pie-wrap">
+            <div class="home-pie-wrap" id="wrap-chart-reagent-status">
               <canvas id="chart-reagent-status" width="160" height="160"></canvas>
+              <div class="home-empty-state" style="display:none;" id="empty-chart-reagent-status">
+                <i data-lucide="beaker"></i>
+                <div>暂无试剂数据</div>
+                <button class="home-empty-action" onclick="window.location.hash='#reagents'">录入试剂</button>
+              </div>
             </div>
             <div class="home-pie-legend" id="legend-reagent-status"></div>
           </div>
-        </div>
-
-      </div>
-
-      <!-- 聚合列表 -->
-      <div class="home-lists-row">
+        </div><div class="home-lists-row">
 
         <div class="home-list-panel">
-          <div class="home-list-title">📋 最新样品处理记录</div>
+          <div class="home-list-title"><i data-lucide="clipboard-list"></i> 最新样品处理记录</div>
           <div id="home-list-samples" class="home-list-body">
             <div class="home-list-empty">加载中...</div>
           </div>
         </div>
 
         <div class="home-list-panel">
-          <div class="home-list-title">⚠️ 待处理隐患</div>
+          <div class="home-list-title"><i data-lucide="alert-triangle"></i> 待处理隐患</div>
           <div id="home-list-hazards" class="home-list-body">
             <div class="home-list-empty">加载中...</div>
           </div>
         </div>
 
         <div class="home-list-panel">
-          <div class="home-list-title">🔍 最新巡检记录</div>
+          <div class="home-list-title"><i data-lucide="search"></i> 最新巡检记录</div>
           <div id="home-list-inspections" class="home-list-body">
             <div class="home-list-empty">加载中...</div>
           </div>
@@ -232,7 +257,7 @@
     <!-- ===== PERSONNEL ===== -->
     <div id="page-personnel" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>👤 人员管理</h2>
+        <h2><i data-lucide="user"></i> 人员管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('personnel-id').value='';document.getElementById('personnel-name').value='';document.getElementById('personnel-dept').value='';document.getElementById('personnel-username').value='';document.getElementById('personnel-password').value='';document.getElementById('personnel-role').value='analyst';document.getElementById('personnel-email').value='';document.getElementById('personnel-phone').value='';document.getElementById('personnel-position').value='';document.getElementById('personnel-status').value='active';showModal('modal-personnel');">新增人员</button>
         </div>
@@ -306,7 +331,7 @@
     <!-- ===== DEPARTMENTS ===== -->
     <div id="page-departments" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🏢 部门管理</h2>
+        <h2><i data-lucide="building-2"></i> 部门管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('dept-id').value='';document.getElementById('dept-no').value='';document.getElementById('dept-name').value='';document.getElementById('dept-parent').value='';document.getElementById('dept-phone').value='';document.getElementById('dept-status').value='active';showModal('modal-departments');">新增部门</button>
         </div>
@@ -359,7 +384,7 @@
     <!-- ===== PROJECTS ===== -->
     <div id="page-projects" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>📋 项目管理</h2>
+        <h2><i data-lucide="clipboard-list"></i> 项目管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('project-id').value='';document.getElementById('project-no').value='';document.getElementById('project-name').value='';document.getElementById('project-method').value='';document.getElementById('project-desc').value='';showModal('modal-projects');">新增项目</button>
         </div>
@@ -405,7 +430,7 @@
     <!-- ===== APPOINTMENTS ===== -->
     <div id="page-appointments" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>📅 样品预约</h2>
+        <h2><i data-lucide="calendar-clock"></i> 样品预约</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('appt-id').value='';document.getElementById('appt-no').value='';document.getElementById('appt-client').value='';document.getElementById('appt-type').value='';document.getElementById('appt-date').value='';document.getElementById('appt-contact').value='';document.getElementById('appt-phone').value='';document.getElementById('appt-status').value='pending';document.getElementById('appt-remark').value='';showModal('modal-appointments');">新增预约</button>
         </div>
@@ -472,7 +497,7 @@
     <!-- ===== SAMPLE PROCESSING ===== -->
     <div id="page-sample-processing" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🧪 样品处理</h2>
+        <h2><i data-lucide="test-tube"></i> 样品处理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('sample-id').value='';document.getElementById('sample-code').value='';document.getElementById('sample-name').value='';document.getElementById('sample-type').value='';document.getElementById('sample-packaging').value='yes';document.getElementById('sample-method').value='';document.getElementById('sample-detection').value='';document.getElementById('sample-date').value='';document.getElementById('sample-desc').value='';document.getElementById('sample-result').value='';document.getElementById('sample-conclusion').value='';document.getElementById('sample-report').value='';showModal('modal-sample-processing');">新增样品</button>
         </div>
@@ -581,7 +606,7 @@
     <!-- ===== EQUIPMENT ===== -->
     <div id="page-equipment" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>⚙️ 设备台账</h2>
+        <h2><i data-lucide="settings"></i> 设备台账</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('equip-id').value='';document.getElementById('equip-no').value='';document.getElementById('equip-name').value='';document.getElementById('equip-model').value='';document.getElementById('equip-mfr').value='';document.getElementById('equip-date').value='';document.getElementById('equip-price').value='';document.getElementById('equip-location').value='';document.getElementById('equip-status').value='normal';populateEquipDropdowns();showModal('modal-equipment');">新增设备</button>
         </div>
@@ -666,7 +691,7 @@
     <!-- ===== MAINTENANCE ===== -->
     <div id="page-maintenance" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🔧 设备维护</h2>
+        <h2><i data-lucide="wrench"></i> 设备维护</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('maint-id').value='';document.getElementById('maint-equip').value='';document.getElementById('maint-date').value='';document.getElementById('maint-type').value='';document.getElementById('maint-person').value='';document.getElementById('maint-cost').value='';document.getElementById('maint-next').value='';document.getElementById('maint-desc').value='';showModal('modal-maintenance');">新增维护</button>
         </div>
@@ -724,7 +749,7 @@
     <!-- ===== CALIBRATION ===== -->
     <div id="page-calibration" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>📏 设备校准</h2>
+        <h2><i data-lucide="ruler"></i> 设备校准</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('calib-id').value='';document.getElementById('calib-equip').value='';document.getElementById('calib-date').value='';document.getElementById('calib-org').value='';document.getElementById('calib-cert').value='';document.getElementById('calib-valid').value='';document.getElementById('calib-result').value='';showModal('modal-calibration');">新增校准</button>
         </div>
@@ -778,7 +803,7 @@
     <!-- ===== EQUIPMENT REPAIRS ===== -->
     <div id="page-equipment-repairs" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🔩 设备维修</h2>
+        <h2><i data-lucide="hammer"></i> 设备维修</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('repair-id').value='';document.getElementById('repair-equip').value='';document.getElementById('repair-date').value='';document.getElementById('repair-fault').value='';document.getElementById('repair-action').value='';document.getElementById('repair-person').value='';document.getElementById('repair-cost').value='';document.getElementById('repair-result').value='';document.getElementById('repair-next').value='';showModal('modal-equipment-repairs');">新增维修</button>
         </div>
@@ -840,7 +865,7 @@
     <!-- ===== CONSUMABLES ===== -->
     <div id="page-consumables" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>📦 耗材管理</h2>
+        <h2><i data-lucide="package"></i> 耗材管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('cons-id').value='';document.getElementById('cons-name').value='';document.getElementById('cons-spec').value='';document.getElementById('cons-unit').value='';document.getElementById('cons-cat').value='';document.getElementById('cons-min').value='';document.getElementById('cons-stock').value='';document.getElementById('cons-loc').value='';showModal('modal-consumables');">新增耗材</button>
         </div>
@@ -898,7 +923,7 @@
     <!-- ===== GLASSWARE ===== -->
     <div id="page-glassware" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🫙 玻璃器皿</h2>
+        <h2><i data-lucide="flask-round"></i> 玻璃器皿</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('glass-id').value='';document.getElementById('glass-name').value='';document.getElementById('glass-spec').value='';document.getElementById('glass-material').value='';document.getElementById('glass-unit').value='';document.getElementById('glass-stock').value='';document.getElementById('glass-loc').value='';showModal('modal-glassware');">新增玻璃器皿</button>
         </div>
@@ -952,7 +977,7 @@
     <!-- ===== REAGENTS ===== -->
     <div id="page-reagents" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🧴 试剂管理</h2>
+        <h2><i data-lucide="beaker"></i> 试剂管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('reag-id').value='';document.getElementById('reag-name').value='';document.getElementById('reag-cas').value='';document.getElementById('reag-formula').value='';document.getElementById('reag-purity').value='';document.getElementById('reag-mfr').value='';document.getElementById('reag-supplier').value='';document.getElementById('reag-location').value='';document.getElementById('reag-stock').value='';document.getElementById('reag-unit').value='';document.getElementById('reag-min').value='';document.getElementById('reag-status').value='normal';document.getElementById('reag-expiry').value='';showModal('modal-reagents');">新增试剂</button>
         </div>
@@ -1034,7 +1059,7 @@
     <!-- ===== GASES ===== -->
     <div id="page-gases" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>💨 气体管理</h2>
+        <h2><i data-lucide="wind"></i> 气体管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('gas-id').value='';document.getElementById('gas-name').value='';document.getElementById('gas-spec').value='';document.getElementById('gas-mfr').value='';document.getElementById('gas-supplier').value='';document.getElementById('gas-stock').value='';document.getElementById('gas-unit').value='';document.getElementById('gas-loc').value='';document.getElementById('gas-cylinder').value='';document.getElementById('gas-status').value='normal';document.getElementById('gas-next').value='';showModal('modal-gases');">新增气体</button>
         </div>
@@ -1116,7 +1141,7 @@
     <!-- ===== FUMEHOOD ===== -->
     <div id="page-fumehood" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🌬️ 通风柜管理</h2>
+        <h2><i data-lucide="fan"></i> 通风柜管理</h2>
         <div class="header-actions">
 
         </div>
@@ -1183,7 +1208,7 @@
     <!-- ===== TRAINING ===== -->
     <div id="page-training" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🎓 培训记录</h2>
+        <h2><i data-lucide="graduation-cap"></i> 培训记录</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('tr-id').value='';document.getElementById('tr-trainer').value='';document.getElementById('tr-content').value='';document.getElementById('tr-date').value='';document.getElementById('tr-participants').value='';document.getElementById('tr-result').value='';document.getElementById('tr-cert').value='';document.getElementById('tr-expiry').value='';document.getElementById('tr-status').value='completed';showModal('modal-training');">新增培训</button>
         </div>
@@ -1253,7 +1278,7 @@
     <!-- ===== EHS INSPECTION ===== -->
     <div id="page-ehs-inspection" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🔍 日常巡检</h2>
+        <h2><i data-lucide="search"></i> 日常巡检</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('ehsi-id').value='';document.getElementById('ehsi-date').value='';document.getElementById('ehsi-inspector').value='';document.getElementById('ehsi-area').value='';document.getElementById('ehsi-fire').value='';document.getElementById('ehsi-temp').value='';document.getElementById('ehsi-humidity').value='';document.getElementById('ehsi-vent').value='';document.getElementById('ehsi-elec').value='';document.getElementById('ehsi-chem').value='';document.getElementById('ehsi-status').value='合格';document.getElementById('ehsi-findings').value='';document.getElementById('ehsi-next').value='';document.getElementById('ehsi-remark').value='';showModal('modal-ehs-inspection');">新增巡检</button>
         </div>
@@ -1339,7 +1364,7 @@
     <!-- ===== EHS INCIDENT ===== -->
     <div id="page-ehs-incident" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>🚨 事故记录</h2>
+        <h2><i data-lucide="siren"></i> 事故记录</h2>
         <div class="header-actions">
 
         </div>
@@ -1407,7 +1432,7 @@
     <!-- ===== EHS HAZARD ===== -->
     <div id="page-ehs-hazard" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>⚠️ 隐患管理</h2>
+        <h2><i data-lucide="alert-triangle"></i> 隐患管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('haz-id').value='';document.getElementById('haz-date').value='';document.getElementById('haz-loc').value='';document.getElementById('haz-type').value='';document.getElementById('haz-severity').value='';document.getElementById('haz-desc').value='';document.getElementById('haz-control').value='';document.getElementById('haz-person').value='';document.getElementById('haz-deadline').value='';document.getElementById('haz-status').value='pending';showModal('modal-ehs-hazard');">新增隐患</button>
         </div>
@@ -1484,7 +1509,7 @@
     <!-- ===== EXPERIMENTAL DATA REPORTS ===== -->
     <div id="page-experimental-data" class="page-view" style="display:none;">
       <div class="content-header">
-        <h2>📊 实验数据报告</h2>
+        <h2><i data-lucide="bar-chart-3"></i> 实验数据报告</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('edr-id').value='';document.getElementById('edr-report-no').value='';document.getElementById('edr-sample-code').value='';document.getElementById('edr-project').value='';document.getElementById('edr-date').value='';document.getElementById('edr-method').value='';document.getElementById('edr-analyst').value='';document.getElementById('edr-supervisor').value='';document.getElementById('edr-equip').value='';document.getElementById('edr-result').value='';document.getElementById('edr-conclusion').value='';document.getElementById('edr-remark').value='';document.getElementById('edr-status').value='draft';document.getElementById('edr-attachment-path').value='';document.getElementById('edr-file-name').textContent='';document.getElementById('edr-pdf-upload').value='';showModal('modal-experimental-data');">新增报告</button>
         </div>
@@ -1589,5 +1614,27 @@
 <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 <script src="/js/app.js?v=20260707"></script>
+<!-- Lucide 兜底：内联初始化（确保 DOMContentLoaded 后图标渲染） -->
+  <script>
+    (function initLucide() {
+      function tryInit() {
+        if (window.lucide && window.lucide.createIcons) {
+          try { window.lucide.createIcons(); } catch(e) { console.warn('Lucide init:', e); }
+        } else {
+          // Lucide 还没加载完，重试
+          setTimeout(tryInit, 50);
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { tryInit(); setTimeout(tryInit, 200); setTimeout(tryInit, 800); });
+      } else {
+        tryInit(); setTimeout(tryInit, 200); setTimeout(tryInit, 800);
+      }
+      // 监听 hashchange 重新初始化
+      window.addEventListener('hashchange', function() {
+        setTimeout(function() { if (window.lucide) window.lucide.createIcons(); }, 100);
+      });
+    })();
+  </script>
 </body>
 </html>

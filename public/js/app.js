@@ -126,17 +126,23 @@ function drawPie(canvasId, legendId, data) {
   var W = canvas.width, H = canvas.height;
   var cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 4;
   var total = data.reduce(function(s, d) { return s + (d.count || 0); }, 0);
-  ctx.clearRect(0, 0, W, H);
+
+  // 2026-08-03 升级：空数据时切换到 empty-state 组件（图标+提示+录入按钮）
+  var emptyEl = document.getElementById('empty-' + canvasId);
+  var leg = document.getElementById(legendId);
+
   if (total === 0) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = '#e0d5c1';
-    ctx.lineWidth = 20;
-    ctx.stroke();
-    var leg = document.getElementById(legendId);
-    if (leg) leg.innerHTML = '<div class="pie-legend-item"><span style="color:#aaa;font-size:12px;">暂无数据</span></div>';
+    if (canvas) canvas.style.display = 'none';
+    if (emptyEl) { emptyEl.style.display = 'flex'; }
+    if (leg) leg.innerHTML = '';
+    if (window.lucide) window.lucide.createIcons();
     return;
+  } else {
+    if (canvas) canvas.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
   }
+
+  ctx.clearRect(0, 0, W, H);
   var startAngle = -Math.PI / 2;
   data.forEach(function(d) {
     if (!d.count) return;
@@ -227,25 +233,25 @@ window.loadHome = function() {
   var uname = document.getElementById('home-username');
   if (uname && currentUser) uname.textContent = currentUser.name || currentUser.username || '';
   var MODULES = [
-    { icon:'\u{1F464}', name:'人员管理', tab:'personnel' },
-    { icon:'\u{1F3E2}', name:'部门管理', tab:'departments' },
-    { icon:'\u{1F4CB}', name:'项目管理', tab:'projects' },
-    { icon:'\u{1F4C5}', name:'样品预约', tab:'appointments' },
-    { icon:'\u{1F9AA}', name:'样品处理', tab:'sample-processing' },
-    { icon:'\u{2699}\u{FE0F}', name:'设备台账', tab:'equipment' },
-    { icon:'\u{1F527}', name:'设备维护', tab:'maintenance' },
-    { icon:'\u{1F4CF}', name:'设备校准', tab:'calibration' },
-    { icon:'\u{1F9F9}', name:'设备维修', tab:'equipment-repairs' },
-    { icon:'\u{1F4E6}', name:'耗材管理', tab:'consumables' },
-    { icon:'\u{1F9D9}', name:'玻璃器皿', tab:'glassware' },
-    { icon:'\u{1F974}', name:'试剂管理', tab:'reagents' },
-    { icon:'\u{1F4A8}', name:'气体管理', tab:'gases' },
-    { icon:'\u{1F32B}\u{FE0F}', name:'通风柜', tab:'fumehood' },
-    { icon:'\u{1F393}', name:'培训记录', tab:'training' },
-    { icon:'\u{1F50D}', name:'日常巡检', tab:'ehs-inspection' },
-    { icon:'\u{1F6A8}', name:'事故记录', tab:'ehs-incident' },
-    { icon:'\u{26A0}\u{FE0F}', name:'隐患管理', tab:'ehs-hazard' },
-    { icon:'\u{1F4CA}', name:'实验数据报告', tab:'experimental-data' }
+    { icon:'<i data-lucide="user"></i>', name:'人员管理', tab:'personnel' },
+    { icon:'<i data-lucide="building-2"></i>', name:'部门管理', tab:'departments' },
+    { icon:'<i data-lucide="clipboard-list"></i>', name:'项目管理', tab:'projects' },
+    { icon:'<i data-lucide="calendar-clock"></i>', name:'样品预约', tab:'appointments' },
+    { icon:'<i data-lucide="test-tubes"></i>', name:'样品处理', tab:'sample-processing' },
+    { icon:'<i data-lucide="settings"></i>', name:'设备台账', tab:'equipment' },
+    { icon:'<i data-lucide="wrench"></i>', name:'设备维护', tab:'maintenance' },
+    { icon:'<i data-lucide="ruler"></i>', name:'设备校准', tab:'calibration' },
+    { icon:'<i data-lucide="hammer"></i>', name:'设备维修', tab:'equipment-repairs' },
+    { icon:'<i data-lucide="package"></i>', name:'耗材管理', tab:'consumables' },
+    { icon:'<i data-lucide="flask-round"></i>', name:'玻璃器皿', tab:'glassware' },
+    { icon:'<i data-lucide="beaker"></i>', name:'试剂管理', tab:'reagents' },
+    { icon:'<i data-lucide="wind"></i>', name:'气体管理', tab:'gases' },
+    { icon:'<i data-lucide="fan"></i>', name:'通风柜', tab:'fumehood' },
+    { icon:'<i data-lucide="graduation-cap"></i>', name:'培训记录', tab:'training' },
+    { icon:'<i data-lucide="search"></i>', name:'日常巡检', tab:'ehs-inspection' },
+    { icon:'<i data-lucide="siren"></i>', name:'事故记录', tab:'ehs-incident' },
+    { icon:'<i data-lucide="alert-triangle"></i>', name:'隐患管理', tab:'ehs-hazard' },
+    { icon:'<i data-lucide="bar-chart-3"></i>', name:'实验数据报告', tab:'experimental-data' }
   ];
   var grid = document.getElementById('home-module-grid');
   if (grid) {
@@ -285,19 +291,19 @@ window.loadHome = function() {
     (results.samples||[]).forEach(function(s) { var m = s.detection_method||'未知'; mc[m] = (mc[m]||0)+1; });
     var methodColors = { '火法':'#C9A96E', 'ICP':'#4A6B8A', '未知':'#8B7355', 'XRF':'#A0522D', '化学法':'#6B8E8E', '光谱法':'#8B6914' };
     var methodData = Object.keys(mc).map(function(k) { return { label:k, count:mc[k], color:methodColors[k]||'#8B7355' }; });
-    drawPie('chart-sample-method', 'legend-sample-method', methodData.length ? methodData : [{label:'暂无数据',count:1,color:'#e0d5c1'}]);
+    drawPie('chart-sample-method', 'legend-sample-method', methodData.length ? methodData : [{label:'暂无数据',count:0,color:'#e0d5c1'}]);
     var sc2 = {};
     (results.equipment||[]).forEach(function(e) { var s = e.status||'normal'; sc2[s] = (sc2[s]||0)+1; });
     var statusColors2 = { normal:'#4A6B8A', maintenance:'#C9A96E', calibration:'#8B6914', scrapped:'#A0522D' };
     var statusLabels2 = { normal:'正常', maintenance:'维护中', calibration:'校准中', scrapped:'已报废' };
     var equipData = Object.keys(sc2).map(function(k) { return { label:statusLabels2[k]||k, count:sc2[k], color:statusColors2[k]||'#8B7355' }; });
-    drawPie('chart-equip-status', 'legend-equip-status', equipData.length ? equipData : [{label:'暂无数据',count:1,color:'#e0d5c1'}]);
+    drawPie('chart-equip-status', 'legend-equip-status', equipData.length ? equipData : [{label:'暂无数据',count:0,color:'#e0d5c1'}]);
     var rc = {};
     (results.reagents||[]).forEach(function(r) { var s = r.status||'normal'; rc[s] = (rc[s]||0)+1; });
     var reagColors = { normal:'#4A6B8A', expired:'#A0522D', low:'#C9A96E' };
     var reagLabels2 = { normal:'正常', expired:'已过期', low:'库存不足' };
     var reagData = Object.keys(rc).map(function(k) { return { label:reagLabels2[k]||k, count:rc[k], color:reagColors[k]||'#8B7355' }; });
-    drawPie('chart-reagent-status', 'legend-reagent-status', reagData.length ? reagData : [{label:'暂无数据',count:1,color:'#e0d5c1'}]);
+    drawPie('chart-reagent-status', 'legend-reagent-status', reagData.length ? reagData : [{label:'暂无数据',count:0,color:'#e0d5c1'}]);
     renderHomeListSamples(results.samples||[]);
     renderHomeListHazards(results.hazards||[]);
     renderHomeListInspections(results.inspections||[]);
@@ -958,6 +964,9 @@ window.uploadExpPdf = function() {
 
 // ========== ALL DOMContentLoaded handlers ==========
 document.addEventListener('DOMContentLoaded', function() {
+  // 2026-08-03 升级：初始化 Lucide 图标
+  if (window.lucide) { try { window.lucide.createIcons(); } catch(e) { console.warn('lucide init failed:', e); } }
+
 
   // ---- LOGIN ----
   api('/auth/session', 'GET').then(function(r) {
@@ -1444,4 +1453,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ========== Workflow DOMContentLoaded handlers ==========
 document.addEventListener('DOMContentLoaded', function() {
+});
+
+// 2026-08-03 升级：每次切换页面后重新初始化 Lucide 图标（DOM 是动态的）
+function refreshLucideIcons() {
+  if (window.lucide) {
+    try { window.lucide.createIcons(); } catch(e) { /* ignore */ }
+  }
+}
+// Hook into hashchange (page switch)
+window.addEventListener('hashchange', function() {
+  setTimeout(refreshLucideIcons, 50);
 });
