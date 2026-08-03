@@ -1,11 +1,13 @@
 const express = require('express');
+const { ProjectCreateSchema, ProjectRecordCreateSchema, validate } = require('../validators/schemas');
+
 const router = express.Router();
 
 router.get('/projects', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT * FROM projects ORDER BY id') });
 });
 
-router.post('/projects', requireAuth, (req, res) => {
+router.post('/projects', requireAuth, validate(ProjectCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO projects (project_no,project_name,method_type,description) VALUES (?,?,?,?)',
@@ -36,7 +38,7 @@ router.get('/project-records', requireAuth, (req, res) => {
   ) });
 });
 
-router.post('/project-records', requireAuth, (req, res) => {
+router.post('/project-records', requireAuth, validate(ProjectRecordCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO project_records (project_id,record_date,sample_count,pass_count,fail_count,operator_id,supervisor_id,remark) VALUES (?,?,?,?,?,?,?,?)',
@@ -53,7 +55,7 @@ router.delete('/project-records/:id', requireAuth, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/projects/:id', requireAuth, (req, res) => {
+router.put('/projects/:id', requireAuth, validate(ProjectCreateSchema), (req, res) => {
   try {
     run(
       'UPDATE projects SET project_no=?,project_name=?,method_type=?,description=?,updated_at=datetime("now") WHERE id=?',

@@ -1,4 +1,6 @@
 const express = require('express');
+const { DepartmentCreateSchema, PersonnelCreateSchema, UserCertCreateSchema, validate } = require('../validators/schemas');
+
 const router = express.Router();
 
 // GET /api/departments
@@ -10,7 +12,7 @@ router.get('/departments', requireAuth, (req, res) => {
 });
 
 // POST /api/departments
-router.post('/departments', requireAdmin, (req, res) => {
+router.post('/departments', requireAdmin, validate(DepartmentCreateSchema), (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: '部门名称必填' });
   try {
     const info = run('INSERT INTO departments (name, manager_id, parent_id) VALUES (?,?,?)',
@@ -20,7 +22,7 @@ router.post('/departments', requireAdmin, (req, res) => {
 });
 
 // PUT /api/departments/:id
-router.put('/departments/:id', requireAdmin, (req, res) => {
+router.put('/departments/:id', requireAdmin, validate(DepartmentCreateSchema), (req, res) => {
   try {
     run('UPDATE departments SET name=?, manager_id=?, parent_id=? WHERE id=?',
       [req.body.name||'', req.body.manager_id||null, req.body.parent_id||null, parseInt(req.params.id)]);
@@ -43,7 +45,7 @@ router.get('/personnel', requireAuth, (req, res) => {
 });
 
 // POST /api/personnel
-router.post('/personnel', requireAdmin, (req, res) => {
+router.post('/personnel', requireAdmin, validate(PersonnelCreateSchema), (req, res) => {
   const { username, password, name, role, dept, title, email, phone, id_card, education, cert_no, hiredate } = req.body;
   if (!username || !password || !name) return res.status(400).json({ error: '用户名、密码、姓名必填' });
   const hash = bcrypt.hashSync(password, 10);
@@ -60,7 +62,7 @@ router.post('/personnel', requireAdmin, (req, res) => {
 });
 
 // PUT /api/personnel/:id
-router.put('/personnel/:id', requireAdmin, (req, res) => {
+router.put('/personnel/:id', requireAdmin, validate(PersonnelCreateSchema), (req, res) => {
   try {
     run('UPDATE users SET name=?,role=?,dept=?,title=?,email=?,phone=?,id_card=?,education=?,cert_no=?,hiredate=?,status=? WHERE id=?',
       [req.body.name||'', req.body.role||'analyst', req.body.dept||'', req.body.title||'', req.body.email||'', req.body.phone||'', req.body.id_card||'', req.body.education||'', req.body.cert_no||'', req.body.hiredate||'', req.body.status||'active', parseInt(req.params.id)]);
@@ -86,7 +88,7 @@ router.get('/user-certifications', requireAuth, (req, res) => {
 });
 
 // POST /api/user-certifications
-router.post('/user-certifications', requireAdmin, (req, res) => {
+router.post('/user-certifications', requireAdmin, validate(UserCertCreateSchema), (req, res) => {
   if (!req.body.user_id || !req.body.cert_name) return res.status(400).json({ error: '用户ID和证书名称必填' });
   try {
     const info = run(

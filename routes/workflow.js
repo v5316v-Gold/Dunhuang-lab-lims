@@ -1,4 +1,6 @@
 const express = require('express');
+const { WorkflowSampleCreateSchema, validate } = require('../validators/schemas');
+
 const router = express.Router();
 
 // STAGE MAP: appointment → received → encoded → split → testing → data_recorded → report → reviewed → archived
@@ -49,7 +51,7 @@ router.get('/samples', requireAuth, (req, res) => {
 });
 
 // POST /api/workflow/samples - 创建新样品（从预约开始）
-router.post('/samples', requireAuth, (req, res) => {
+router.post('/samples', requireAuth, validate(WorkflowSampleCreateSchema), (req, res) => {
   if (!req.body.sample_code) return res.status(400).json({ error: '样品编号必填' });
   try {
     const info = run(
@@ -80,7 +82,7 @@ router.post('/samples', requireAuth, (req, res) => {
 });
 
 // PUT /api/workflow/samples/:id - 更新样品信息
-router.put('/samples/:id', requireAuth, (req, res) => {
+router.put('/samples/:id', requireAuth, validate(WorkflowSampleCreateSchema), (req, res) => {
   try {
     run(`UPDATE workflow_samples SET
       sample_name=?,sample_type=?,client_name=?,contact_phone=?,detection_method=?,

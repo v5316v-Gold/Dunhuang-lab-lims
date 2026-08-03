@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { validate, EquipmentCreateSchema } = require('../validators/schemas');
+const { validate, EquipmentCreateSchema, MaintenanceCreateSchema, CalibrationCreateSchema, RepairCreateSchema } = require('../validators/schemas');;
 
 router.get('/equipment', requireAuth, (req, res) => {
   const rows = queryAll(
@@ -51,7 +51,7 @@ router.get('/maintenance', requireAuth, (req, res) => {
   res.json({ data: rows });
 });
 
-router.post('/maintenance', requireAuth, (req, res) => {
+router.post('/maintenance', requireAuth, validate(MaintenanceCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO equipment_maintenance (equip_id,maintenance_date,maintenance_type,maintainer,cost,description,next_maintenance_date) VALUES (?,?,?,?,?,?,?)',
@@ -79,7 +79,7 @@ router.get('/calibration', requireAuth, (req, res) => {
   res.json({ data: rows });
 });
 
-router.post('/calibration', requireAuth, (req, res) => {
+router.post('/calibration', requireAuth, validate(CalibrationCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO equipment_calibration (equip_id,calibration_date,calibration_org,certificate_no,valid_date,result) VALUES (?,?,?,?,?,?)',
@@ -107,7 +107,7 @@ router.get('/equipment-repairs', requireAuth, (req, res) => {
   res.json({ data: rows });
 });
 
-router.post('/equipment-repairs', requireAuth, (req, res) => {
+router.post('/equipment-repairs', requireAuth, validate(RepairCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO equipment_repairs (equip_id,repair_date,fault_desc,repair_action,repairer,cost,result,next_inspection_date) VALUES (?,?,?,?,?,?,?,?)',

@@ -1,11 +1,13 @@
 const express = require('express');
+const { SampleAppointmentCreateSchema, SampleProcessingCreateSchema, validate } = require('../validators/schemas');
+
 const router = express.Router();
 
 router.get('/appointments', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT a.*, u.name as creator_name FROM sample_appointments a LEFT JOIN users u ON a.created_by=u.id ORDER BY a.id DESC') });
 });
 
-router.post('/appointments', requireAuth, (req, res) => {
+router.post('/appointments', requireAuth, validate(SampleAppointmentCreateSchema), (req, res) => {
   if (!req.body.appointment_no) return res.status(400).json({ error: '预约编号必填' });
   try {
     const info = run(
@@ -19,7 +21,7 @@ router.post('/appointments', requireAuth, (req, res) => {
   }
 });
 
-router.put('/appointments/:id', requireAuth, (req, res) => {
+router.put('/appointments/:id', requireAuth, validate(SampleAppointmentCreateSchema), (req, res) => {
   try {
     run('UPDATE sample_appointments SET status=?,remark=? WHERE id=?',
       [req.body.status||'', req.body.remark||'', parseInt(req.params.id)]);
@@ -36,7 +38,7 @@ router.get('/sample-processing', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT sp.*, u.name as operator_name, sup.name as supervisor_name FROM sample_processing sp LEFT JOIN users u ON sp.operator_id=u.id LEFT JOIN users sup ON sp.supervisor_id=sup.id') });
 });
 
-router.post('/sample-processing', requireAuth, (req, res) => {
+router.post('/sample-processing', requireAuth, validate(SampleProcessingCreateSchema), (req, res) => {
   try {
     const info = run(
       `INSERT INTO sample_processing (sample_code,sample_name,sample_type,packaging_intact,processing_method,detection_method,processing_date,operator_id,supervisor_id,equipment_id,environment_temp,environment_humidity,consumables_used,reagents_used,gases_used,processing_desc,result_data,result_conclusion,report_no,qa_review,workflow_status,archived) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -46,7 +48,7 @@ router.post('/sample-processing', requireAuth, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/sample-processing/:id', requireAuth, (req, res) => {
+router.put('/sample-processing/:id', requireAuth, validate(SampleProcessingCreateSchema), (req, res) => {
   try {
     run(
       `UPDATE sample_processing SET sample_code=?,sample_name=?,sample_type=?,packaging_intact=?,processing_method=?,detection_method=?,processing_date=?,operator_id=?,supervisor_id=?,equipment_id=?,environment_temp=?,environment_humidity=?,consumables_used=?,reagents_used=?,gases_used=?,processing_desc=?,result_data=?,result_conclusion=?,report_no=?,qa_review=?,workflow_status=?,archived=? WHERE id=?`,

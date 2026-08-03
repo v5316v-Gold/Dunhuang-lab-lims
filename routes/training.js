@@ -1,4 +1,6 @@
 const express = require('express');
+const { TrainingAnnualCreateSchema, TrainingRecordCreateSchema, validate } = require('../validators/schemas');
+
 const router = express.Router();
 
 module.exports = router;
@@ -15,7 +17,7 @@ router.get('/annual', requireAuth, (req, res) => {
 });
 
 // POST /api/training-annual
-router.post('/annual', requireAuth, (req, res) => {
+router.post('/annual', requireAuth, validate(TrainingAnnualCreateSchema), (req, res) => {
   const { year, dept_id, total_plan, total_actual, plan_target, actual_target } = req.body;
   const sql = `INSERT INTO training_annual_plan (year, dept_id, total_plan, total_actual, plan_target, actual_target)
                VALUES (?, ?, ?, ?, ?, ?)`;
@@ -26,7 +28,7 @@ router.post('/annual', requireAuth, (req, res) => {
 });
 
 // PUT /api/training-annual/:id
-router.put('/annual/:id', requireAuth, (req, res) => {
+router.put('/annual/:id', requireAuth, validate(TrainingAnnualCreateSchema), (req, res) => {
   const { year, dept_id, total_plan, total_actual, plan_target, actual_target } = req.body;
   const sql = `UPDATE training_annual_plan SET year=?, dept_id=?, total_plan=?, total_actual=?, plan_target=?, actual_target=? WHERE id=?`;
   run(sql, [year, dept_id, total_plan, total_actual, plan_target, actual_target, req.params.id], function (err) {
@@ -56,7 +58,7 @@ router.get('/records', requireAuth, (req, res) => {
 });
 
 // POST /api/training-records
-router.post('/records', requireAuth, (req, res) => {
+router.post('/records', requireAuth, validate(TrainingRecordCreateSchema), (req, res) => {
   const { employee_id, training_date, training_type, training_content, training_hours, trainer, assessment_result, certificate_no, valid_date, remark } = req.body;
   const sql = `INSERT INTO training_records (employee_id, training_date, training_type, training_content, training_hours, trainer, assessment_result, certificate_no, valid_date, remark)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;

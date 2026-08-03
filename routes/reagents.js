@@ -1,11 +1,13 @@
 const express = require('express');
+const { ReagentCreateSchema, ReagentRecordCreateSchema, StandardSubstanceCreateSchema, ReagentInboundCreateSchema, ReagentRequisitionCreateSchema, validate } = require('../validators/schemas');
+
 const router = express.Router();
 
 router.get('/reagents', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT * FROM reagents ORDER BY id') });
 });
 
-router.post('/reagents', requireAuth, (req, res) => {
+router.post('/reagents', requireAuth, validate(ReagentCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO reagents (reagent_name,cas_no,formula,purity,manufacturer,supplier,location,current_stock,unit,min_stock,status,expiry_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
@@ -15,7 +17,7 @@ router.post('/reagents', requireAuth, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/reagents/:id', requireAuth, (req, res) => {
+router.put('/reagents/:id', requireAuth, validate(ReagentCreateSchema), (req, res) => {
   try {
     run('UPDATE reagents SET reagent_name=?,cas_no=?,formula=?,purity=?,manufacturer=?,supplier=?,location=?,current_stock=?,unit=?,min_stock=?,status=?,expiry_date=? WHERE id=?',
       [req.body.reagent_name, req.body.cas_no||'', req.body.formula||'', req.body.purity||'', req.body.manufacturer||'', req.body.supplier||'', req.body.location||'', req.body.current_stock||0, req.body.unit||'', req.body.min_stock||0, req.body.status||'normal', req.body.expiry_date||'', parseInt(req.params.id)]);
@@ -32,7 +34,7 @@ router.get('/reagent-records', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT rr.*, r.reagent_name, u.name as operator_name FROM reagent_records rr LEFT JOIN reagents r ON rr.reagent_id=r.id LEFT JOIN users u ON rr.operator_id=u.id') });
 });
 
-router.post('/reagent-records', requireAuth, (req, res) => {
+router.post('/reagent-records', requireAuth, validate(ReagentRecordCreateSchema), (req, res) => {
   try {
     const info = run('INSERT INTO reagent_records (reagent_id,record_type,quantity,operator_id,record_date,remark) VALUES (?,?,?,?,?,?)',
       [req.body.reagent_id, req.body.record_type, req.body.quantity||0, req.session.userId, req.body.record_date||'', req.body.remark||'']);
@@ -52,7 +54,7 @@ router.get('/standard-substances', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT * FROM standard_substances ORDER BY id') });
 });
 
-router.post('/standard-substances', requireAuth, (req, res) => {
+router.post('/standard-substances', requireAuth, validate(StandardSubstanceCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO standard_substances (substance_name,cas_no,concentration,manufacturer,certificate_no,lot_no,valid_date,current_stock,unit,storage_location,status) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
@@ -71,7 +73,7 @@ router.get('/reagent-inbound', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT ri.*, u1.name as operator_name, u2.name as approver_name FROM reagent_inbound ri LEFT JOIN users u1 ON ri.operator_id=u1.id LEFT JOIN users u2 ON ri.approver_id=u2.id') });
 });
 
-router.post('/reagent-inbound', requireAuth, (req, res) => {
+router.post('/reagent-inbound', requireAuth, validate(ReagentInboundCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO reagent_inbound (inbound_no,supplier_name,inbound_date,total_amount,total_price,operator_id,approver_id,remark) VALUES (?,?,?,?,?,?,?,?)',
@@ -97,7 +99,7 @@ router.get('/reagent-requisition', requireAuth, (req, res) => {
   ) });
 });
 
-router.post('/reagent-requisition', requireAuth, (req, res) => {
+router.post('/reagent-requisition', requireAuth, validate(ReagentRequisitionCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO reagent_requisition (requisition_no,reagent_id,requester_id,quantity,unit,purpose,approver_id,approve_status,approve_date,remark) VALUES (?,?,?,?,?,?,?,?,?,?)',
@@ -110,7 +112,7 @@ router.post('/reagent-requisition', requireAuth, (req, res) => {
   }
 });
 
-router.put('/reagent-requisition/:id', requireAuth, (req, res) => {
+router.put('/reagent-requisition/:id', requireAuth, validate(ReagentRequisitionCreateSchema), (req, res) => {
   try {
     run('UPDATE reagent_requisition SET approve_status=?,approve_date=? WHERE id=?',
       [req.body.approve_status||'', req.body.approve_date||'', parseInt(req.params.id)]);

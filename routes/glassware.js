@@ -1,11 +1,13 @@
 const express = require('express');
+const { GlasswareSupplierCreateSchema, GlasswareCreateSchema, GlasswareRecordCreateSchema, validate } = require('../validators/schemas');
+
 const router = express.Router();
 
 router.get('/glassware-suppliers', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT * FROM glassware_suppliers ORDER BY id') });
 });
 
-router.post('/glassware-suppliers', requireAuth, (req, res) => {
+router.post('/glassware-suppliers', requireAuth, validate(GlasswareSupplierCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO glassware_suppliers (name,contact_person,phone,address,status) VALUES (?,?,?,?,?)',
@@ -24,7 +26,7 @@ router.get('/glassware', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT g.*, s.name as supplier_name FROM glassware g LEFT JOIN glassware_suppliers s ON g.supplier_id=s.id') });
 });
 
-router.post('/glassware', requireAuth, (req, res) => {
+router.post('/glassware', requireAuth, validate(GlasswareCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO glassware (item_name,specification,material,unit,current_stock,location,supplier_id) VALUES (?,?,?,?,?,?,?)',
@@ -34,7 +36,7 @@ router.post('/glassware', requireAuth, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/glassware/:id', requireAuth, (req, res) => {
+router.put('/glassware/:id', requireAuth, validate(GlasswareCreateSchema), (req, res) => {
   try {
     run('UPDATE glassware SET item_name=?,specification=?,material=?,unit=?,current_stock=?,location=?,supplier_id=? WHERE id=?',
       [req.body.item_name, req.body.specification||'', req.body.material||'', req.body.unit||'', req.body.current_stock||0, req.body.location||'', req.body.supplier_id||null, parseInt(req.params.id)]);
@@ -51,7 +53,7 @@ router.get('/glassware-records', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT gr.*, g.item_name, u.name as operator_name FROM glassware_records gr LEFT JOIN glassware g ON gr.glassware_id=g.id LEFT JOIN users u ON gr.operator_id=u.id') });
 });
 
-router.post('/glassware-records', requireAuth, (req, res) => {
+router.post('/glassware-records', requireAuth, validate(GlasswareRecordCreateSchema), (req, res) => {
   try {
     const info = run('INSERT INTO glassware_records (glassware_id,record_type,quantity,operator_id,record_date,remark) VALUES (?,?,?,?,?,?)',
       [req.body.glassware_id, req.body.record_type, req.body.quantity||0, req.session.userId, req.body.record_date||'', req.body.remark||'']);

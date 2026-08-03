@@ -1,4 +1,6 @@
 const express = require('express');
+const { FumehoodCreateSchema, FumehoodRecordCreateSchema, validate } = require('../validators/schemas');
+
 const fumehood = express.Router();
 const training = express.Router();
 
@@ -6,7 +8,7 @@ fumehood.get('/fumehood', requireAuth, (req, res) => {
   res.json({ data: queryAll('SELECT * FROM fumehood ORDER BY id DESC') });
 });
 
-fumehood.post('/fumehood', requireAdmin, (req, res) => {
+fumehood.post('/fumehood', requireAdmin, validate(FumehoodCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO fumehood (fumehood_no,location,brand_model,wind_speed,calib_date,next_calib,status) VALUES (?,?,?,?,?,?,?)',
@@ -16,7 +18,7 @@ fumehood.post('/fumehood', requireAdmin, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-fumehood.put('/fumehood/:id', requireAdmin, (req, res) => {
+fumehood.put('/fumehood/:id', requireAdmin, validate(FumehoodCreateSchema), (req, res) => {
   try {
     run('UPDATE fumehood SET fumehood_no=?,location=?,brand_model=?,wind_speed=?,calib_date=?,next_calib=?,status=? WHERE id=?',
       [req.body.fumehood_no, req.body.location||'', req.body.brand_model||'', req.body.wind_speed||'', req.body.calib_date||'', req.body.next_calib||'', req.body.status||'normal', parseInt(req.params.id)]);
@@ -35,7 +37,7 @@ fumehood.get('/fumehood-records', requireAuth, (req, res) => {
   ) });
 });
 
-fumehood.post('/fumehood-records', requireAuth, (req, res) => {
+fumehood.post('/fumehood-records', requireAuth, validate(FumehoodRecordCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO fumehood_records (fumehood_id,use_date,user_id,start_time,end_time,experiment_type,chemicals_used,protective_equip,remark) VALUES (?,?,?,?,?,?,?,?,?)',
