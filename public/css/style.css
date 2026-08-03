@@ -943,3 +943,188 @@ select.form-control option,
 option {
   font-family: "Microsoft YaHei", "PingFang SC", "SimHei", sans-serif !important;
 }
+
+
+/* ======================================================
+   P1-1 折叠菜单样式
+   ====================================================== */
+.nav-group {
+  margin-bottom: 4px;
+}
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 248, 231, 0.85);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.nav-group-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.nav-group-toggle .nav-icon {
+  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-group-toggle .nav-text {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+}
+.nav-group-toggle .nav-chevron {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+.nav-group-toggle .nav-chevron i {
+  transition: transform 0.2s;
+  transform: rotate(0deg);
+}
+.nav-group-children {
+  display: block;
+  margin-top: 2px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(201, 169, 110, 0.15);
+  margin-left: 22px;
+}
+.nav-item-child {
+  padding: 7px 16px 7px 24px !important;
+  font-size: 13px !important;
+  color: rgba(255, 248, 231, 0.7) !important;
+}
+.nav-item-child:hover {
+  color: #fff !important;
+}
+.nav-item-child.active {
+  background: rgba(201, 169, 110, 0.18) !important;
+  color: #fff8e7 !important;
+  border-radius: 6px;
+}
+.nav-section-root {
+  margin-bottom: 4px;
+}
+
+/* ======================================================
+   P1-2 色彩语义编码
+   ====================================================== */
+/* 语义：info=信息(蓝) / warn=待办(金) / success=正常(绿) / danger=异常(红) */
+:root {
+  --sem-info:    #4A6B8A;  /* 信息 - 人员/设备 */
+  --sem-warn:    #B8860B;  /* 待办 - 样品/耗材 */
+  --sem-success: #4A7A4A;  /* 正常 - 试剂 */
+  --sem-danger:  #A0522D;  /* 异常 - 隐患 */
+  --sem-empty:   #B8AE9D;  /* 零数据 - 灰 */
+}
+
+/* 语义化卡片变体（覆盖原有 home-stat-* 颜色） */
+.home-stat-card.home-stat-info    { border-top: 3px solid var(--sem-info); }
+.home-stat-card.home-stat-info    .home-stat-num { color: var(--sem-info); }
+.home-stat-card.home-stat-warn    { border-top: 3px solid var(--sem-warn); }
+.home-stat-card.home-stat-warn    .home-stat-num { color: var(--sem-warn); }
+.home-stat-card.home-stat-success { border-top: 3px solid var(--sem-success); }
+.home-stat-card.home-stat-success .home-stat-num { color: var(--sem-success); }
+.home-stat-card.home-stat-danger  { border-top: 3px solid var(--sem-danger); }
+.home-stat-card.home-stat-danger  .home-stat-num { color: var(--sem-danger); }
+.home-stat-card.home-stat-empty   { border-top: 3px solid var(--sem-empty); opacity: 0.55; }
+.home-stat-card.home-stat-empty   .home-stat-num { color: var(--sem-empty); }
+.home-stat-card.home-stat-empty   .home-stat-icon { color: var(--sem-empty); }
+
+/* ======================================================
+   P1-3 数字字体统一
+   ====================================================== */
+.home-stat-num,
+.home-time {
+  font-family: 'DIN Alternate', 'JetBrains Mono', 'Consolas', 'SF Mono', monospace;
+  font-feature-settings: 'tnum' 1;  /* 启用等宽数字 */
+  font-variant-numeric: tabular-nums;
+}
+
+/* ======================================================
+   P1-4 顶部紧凑化 + 全局搜索/消息/快捷
+   ====================================================== */
+.home-header-bar {
+  padding: 12px 20px !important;     /* 紧凑：原 20px 28px */
+  margin-bottom: 16px !important;
+  gap: 16px;
+  min-height: 56px;
+}
+.home-welcome {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+.home-date,
+.home-weekday {
+  font-size: 14px !important;
+  color: rgba(255, 248, 231, 0.9);
+  font-weight: 500;
+}
+.home-time {
+  font-size: 16px !important;       /* 紧凑：原 28px */
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #FFD89A;
+}
+.home-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+}
+.home-search,
+.home-action-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 248, 231, 0.85);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.home-search:hover,
+.home-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.home-search {
+  width: 200px;
+}
+.home-search input {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+.home-search input::placeholder {
+  color: rgba(255, 248, 231, 0.5);
+}
+.home-action-btn i {
+  width: 14px;
+  height: 14px;
+}

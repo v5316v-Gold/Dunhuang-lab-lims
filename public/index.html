@@ -58,64 +58,105 @@
     </div>
     <div class="sidebar-nav">
 
-      <!-- 首页 -->
-      <div class="nav-section">
-        <div class="nav-section-title">概览</div>
+      <!-- 首页（顶级） -->
+      <div class="nav-section nav-section-root">
         <a class="nav-item" href="#home"><span class="nav-icon"><i data-lucide="home"></i></span><span class="nav-text">首页</span></a>
       </div>
 
-      <!-- CNAS体系功能 -->
-      <div class="nav-section">
-        <div class="nav-section-title">CNAS体系功能</div>
-        <a class="nav-item" href="#personnel"><span class="nav-icon"><i data-lucide="user"></i></span><span class="nav-text">人员管理</span></a>
-        <a class="nav-item" href="#departments"><span class="nav-icon"><i data-lucide="building-2"></i></span><span class="nav-text">部门管理</span></a>
-        <a class="nav-item" href="#projects"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span><span class="nav-text">项目管理</span></a>
+      <!-- CNAS体系功能（可折叠） -->
+      <div class="nav-section nav-group" data-group="cnas">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-icon"><i data-lucide="award"></i></span>
+          <span class="nav-text">CNAS 体系功能</span>
+          <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
+        </button>
+        <div class="nav-group-children">
+          <a class="nav-item nav-item-child" href="#personnel"><span class="nav-icon"><i data-lucide="user"></i></span><span class="nav-text">人员管理</span></a>
+          <a class="nav-item nav-item-child" href="#departments"><span class="nav-icon"><i data-lucide="building-2"></i></span><span class="nav-text">部门管理</span></a>
+          <a class="nav-item nav-item-child" href="#projects"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span><span class="nav-text">项目管理</span></a>
+        </div>
       </div>
 
-      <!-- 样品管理 -->
-      <div class="nav-section">
-        <div class="nav-section-title">样品管理</div>
-        <a class="nav-item" href="#appointments"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-text">样品预约</span></a>
-        <a class="nav-item" href="#sample-processing"><span class="nav-icon"><i data-lucide="test-tube"></i></span><span class="nav-text">样品处理</span></a>
+      <!-- 样品管理（可折叠） -->
+      <div class="nav-section nav-group" data-group="sample">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-icon"><i data-lucide="test-tube"></i></span>
+          <span class="nav-text">样品管理</span>
+          <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
+        </button>
+        <div class="nav-group-children">
+          <a class="nav-item nav-item-child" href="#appointments"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-text">样品预约</span></a>
+          <a class="nav-item nav-item-child" href="#sample-processing"><span class="nav-icon"><i data-lucide="test-tube"></i></span><span class="nav-text">样品处理</span></a>
+        </div>
       </div>
 
-      <!-- 设备管理 -->
-      <div class="nav-section">
-        <div class="nav-section-title">设备管理</div>
-        <a class="nav-item" href="#equipment"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-text">设备台账</span></a>
-        <a class="nav-item" href="#maintenance"><span class="nav-icon"><i data-lucide="wrench"></i></span><span class="nav-text">设备维护</span></a>
-        <a class="nav-item" href="#calibration"><span class="nav-icon"><i data-lucide="ruler"></i></span><span class="nav-text">设备校准</span></a>
-        <a class="nav-item" href="#equipment-repairs"><span class="nav-icon"><i data-lucide="hammer"></i></span><span class="nav-text">设备维修</span></a>
+      <!-- 设备管理（可折叠） -->
+      <div class="nav-section nav-group" data-group="equipment">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-icon"><i data-lucide="settings"></i></span>
+          <span class="nav-text">设备管理</span>
+          <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
+        </button>
+        <div class="nav-group-children">
+          <a class="nav-item nav-item-child" href="#equipment"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-text">设备台账</span></a>
+          <a class="nav-item nav-item-child" href="#maintenance"><span class="nav-icon"><i data-lucide="wrench"></i></span><span class="nav-text">设备维护</span></a>
+          <a class="nav-item nav-item-child" href="#calibration"><span class="nav-icon"><i data-lucide="ruler"></i></span><span class="nav-text">设备校准</span></a>
+          <a class="nav-item nav-item-child" href="#equipment-repairs"><span class="nav-icon"><i data-lucide="hammer"></i></span><span class="nav-text">设备维修</span></a>
+        </div>
       </div>
 
-      <!-- 库房功能 -->
-      <div class="nav-section">
-        <div class="nav-section-title">库房功能</div>
-        <a class="nav-item" href="#consumables"><span class="nav-icon"><i data-lucide="package"></i></span><span class="nav-text">耗材管理</span></a>
-        <a class="nav-item" href="#glassware"><span class="nav-icon"><i data-lucide="flask-round"></i></span><span class="nav-text">玻璃器皿</span></a>
-        <a class="nav-item" href="#reagents"><span class="nav-icon"><i data-lucide="beaker"></i></span><span class="nav-text">试剂管理</span></a>
-        <a class="nav-item" href="#gases"><span class="nav-icon"><i data-lucide="wind"></i></span><span class="nav-text">气体管理</span></a>
+      <!-- 库房功能（可折叠） -->
+      <div class="nav-section nav-group" data-group="inventory">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-icon"><i data-lucide="package"></i></span>
+          <span class="nav-text">库房功能</span>
+          <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
+        </button>
+        <div class="nav-group-children">
+          <a class="nav-item nav-item-child" href="#consumables"><span class="nav-icon"><i data-lucide="package"></i></span><span class="nav-text">耗材管理</span></a>
+          <a class="nav-item nav-item-child" href="#glassware"><span class="nav-icon"><i data-lucide="flask-round"></i></span><span class="nav-text">玻璃器皿</span></a>
+          <a class="nav-item nav-item-child" href="#reagents"><span class="nav-icon"><i data-lucide="beaker"></i></span><span class="nav-text">试剂管理</span></a>
+          <a class="nav-item nav-item-child" href="#gases"><span class="nav-icon"><i data-lucide="wind"></i></span><span class="nav-text">气体管理</span></a>
+        </div>
       </div>
 
-      <!-- 后勤保障 -->
-      <div class="nav-section">
-        <div class="nav-section-title">后勤保障</div>
-        <a class="nav-item" href="#fumehood"><span class="nav-icon"><i data-lucide="fan"></i></span><span class="nav-text">通风柜管理</span></a>
-        <a class="nav-item" href="#training"><span class="nav-icon"><i data-lucide="graduation-cap"></i></span><span class="nav-text">培训记录</span></a>
+      <!-- 后勤保障（可折叠） -->
+      <div class="nav-section nav-group" data-group="logistics">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-icon"><i data-lucide="fan"></i></span>
+          <span class="nav-text">后勤保障</span>
+          <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
+        </button>
+        <div class="nav-group-children">
+          <a class="nav-item nav-item-child" href="#fumehood"><span class="nav-icon"><i data-lucide="fan"></i></span><span class="nav-text">通风柜管理</span></a>
+          <a class="nav-item nav-item-child" href="#training"><span class="nav-icon"><i data-lucide="graduation-cap"></i></span><span class="nav-text">培训记录</span></a>
+        </div>
       </div>
 
-      <!-- EHS管理 -->
-      <div class="nav-section">
-        <div class="nav-section-title">EHS管理</div>
-        <a class="nav-item" href="#ehs-inspection"><span class="nav-icon"><i data-lucide="search"></i></span><span class="nav-text">日常巡检</span></a>
-        <a class="nav-item" href="#ehs-incident"><span class="nav-icon"><i data-lucide="siren"></i></span><span class="nav-text">事故记录</span></a>
-        <a class="nav-item" href="#ehs-hazard"><span class="nav-icon"><i data-lucide="alert-triangle"></i></span><span class="nav-text">隐患管理</span></a>
+      <!-- EHS管理（可折叠） -->
+      <div class="nav-section nav-group" data-group="ehs">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-icon"><i data-lucide="shield-check"></i></span>
+          <span class="nav-text">EHS 管理</span>
+          <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
+        </button>
+        <div class="nav-group-children">
+          <a class="nav-item nav-item-child" href="#ehs-inspection"><span class="nav-icon"><i data-lucide="search"></i></span><span class="nav-text">日常巡检</span></a>
+          <a class="nav-item nav-item-child" href="#ehs-incident"><span class="nav-icon"><i data-lucide="siren"></i></span><span class="nav-text">事故记录</span></a>
+          <a class="nav-item nav-item-child" href="#ehs-hazard"><span class="nav-icon"><i data-lucide="alert-triangle"></i></span><span class="nav-text">隐患管理</span></a>
+        </div>
       </div>
 
-      <!-- 系统管理 -->
-      <div class="nav-section">
-        <div class="nav-section-title">系统管理</div>
-        <a class="nav-item" href="#experimental-data"><span class="nav-icon"><i data-lucide="bar-chart-3"></i></span><span class="nav-text">实验数据报告</span></a>
+      <!-- 系统管理（可折叠） -->
+      <div class="nav-section nav-group" data-group="system">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-icon"><i data-lucide="settings-2"></i></span>
+          <span class="nav-text">系统管理</span>
+          <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
+        </button>
+        <div class="nav-group-children">
+          <a class="nav-item nav-item-child" href="#experimental-data"><span class="nav-icon"><i data-lucide="bar-chart-3"></i></span><span class="nav-text">实验数据报告</span></a>
+        </div>
       </div>
 
       <!-- User Info & Logout -->
@@ -142,6 +183,16 @@
           <span class="home-weekday" id="home-weekday"></span>
           <span class="home-time" id="home-time"></span>
         </div>
+        <div class="home-search">
+          <i data-lucide="search" style="width:14px;height:14px;"></i>
+          <input type="text" placeholder="全局搜索（样品/设备/人员...）" id="home-global-search" />
+        </div>
+        <button class="home-action-btn" title="消息中心">
+          <i data-lucide="bell"></i>
+        </button>
+        <button class="home-action-btn" title="快捷操作" onclick="alert('快捷面板即将上线')">
+          <i data-lucide="zap"></i>
+        </button>
         <div class="home-user">当前用户：<strong id="home-username"></strong></div>
       </div>
 
@@ -152,32 +203,32 @@
       <!-- 统计卡片 -->
       <div class="home-section-title" style="margin-top:28px;"><i data-lucide="bar-chart-3"></i> 数据概览</div>
       <div class="home-stats-row">
-        <div class="home-stat-card home-stat-gold">
+        <div class="home-stat-card home-stat-info">
           <div class="home-stat-icon"><i data-lucide="user"></i></div>
           <div class="home-stat-num" id="stat-personnel">—</div>
           <div class="home-stat-label">人员</div>
         </div>
-        <div class="home-stat-card home-stat-teal">
+        <div class="home-stat-card home-stat-info">
           <div class="home-stat-icon"><i data-lucide="settings"></i></div>
           <div class="home-stat-num" id="stat-equipment">—</div>
           <div class="home-stat-label">设备</div>
         </div>
-        <div class="home-stat-card home-stat-rust">
+        <div class="home-stat-card home-stat-empty home-stat-warn">
           <div class="home-stat-icon"><i data-lucide="test-tube"></i></div>
           <div class="home-stat-num" id="stat-samples">—</div>
           <div class="home-stat-label">样品</div>
         </div>
-        <div class="home-stat-card home-stat-warm">
+        <div class="home-stat-card home-stat-warn">
           <div class="home-stat-icon"><i data-lucide="package"></i></div>
           <div class="home-stat-num" id="stat-consumables">—</div>
           <div class="home-stat-label">耗材</div>
         </div>
-        <div class="home-stat-card home-stat-teal2">
+        <div class="home-stat-card home-stat-empty home-stat-success">
           <div class="home-stat-icon"><i data-lucide="beaker"></i></div>
           <div class="home-stat-num" id="stat-reagents">—</div>
           <div class="home-stat-label">试剂</div>
         </div>
-        <div class="home-stat-card home-stat-rust2">
+        <div class="home-stat-card home-stat-empty home-stat-danger">
           <div class="home-stat-icon"><i data-lucide="alert-triangle"></i></div>
           <div class="home-stat-num" id="stat-hazards">—</div>
           <div class="home-stat-label">隐患</div>

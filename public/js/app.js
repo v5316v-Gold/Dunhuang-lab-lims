@@ -1465,3 +1465,19 @@ function refreshLucideIcons() {
 window.addEventListener('hashchange', function() {
   setTimeout(refreshLucideIcons, 50);
 });
+
+// ---------- 折叠菜单 P1-1 ----------
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      var group = btn.closest('.nav-group');
+      var children = group.querySelector('.nav-group-children');
+      var expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!expanded));
+      if (children) children.style.display = expanded ? 'none' : '';
+      var chevron = btn.querySelector('.nav-chevron i');
+      if (chevron) chevron.style.transform = expanded ? 'rotate(-90deg)' : 'rotate(0deg)';
+    });
+  });
+});
