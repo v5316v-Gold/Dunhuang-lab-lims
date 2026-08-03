@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { validate, EquipmentCreateSchema } = require('../validators/schemas');
 
 router.get('/equipment', requireAuth, (req, res) => {
   const rows = queryAll(
@@ -8,7 +9,7 @@ router.get('/equipment', requireAuth, (req, res) => {
   res.json({ data: rows });
 });
 
-router.post('/equipment', requireAuth, (req, res) => {
+router.post('/equipment', requireAuth, validate(EquipmentCreateSchema), (req, res) => {
   try {
     const info = run(
       'INSERT INTO equipment (equip_no,equip_name,model,manufacturer,serial_no,purchase_date,purchase_price,current_value,location,dept_id,status,responsible_person) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',

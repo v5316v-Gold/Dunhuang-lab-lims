@@ -70,3 +70,6 @@ tmp/
 # Backup directories
 .backup_p1/
 .backup_*/
+
+# Tier 1 backups
+.backup_tier1/

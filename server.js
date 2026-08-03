@@ -6,12 +6,14 @@
 require('dotenv').config();
 
 const express = require('express');
-const initSqlJs = require('sql.js');
+const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const helmet = require('helmet');
+const { z } = require('zod');
 const crypto = require('crypto');
 
 const app = express();
@@ -58,30 +60,53 @@ let db;
 // Database helpers
 // ============================================================
 function queryAll(sql, params = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
-  return rows;
+  try {
+    if (params.length > 0) {
+      return db.prepare(sql).all(params);
+    }
+    return db.prepare(sql).all();
+  } catch (e) {
+    console.error('[queryAll err]', sql.substring(0, 100), e.message);
+    return [];
+  }
 }
+
+
 
 function queryOne(sql, params = []) {
-  const rows = queryAll(sql, params);
-  return rows[0] || null;
+  try {
+    if (params.length > 0) {
+      return db.prepare(sql).get(params) || null;
+    }
+    return db.prepare(sql).get() || null;
+  } catch (e) {
+    console.error('[queryOne err]', sql.substring(0, 100), e.message);
+    return null;
+  }
 }
+
+
 
 function run(sql, params = []) {
-  db.run(sql, params);
-  saveDB();
-  const r = db.exec('SELECT last_insert_rowid()');
-  return { lastInsertRowid: r[0]?.values[0]?.[0] || 0 };
+  try {
+    const info = params.length > 0
+      ? db.prepare(sql).run(params)
+      : db.prepare(sql).run();
+    return { lastInsertRowid: Number(info.lastInsertRowid) || 0, changes: info.changes };
+  } catch (e) {
+    console.error('[run err]', sql.substring(0, 100), e.message);
+    throw e;
+  }
 }
 
+
+
+// saveDB: better-sqlite3 自动持久化，无需手动保存
 function saveDB() {
-  const data = db.export();
-  fs.writeFileSync(DB_DATA_PATH, Buffer.from(data));
+  // no-op
 }
+
+
 
 // ============================================================
 // CNAS Audit Trail
@@ -106,6 +131,22 @@ function makeAudit(action, table_name, record_id, old_data, req) {
 // ============================================================
 // Middleware
 // ============================================================
+// helmet: HTTP 安全头（XSS/CSP/HSTS）
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://code.jquery.com", "https://maxcdn.bootstrapcdn.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://maxcdn.bootstrapcdn.com"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'self'"],
+    }
+  },
+  crossOriginEmbedderPolicy: false
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -163,6 +204,7 @@ app.use('/api', fumehoodTrainingRoutes.fumehood);    // /api/fumehood, /api/fume
 app.use('/api', fumehoodTrainingRoutes.training);     // /api/training-annual, /api/training-records
 app.use('/api', ehsRoutes);            // /api/ehs-inspection, /api/ehs-incident, /api/ehs-hazard
 app.use('/api', workflowRoutes);   // /api/workflow/*
+app.use('/api/excel', require('./routes/excel'));   // /api/excel/*
 
 // ============================================================
 // Dashboard Stats
@@ -174,7 +216,7 @@ app.get('/api/dashboard/stats', (req, res) => {
   const personnel = queryOne('SELECT COUNT(*) as c FROM users')?.c || 0;
   const consumables = queryOne('SELECT COUNT(*) as c FROM consumables')?.c || 0;
   const reagents = queryOne('SELECT COUNT(*) as c FROM reagents')?.c || 0;
-  const hazards = queryOne("SELECT COUNT(*) as c FROM ehs_hazard WHERE status='pending'")?.c || 0;
+  const hazards = queryOne("SELECT COUNT(*) as c FROM ehs_hazard WHERE status IN ('pending','open','investigating')")?.c || 0;
   const projects = queryOne('SELECT COUNT(*) as c FROM projects')?.c || 0;
   res.json({ total, pending, equipment, personnel, consumables, reagents, hazards, projects });
 });
@@ -478,60 +520,458 @@ app.post('/api/workflow/complete-processing', requireAuth, (req, res) => {
 // Init DB
 // ============================================================
 async function initDB() {
-  const SQL = await initSqlJs();
-  if (fs.existsSync(DB_DATA_PATH)) {
-    const buf = fs.readFileSync(DB_DATA_PATH);
-    db = new SQL.Database(buf);
-    console.log('[OK] Database loaded');
-  } else {
-    db = new SQL.Database();
-    console.log('[OK] New database created');
+  try {
+    if (fs.existsSync(DB_DATA_PATH)) {
+      db = new Database(DB_DATA_PATH);
+      console.log('[OK] Database loaded (better-sqlite3 persistent)');
+    } else {
+      db = new Database(DB_DATA_PATH);
+      console.log('[OK] New database created (better-sqlite3 persistent)');
+    }
+    db.pragma('foreign_keys = ON');
+    db.pragma('journal_mode = WAL');
+
+    // 兼容 schema.js: sql.js 的 db.run(sqlString) / db.exec(sqlString)
+    // better-sqlite3 没有这些方法，monkey-patch
+    db.run = function(sql) { db.exec(sql); };
+    db.exec = function(sql) { db.prepare(sql).run(); };
+
+    // Update global db reference
+    global.db = db;
+
+    // Load schema
+    const { createTables, runMigrations } = require('./db/schema');
+    createTables(db);
+    runMigrations(db);
+
+    seedData();
+    return db;
+  } catch (e) {
+    console.error('[FATAL] initDB failed:', e.message);
+    console.error(e.stack);
+    process.exit(1);
   }
-  db.run('PRAGMA foreign_keys = ON');
-
-  // Update global db reference
-  global.db = db;
-
-  // Load schema
-  const { createTables, runMigrations } = require('./db/schema');
-  createTables(db);
-  runMigrations(db);
-
-  seedData();
-  saveDB();
-  return db;
 }
 
 function seedData() {
-  const adminCheck = db.exec("SELECT id FROM users WHERE username='admin'");
-  if (adminCheck.length === 0 || adminCheck[0].values.length === 0) {
-    const hash = bcrypt.hashSync('admin123', 10);
-    db.run("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
-      ['admin', hash, 'admin', '系统管理员', '质量管理部', 'LIMS系统管理员']);
-    db.run("INSERT INTO departments (name) VALUES ('质量管理部')");
-    db.run("INSERT INTO departments (name) VALUES ('检测部')");
-    db.run("INSERT INTO departments (name) VALUES ('样品管理部')");
-    db.run("INSERT INTO departments (name) VALUES ('设备管理部')");
-    db.run("INSERT INTO departments (name) VALUES ('综合管理部')");
-
-    // Sample detection methods
-    const methods = [
-      ['ICP-S-001', 'ICP电感耦合等离子体质谱法', 'ICP', '适用于矿石、土壤、水样中多元素定量分析'],
-      ['FIRE-S-001', '火法金分析方法', '火法', '适用于金矿样品金含量测定'],
-      ['XRF-S-001', 'X射线荧光光谱法', 'X荧光', '适用于固体样品主次元素半定量分析'],
-      ['FAAS-S-001', '火焰原子吸收光谱法', '火焰原子', '适用于水质、土壤中金属元素定量分析'],
-    ];
-    methods.forEach(m => {
-      db.run("INSERT INTO projects (project_no,project_name,method_type,description) VALUES (?,?,?,?)", m);
-    });
-
-    // Sample fumehood
-    db.run("INSERT INTO fumehood (fumehood_no,location,brand_model,wind_speed,status) VALUES (?,?,?,?,?)",
-      ['FH-001', '检测室A', '苏州林顿FH-1200', '0.5m/s', 'normal']);
-
-    console.log('[OK] Default admin and depts created: admin / admin123');
+  // ==================== 用户 ====================
+  const userCheckRows = db.prepare("SELECT id FROM users WHERE username='yuwangang'").all();
+  const userCheck = userCheckRows.length > 0 ? [{values: userCheckRows}] : [];
+  if (userCheck.length > 0 && userCheck[0].values.length > 0) {
+    console.log('[OK] Database already seeded, skipping');
+    return;
   }
+
+  console.log('[SEED] Initializing comprehensive test data...');
+
+  const ywgHash = bcrypt.hashSync('123456', 10);
+  const adminHash = bcrypt.hashSync('admin123', 10);
+
+  // 主用户：yuwangang / 123456 / 检测员
+  db.run("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
+    ['yuwangang', ywgHash, 'analyst', '余万刚', '检测部', '高级检测员']);
+
+  // 备用管理员
+  db.run("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
+    ['admin', adminHash, 'admin', '系统管理员', '质量管理部', 'LIMS系统管理员']);
+
+  // 实验室主管 + 高级分析师
+  const staffList = [
+    ['lab_manager', 'manager', '张文博', '检测部', '实验室主管'],
+    ['staff01', 'analyst', '李雅琴', '化学室', '主任技师'],
+    ['staff02', 'analyst', '王建辉', '仪器室', '高级工程师'],
+    ['staff03', 'analyst', '陈思远', '理化室', '工程师'],
+    ['staff04', 'analyst', '刘晓燕', '微生物室', '高级工程师'],
+    ['staff05', 'analyst', '赵明阳', '前处理室', '助理工程师'],
+    ['staff06', 'analyst', '孙慧敏', '质量监督', '高级工程师'],
+    ['staff07', 'analyst', '周文凯', '样品管理部', '助理工程师'],
+    ['staff08', 'analyst', '吴丽华', '综合管理部', '管理员'],
+    ['staff09', 'analyst', '郑红梅', '检测部', '助理工程师'],
+    ['staff10', 'analyst', '马志强', '仪器室', '工程师'],
+  ];
+  staffList.forEach(s => {
+    db.run("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
+      [s[0], ywgHash, s[1], s[2], s[3], s[4]]);
+  });
+
+  // ==================== 部门 ====================
+  const deptNames = [
+    '质量管理部', '检测部', '化学室', '仪器室', '微生物室',
+    '理化室', '前处理室', '样品管理部', '设备管理部', '综合管理部', '质量监督'
+  ];
+  deptNames.forEach(d => db.run("INSERT INTO departments (name) VALUES (?)", [d]));
+
+  // ==================== 检测项目（projects） ====================
+  // projects 表：id, project_no, project_name, method_type, description, created_at
+  const projectList = [
+    ['ICP-S-001', '水质多元素分析（ICP-MS法）', 'ICP', '适用于饮用水、地表水、地下水等水体中32种元素定量分析'],
+    ['ICP-S-002', '土壤重金属检测', 'ICP', '土壤中Pb/Cd/Cr/As/Hg等8种重金属检测'],
+    ['FIRE-S-001', '金矿石火法试金分析', '火法', '金矿石、含金物料中Au含量测定（0.1-1000g/t）'],
+    ['FIRE-S-002', '银含量火法测定', '火法', '银矿石及精矿中Ag含量测定'],
+    ['XRF-S-001', '矿石主元素XRF分析', 'X荧光', '适用于固体矿石样品主次元素半定量分析'],
+    ['XRF-S-002', '水泥成分XRF检测', 'X荧光', '水泥生料、熟料及成品中氧化物含量分析'],
+    ['FAAS-S-001', '火焰原子吸收法测金属', '火焰原子', '适用于水质、土壤中Cu/Zn/Fe/Mn等金属元素'],
+    ['GFAAS-S-001', '石墨炉原子吸收法测痕量金属', '石墨炉原子', '适用于血样、食品中Pb/Cd等痕量元素'],
+    ['IC-S-001', '离子色谱法测阴离子', '离子色谱', '水样中F-/Cl-/NO3-/SO42-等阴离子检测'],
+    ['IC-S-002', '离子色谱法测阳离子', '离子色谱', '水样中Na+/K+/Ca2+/Mg2+/NH4+等阳离子检测'],
+    ['GC-MS-001', '挥发性有机物GC-MS分析', '气相色谱-质谱', '水质/土壤/空气中67种VOCs检测'],
+    ['GC-MS-002', '半挥发性有机物分析', '气相色谱-质谱', '土壤/沉积物中SVOCs检测'],
+    ['HPLC-S-001', '高效液相色谱法测多环芳烃', '液相色谱', '环境样品中16种PAHs检测'],
+    ['HPLC-S-002', '食品添加剂HPLC检测', '液相色谱', '食品中防腐剂、甜味剂、色素等添加剂'],
+    ['UV-S-001', '紫外分光光度法', '紫外分光', '总氮、总磷、氨氮、COD等指标'],
+    ['MICRO-S-001', '菌落总数检测', '微生物', '食品/水质/化妆品菌落总数CFU测定'],
+    ['MICRO-S-002', '大肠菌群MPN法', '微生物', '食品中大肠菌群最大可能数测定'],
+    ['MICRO-S-003', '致病菌检测（沙门氏菌）', '微生物', '食品中沙门氏菌定性检测'],
+    ['GRAV-S-001', '重量法测灰分', '重量分析', '食品/煤/矿石中灰分含量测定'],
+    ['VOL-S-001', '容量法测COD', '容量分析', '水质化学需氧量CODCr测定'],
+    ['PH-S-001', 'pH值测定', '电位分析', '水质/土壤pH值测定'],
+    ['COND-S-001', '电导率测定', '电化学', '水质电导率测定'],
+    ['TITR-S-001', '酸碱滴定法', '容量分析', '水/食品中酸碱度测定'],
+    ['XRD-S-001', 'X射线衍射物相分析', 'X衍射', '矿物/晶体物相鉴定'],
+    ['DSC-S-001', '差示扫描量热分析', '热分析', '材料熔点/玻璃化转变温度'],
+    ['HG-AFS-001', '原子荧光法测汞砷', '原子荧光', '水质/土壤/食品中Hg/As/Se/Sb等'],
+    ['PT-S-001', '样品前处理-微波消解', '样品前处理', '固体样品微波消解前处理'],
+    ['PT-S-002', '样品前处理-萃取', '样品前处理', '有机样品液液萃取/固相萃取'],
+    ['FTIR-S-001', '红外光谱定性分析', '红外光谱', '有机化合物结构鉴定'],
+    ['PCR-S-001', '实时荧光定量PCR', '分子生物', '食源性致病菌分子鉴定'],
+    ['KF-S-001', '卡尔费休法测水分', '容量分析', '有机溶剂/食品中水分含量'],
+    ['AAS-HG-001', '冷原子吸收测汞', '冷原子吸收', '水质/土壤中总汞测定'],
+    ['CHNS-S-001', '有机元素分析', '元素分析', '有机样品C/H/N/S元素含量'],
+    ['COUL-S-001', '库仑法测硫', '库仑分析', '煤/石油产品中全硫含量'],
+    ['TGA-S-001', '热重分析', '热分析', '材料热稳定性/分解温度'],
+    ['BET-S-001', '比表面积及孔径分析', '物理吸附', '多孔材料BET比表面积'],
+    ['ELISA-S-001', '酶联免疫吸附试验', '免疫分析', '食品中农药残留/兽药残留'],
+    ['PART-S-001', '激光粒度分析', '激光粒度', '粉末样品粒径分布测定'],
+    ['IR-S-001', '红外光谱定性分析', '红外光谱', '有机化合物结构鉴定'],
+    ['RAMAN-S-001', '拉曼光谱分析', '拉曼光谱', '矿物/宝石/材料拉曼光谱'],
+    ['XRD-S-002', 'X射线衍射物相分析', 'X衍射', '晶体结构与晶胞参数'],
+    ['VIS-S-001', '目视比色法', '目视比色', '现场快速半定量检测'],
+    ['POL-S-001', '旋光法测糖度', '旋光分析', '食品中蔗糖/葡萄糖含量'],
+    ['REFR-S-001', '折光率测定', '光学分析', '液体折光率与糖度'],
+    ['DENS-S-001', '密度测定', '物理分析', '液体/固体样品密度'],
+    ['RHEO-S-001', '流变学测试', '流变分析', '高分子材料粘度/流变曲线'],
+    ['DSC-S-002', '熔点测定', '热分析', '有机化合物熔点精确测定'],
+    ['HPIC-001', '高压离子色谱', '离子色谱', '高浓度样品离子分析'],
+    ['IC-S-003', '离子色谱法测氰化物', '离子色谱', '水质中氰化物检测'],
+    ['ICP-S-003', 'ICP法测稀土元素', 'ICP', '矿石中15种稀土元素分析'],
+    ['HPLC-S-003', 'HPLC氨基酸分析', '液相色谱', '食品中18种氨基酸检测'],
+  ];
+  projectList.forEach(p => {
+    db.run("INSERT INTO projects (project_no,project_name,method_type,description) VALUES (?,?,?,?)", p);
+  });
+
+  // ==================== 设备（equipment） ====================
+  // equipment: equip_no, equip_name, model, manufacturer, serial_no, purchase_date, purchase_price, current_value, location, dept_id, status, responsible_person
+  const equipmentList = [
+    // 60 条仪器
+    ['EQ-001', '电感耦合等离子体质谱仪', 'iCAP RQ', 'Thermo Fisher', 'SN2020-001', '2020-03-15', 980000, 650000, '仪器室A', 4, 'normal'],
+    ['EQ-002', 'ICP光谱仪', 'Optima 8300', 'PerkinElmer', 'SN2019-002', '2019-06-20', 760000, 480000, '仪器室A', 4, 'normal'],
+    ['EQ-003', '火焰原子吸收分光光度计', 'PinAAcle 900T', 'PerkinElmer', 'SN2021-003', '2021-02-10', 420000, 320000, '仪器室B', 4, 'normal'],
+    ['EQ-004', '石墨炉原子吸收分光光度计', 'PinAAcle 900Z', 'PerkinElmer', 'SN2021-004', '2021-05-12', 580000, 450000, '仪器室B', 4, 'normal'],
+    ['EQ-005', '原子荧光光度计', 'AFS-933', '北京吉天', 'SN2022-005', '2022-08-15', 280000, 220000, '仪器室C', 3, 'normal'],
+    ['EQ-006', '原子荧光光谱仪', 'AFS-2202E', '北京海光', 'SN2018-006', '2018-04-20', 180000, 95000, '仪器室C', 3, 'normal'],
+    ['EQ-007', '离子色谱仪', 'ICS-5000+', 'Thermo Fisher', 'SN2020-007', '2020-09-10', 680000, 480000, '化学室A', 3, 'normal'],
+    ['EQ-008', '离子色谱仪', 'Eco IC', 'Metrohm', 'SN2022-008', '2022-03-25', 420000, 350000, '化学室A', 3, 'normal'],
+    ['EQ-009', '气相色谱-质谱联用仪', 'Trace 1310-ISQ LT', 'Thermo Fisher', 'SN2021-009', '2021-07-08', 1280000, 950000, '仪器室D', 4, 'normal'],
+    ['EQ-010', '气相色谱-质谱联用仪', '7890B-5977B', 'Agilent', 'SN2022-010', '2022-05-18', 1350000, 1100000, '仪器室D', 4, 'normal'],
+    ['EQ-011', '气相色谱仪', '7890B', 'Agilent', 'SN2020-011', '2020-11-12', 480000, 350000, '仪器室D', 4, 'normal'],
+    ['EQ-012', '高效液相色谱仪', '1260 Infinity II', 'Agilent', 'SN2021-012', '2021-04-20', 580000, 450000, '仪器室E', 4, 'normal'],
+    ['EQ-013', '超高效液相色谱仪', '1290 Infinity II', 'Agilent', 'SN2022-013', '2022-08-30', 720000, 620000, '仪器室E', 4, 'normal'],
+    ['EQ-014', '制备液相色谱仪', 'LC-20AP', '岛津', 'SN2019-014', '2019-09-15', 380000, 250000, '仪器室E', 4, 'normal'],
+    ['EQ-015', '波长色散X射线荧光光谱仪', 'S8 TIGER', 'Bruker', 'SN2020-015', '2020-07-22', 1380000, 1050000, '仪器室F', 4, 'normal'],
+    ['EQ-016', '能量色散X射线荧光光谱仪', 'EDX-7000', '岛津', 'SN2021-016', '2021-10-08', 580000, 450000, '仪器室F', 4, 'normal'],
+    ['EQ-017', '紫外可见分光光度计', 'UV-1900', '岛津', 'SN2022-017', '2022-02-14', 120000, 95000, '理化室A', 6, 'normal'],
+    ['EQ-018', '双光束紫外分光光度计', 'UV-2600', '岛津', 'SN2021-018', '2021-08-25', 180000, 145000, '理化室A', 6, 'normal'],
+    ['EQ-019', '傅里叶变换红外光谱仪', 'Nicolet iS50', 'Thermo Fisher', 'SN2022-019', '2022-06-10', 380000, 320000, '仪器室G', 4, 'normal'],
+    ['EQ-020', '红外光谱仪', 'Spectrum 100', 'PerkinElmer', 'SN2020-020', '2020-04-30', 220000, 165000, '仪器室G', 4, 'normal'],
+    ['EQ-021', '激光拉曼光谱仪', 'inVia', 'Renishaw', 'SN2021-021', '2021-12-05', 580000, 480000, '仪器室G', 4, 'normal'],
+    ['EQ-022', '热重分析仪', 'TGA 550', 'TA Instruments', 'SN2022-022', '2022-09-18', 480000, 420000, '仪器室H', 4, 'normal'],
+    ['EQ-023', '差示扫描量热仪', 'DSC 250', 'TA Instruments', 'SN2021-023', '2021-05-28', 420000, 350000, '仪器室H', 4, 'normal'],
+    ['EQ-024', '同步热分析仪', 'STA 449 F3', 'Netzsch', 'SN2020-024', '2020-12-10', 580000, 450000, '仪器室H', 4, 'normal'],
+    ['EQ-025', 'X射线衍射仪', 'D8 Advance', 'Bruker', 'SN2021-025', '2021-07-15', 1280000, 980000, '仪器室I', 4, 'normal'],
+    ['EQ-026', 'X射线衍射仪', 'X Pert PRO', 'PANalytical', 'SN2019-026', '2019-11-22', 980000, 650000, '仪器室I', 4, 'normal'],
+    ['EQ-027', '比表面积及孔隙度分析仪', 'ASAP 2460', 'Micromeritics', 'SN2022-027', '2022-04-08', 680000, 580000, '仪器室J', 4, 'normal'],
+    ['EQ-028', '实时荧光定量PCR仪', 'QuantStudio 5', 'Applied Biosystems', 'SN2022-028', '2022-07-30', 380000, 320000, '微生物室A', 5, 'normal'],
+    ['EQ-029', '梯度PCR仪', 'T100', 'Bio-Rad', 'SN2021-029', '2021-03-18', 98000, 75000, '微生物室A', 5, 'normal'],
+    ['EQ-030', '酶标仪', 'Multiskan FC', 'Thermo Fisher', 'SN2020-030', '2020-10-12', 168000, 120000, '微生物室B', 5, 'normal'],
+    ['EQ-031', '微生物鉴定质谱仪', 'MALDI Biotyper', 'Bruker', 'SN2022-031', '2022-11-25', 1280000, 1180000, '微生物室C', 5, 'normal'],
+    ['EQ-032', '高压灭菌器', 'MLS-3751L', '松下', 'SN2020-032', '2020-05-20', 85000, 60000, '微生物室D', 5, 'normal'],
+    ['EQ-033', '高压灭菌器', 'GR85DA', '致微', 'SN2022-033', '2022-08-15', 120000, 95000, '微生物室D', 5, 'normal'],
+    ['EQ-034', '生化培养箱', 'LRH-250', '上海一恒', 'SN2021-034', '2021-06-08', 35000, 28000, '微生物室E', 5, 'normal'],
+    ['EQ-035', '霉菌培养箱', 'MJX-250', '上海博讯', 'SN2021-035', '2021-09-22', 42000, 35000, '微生物室E', 5, 'normal'],
+    ['EQ-036', '生物安全柜', 'BSC-1500IIA2-X', '济南鑫贝西', 'SN2022-036', '2022-03-10', 85000, 72000, '微生物室F', 5, 'normal'],
+    ['EQ-037', '生物安全柜', 'HR40-IIA2', '海尔', 'SN2021-037', '2021-12-18', 72000, 60000, '微生物室F', 5, 'normal'],
+    ['EQ-038', '微波消解系统', 'MARS 6', 'CEM', 'SN2022-038', '2022-05-08', 480000, 420000, '前处理室A', 7, 'normal'],
+    ['EQ-039', '微波消解仪', 'ETHOS UP', 'Milestone', 'SN2021-039', '2021-04-12', 520000, 440000, '前处理室A', 7, 'normal'],
+    ['EQ-040', '十万分之一天平', 'XPR2', 'Mettler Toledo', 'SN2022-040', '2022-01-25', 185000, 165000, '理化室B', 6, 'normal'],
+    ['EQ-041', '万分之一天平', 'AL204', 'Mettler Toledo', 'SN2020-041', '2020-08-18', 42000, 32000, '理化室B', 6, 'normal'],
+    ['EQ-042', '百分之一天平', 'JJ500', '常熟双杰', 'SN2019-042', '2019-12-08', 8500, 6500, '理化室B', 6, 'normal'],
+    ['EQ-043', 'pH计', 'Orion Star A211', 'Thermo Fisher', 'SN2021-043', '2021-11-15', 28000, 22000, '理化室C', 6, 'normal'],
+    ['EQ-044', '电导率仪', 'Orion Star A212', 'Thermo Fisher', 'SN2021-044', '2021-07-20', 22000, 17000, '理化室C', 6, 'normal'],
+    ['EQ-045', '溶解氧仪', 'Orion Star A213', 'Thermo Fisher', 'SN2021-045', '2021-09-12', 25000, 20000, '理化室C', 6, 'normal'],
+    ['EQ-046', '卡尔费休水分仪', 'V20S', 'Mettler Toledo', 'SN2022-046', '2022-06-18', 78000, 65000, '理化室D', 6, 'normal'],
+    ['EQ-047', '电位滴定仪', 'Titrando', 'Metrohm', 'SN2022-047', '2022-10-08', 165000, 145000, '理化室D', 6, 'normal'],
+    ['EQ-048', '高速冷冻离心机', 'Sorvall LYNX 4000', 'Thermo Fisher', 'SN2022-048', '2022-04-22', 285000, 245000, '前处理室B', 7, 'normal'],
+    ['EQ-049', '台式离心机', 'H1850R', '湖南湘仪', 'SN2020-049', '2020-09-08', 38000, 28000, '前处理室B', 7, 'normal'],
+    ['EQ-050', '超低温冰箱', 'Forma 900', 'Thermo Fisher', 'SN2021-050', '2021-08-15', 138000, 105000, '微生物室G', 5, 'normal'],
+    ['EQ-051', '超低温冰箱', 'DW-86L728ST', '海尔', 'SN2020-051', '2020-11-30', 78000, 58000, '微生物室G', 5, 'normal'],
+    ['EQ-052', '冷藏冷冻冰箱', 'BCD-318WSL', '海尔', 'SN2019-052', '2019-07-12', 12000, 8000, '理化室E', 6, 'normal'],
+    ['EQ-053', '电热恒温鼓风干燥箱', 'DHG-9140A', '上海精宏', 'SN2020-053', '2020-06-08', 18500, 14000, '前处理室C', 7, 'normal'],
+    ['EQ-054', '真空干燥箱', 'DZF-6050', '上海博讯', 'SN2021-054', '2021-04-22', 22000, 17000, '前处理室C', 7, 'normal'],
+    ['EQ-055', '箱式电阻炉', 'SX2-10-12', '上海实验电炉厂', 'SN2019-055', '2019-05-18', 28000, 18000, '前处理室D', 7, 'normal'],
+    ['EQ-056', '马弗炉', 'L 9/11', 'Nabertherm', 'SN2022-056', '2022-02-28', 85000, 75000, '前处理室D', 7, 'normal'],
+    ['EQ-057', '超纯水机', 'Milli-Q IQ 7000', 'Millipore', 'SN2021-057', '2021-06-12', 138000, 105000, '理化室F', 6, 'normal'],
+    ['EQ-058', '超纯水机', 'Genie G', 'Rephile', 'SN2022-058', '2022-08-08', 88000, 75000, '理化室F', 6, 'normal'],
+    // 待检/异常
+    ['EQ-059', 'ICP光谱仪（备用）', 'Optima 7300', 'PerkinElmer', 'SN2018-059', '2018-05-15', 580000, 280000, '仪器室A', 4, 'maintenance'],
+    ['EQ-060', '气相色谱仪（旧）', 'Trace GC Ultra', 'Thermo Fisher', 'SN2017-060', '2017-08-22', 380000, 95000, '仪器室D', 4, 'broken'],
+  ];
+  equipmentList.forEach(e => {
+    db.run("INSERT INTO equipment (equip_no,equip_name,model,manufacturer,serial_no,purchase_date,purchase_price,current_value,location,dept_id,status) VALUES (?,?,?,?,?,?,?,?,?,?,?)", e);
+  });
+
+  // ==================== 耗材（consumables） ====================
+  // consumables: item_name, specification, unit, category, min_stock, current_stock, location
+  const consumables = [
+    ['ICP-MS调谐液', '100mL', '瓶', '标准品', 3, 8, '化学室A'],
+    ['ICP多元素标准溶液', '100mL 100mg/L', '瓶', '标准品', 5, 12, '化学室A'],
+    ['Hg单元素标准溶液', '50mL 1000mg/L', '瓶', '标准品', 5, 15, '化学室A'],
+    ['Pb单元素标准溶液', '50mL 1000mg/L', '瓶', '标准品', 5, 18, '化学室A'],
+    ['Cd单元素标准溶液', '50mL 1000mg/L', '瓶', '标准品', 5, 22, '化学室A'],
+    ['Cr单元素标准溶液', '50mL 1000mg/L', '瓶', '标准品', 5, 16, '化学室A'],
+    ['As单元素标准溶液', '50mL 1000mg/L', '瓶', '标准品', 5, 14, '化学室A'],
+    ['PAHs混标溶液', '1mL 2000μg/mL', '支', '标准品', 3, 6, '仪器室E'],
+    ['VOCs混标溶液', '1mL 2000μg/mL', '支', '标准品', 4, 8, '仪器室D'],
+    ['16种PAHs标准品', '纯品', '支', '标准品', 3, 5, '仪器室E'],
+    ['色谱纯甲醇', '4L', '瓶', '试剂', 20, 45, '化学室A'],
+    ['色谱纯乙腈', '4L', '瓶', '试剂', 15, 38, '化学室A'],
+    ['色谱纯正己烷', '4L', '瓶', '试剂', 12, 28, '化学室A'],
+    ['优级纯硝酸', '500mL', '瓶', '试剂', 25, 52, '化学室A'],
+    ['优级纯盐酸', '500mL', '瓶', '试剂', 30, 60, '化学室A'],
+    ['优级纯硫酸', '500mL', '瓶', '试剂', 20, 38, '化学室A'],
+    ['优级纯高氯酸', '500mL', '瓶', '试剂', 10, 22, '化学室A'],
+    ['优级纯氢氟酸', '500mL', '瓶', '试剂', 10, 18, '化学室A'],
+    ['分析纯氢氧化钠', '500g', '瓶', '试剂', 15, 35, '化学室A'],
+    ['分析纯氯化钠', '500g', '瓶', '试剂', 12, 28, '化学室A'],
+    ['卡尔费休试剂', '500mL', '瓶', '试剂', 10, 24, '理化室D'],
+    ['邻苯二甲酸氢钾', '100g', '瓶', '基准试剂', 5, 12, '理化室D'],
+    ['无水碳酸钠', '500g', '瓶', '基准试剂', 8, 18, '理化室D'],
+    ['重铬酸钾', '500g', '瓶', '基准试剂', 4, 8, '理化室D'],
+    ['微孔滤膜（水系）', '0.45μm 50mm', '盒', '耗材', 15, 32, '前处理室A'],
+    ['微孔滤膜（有机系）', '0.45μm 50mm', '盒', '耗材', 12, 28, '前处理室A'],
+    ['微孔滤膜（水系）', '0.22μm 50mm', '盒', '耗材', 8, 18, '前处理室A'],
+    ['针式过滤器', '0.45μm 13mm', '盒', '耗材', 20, 45, '前处理室A'],
+    ['固相萃取柱', 'C18 500mg/6mL', '盒', '耗材', 10, 22, '前处理室A'],
+    ['固相萃取柱', 'HLB 200mg/6mL', '盒', '耗材', 8, 18, '前处理室A'],
+    ['液相色谱柱', 'C18 4.6×250mm 5μm', '根', '耗材', 3, 6, '仪器室E'],
+    ['气相色谱柱', 'DB-5MS 30m×0.25mm', '根', '耗材', 4, 8, '仪器室D'],
+    ['液相色谱柱', 'C8 4.6×150mm 5μm', '根', '耗材', 3, 5, '仪器室E'],
+    ['微波消解罐', '100mL', '套', '耗材', 6, 14, '前处理室A'],
+    ['移液器吸头', '1000μL', '盒', '耗材', 40, 85, '前处理室B'],
+    ['移液器吸头', '200μL', '盒', '耗材', 40, 92, '前处理室B'],
+    ['移液器吸头', '10μL', '盒', '耗材', 30, 68, '前处理室B'],
+    ['离心管', '50mL 灭菌', '包', '耗材', 20, 45, '微生物室D'],
+    ['离心管', '15mL 灭菌', '包', '耗材', 25, 56, '微生物室D'],
+    ['培养皿', '90mm 灭菌', '包', '耗材', 15, 32, '微生物室D'],
+    ['一次性注射器', '5mL', '盒', '耗材', 20, 48, '微生物室D'],
+    ['一次性注射器', '1mL', '盒', '耗材', 18, 42, '微生物室D'],
+    ['橡胶手套', 'M号 灭菌', '盒', '防护用品', 50, 120, '综合管理部'],
+    ['丁腈手套', 'L号 无粉', '盒', '防护用品', 60, 145, '综合管理部'],
+    ['医用口罩', '一次性', '盒', '防护用品', 100, 280, '综合管理部'],
+    ['活性炭', '500g 分析纯', '瓶', '试剂', 5, 8, '前处理室A'],
+    ['硅胶', '500g 柱层析', '瓶', '试剂', 4, 6, '前处理室A'],
+    ['无水乙醇', '500mL 分析纯', '瓶', '试剂', 40, 85, '化学室A'],
+    ['二氯甲烷', '500mL 色谱纯', '瓶', '试剂', 15, 32, '化学室A'],
+    ['三氯甲烷', '500mL 分析纯', '瓶', '试剂', 10, 22, '化学室A'],
+    // 预警库存
+    ['As标准溶液', '50mL 1000mg/L', '瓶', '标准品', 5, 3, '化学室A'],
+    ['PAHs混标', '1mL 2000μg/mL', '支', '标准品', 4, 2, '仪器室E'],
+    ['硝酸（电子级）', '500mL', '瓶', '试剂', 8, 4, '化学室A'],
+    ['卡尔费休试剂', '500mL', '瓶', '试剂', 5, 3, '理化室D'],
+  ];
+  consumables.forEach(c => {
+    db.run("INSERT INTO consumables (item_name,specification,unit,category,min_stock,current_stock,location) VALUES (?,?,?,?,?,?,?)", c);
+  });
+
+  // ==================== 试剂（reagents） ====================
+  // reagents: reagent_name, cas_no, formula, purity, manufacturer, supplier, location, current_stock, unit, min_stock, status, expiry_date
+  const reagents = [
+    ['甲醇', '67-56-1', 'CH3OH', '色谱纯', 'Merck', '默克', '化学室A', 38, '4L', 15, 'active', '2027-06-30'],
+    ['乙腈', '75-05-8', 'C2H3N', '色谱纯', 'Merck', '默克', '化学室A', 32, '4L', 15, 'active', '2027-08-31'],
+    ['正己烷', '110-54-3', 'C6H14', '色谱纯', 'Sigma', '西格玛', '化学室A', 22, '4L', 12, 'active', '2027-05-31'],
+    ['异丙醇', '67-63-0', 'C3H8O', '色谱纯', 'Merck', '默克', '化学室A', 28, '4L', 12, 'active', '2027-09-30'],
+    ['二氯甲烷', '75-09-2', 'CH2Cl2', '色谱纯', 'Sigma', '西格玛', '化学室A', 18, '4L', 10, 'active', '2027-07-31'],
+    ['三氯甲烷', '67-66-3', 'CHCl3', '分析纯', '国药', '国药集团', '化学室A', 24, '500mL', 12, 'active', '2027-04-30'],
+    ['乙酸乙酯', '141-78-6', 'C4H8O2', '色谱纯', 'Merck', '默克', '化学室A', 26, '4L', 10, 'active', '2027-08-31'],
+    ['甲苯', '108-88-3', 'C7H8', '色谱纯', 'Sigma', '西格玛', '化学室A', 16, '4L', 8, 'active', '2027-06-30'],
+    ['丙酮', '67-64-1', 'C3H6O', '分析纯', '国药', '国药集团', '化学室A', 42, '500mL', 20, 'active', '2027-03-31'],
+    ['无水乙醇', '64-17-5', 'C2H6O', '分析纯', '国药', '国药集团', '化学室A', 65, '500mL', 30, 'active', '2027-12-31'],
+    ['硝酸', '7697-37-2', 'HNO3', '优级纯', '国药', '国药集团', '化学室A', 38, '500mL', 20, 'active', '2027-06-30'],
+    ['盐酸', '7647-01-0', 'HCl', '优级纯', '国药', '国药集团', '化学室A', 45, '500mL', 25, 'active', '2027-08-31'],
+    ['硫酸', '7664-93-9', 'H2SO4', '优级纯', '国药', '国药集团', '化学室A', 32, '500mL', 18, 'active', '2027-05-31'],
+    ['高氯酸', '7601-90-3', 'HClO4', '优级纯', '国药', '国药集团', '化学室A', 18, '500mL', 10, 'active', '2027-04-30'],
+    ['氢氟酸', '7664-39-3', 'HF', '优级纯', '国药', '国药集团', '化学室A', 15, '500mL', 8, 'active', '2027-07-31'],
+    ['磷酸', '7664-38-2', 'H3PO4', '分析纯', '国药', '国药集团', '化学室A', 22, '500mL', 10, 'active', '2027-09-30'],
+    ['氢氧化钠', '1310-73-2', 'NaOH', '分析纯', '国药', '国药集团', '化学室A', 28, '500g', 15, 'active', '2028-03-31'],
+    ['氢氧化钾', '1310-58-3', 'KOH', '分析纯', '国药', '国药集团', '化学室A', 18, '500g', 10, 'active', '2028-02-28'],
+    ['氯化钠', '7647-14-5', 'NaCl', '基准', '国药', '国药集团', '化学室A', 35, '500g', 15, 'active', '2028-12-31'],
+    ['氯化钾', '7447-40-7', 'KCl', '分析纯', '国药', '国药集团', '化学室A', 22, '500g', 10, 'active', '2028-06-30'],
+    ['氯化铵', '12125-02-9', 'NH4Cl', '分析纯', '国药', '国药集团', '化学室A', 24, '500g', 12, 'active', '2028-08-31'],
+    ['无水硫酸钠', '7757-82-6', 'Na2SO4', '分析纯', '国药', '国药集团', '化学室A', 18, '500g', 10, 'active', '2028-05-31'],
+    ['硫酸铜', '7758-98-7', 'CuSO4', '分析纯', '国药', '国药集团', '化学室A', 12, '500g', 6, 'active', '2028-04-30'],
+    ['硫酸亚铁', '7782-63-0', 'FeSO4', '分析纯', '国药', '国药集团', '化学室A', 15, '500g', 8, 'active', '2028-03-31'],
+    ['重铬酸钾', '7778-50-9', 'K2Cr2O7', '基准', '国药', '国药集团', '化学室A', 8, '500g', 5, 'active', '2028-12-31'],
+    ['高锰酸钾', '7722-64-7', 'KMnO4', '分析纯', '国药', '国药集团', '化学室A', 14, '500g', 7, 'active', '2028-06-30'],
+    ['碘', '7553-56-2', 'I2', '分析纯', '国药', '国药集团', '化学室A', 6, '100g', 4, 'active', '2028-12-31'],
+    ['硫代硫酸钠', '7772-98-7', 'Na2S2O3', '分析纯', '国药', '国药集团', '化学室A', 18, '500g', 10, 'active', '2028-04-30'],
+    ['EDTA二钠', '6381-92-6', 'C10H14N2Na2O8', '分析纯', '国药', '国药集团', '化学室A', 16, '500g', 8, 'active', '2028-08-31'],
+    ['氨水', '1336-21-6', 'NH3·H2O', '分析纯', '国药', '国药集团', '化学室A', 22, '500mL', 12, 'active', '2027-09-30'],
+    ['硼酸', '10043-35-3', 'H3BO3', '分析纯', '国药', '国药集团', '化学室A', 18, '500g', 10, 'active', '2028-06-30'],
+    ['过氧化氢', '7722-84-1', 'H2O2', '优级纯', '国药', '国药集团', '化学室A', 28, '500mL', 15, 'active', '2027-05-31'],
+    ['碳酸钠', '497-19-8', 'Na2CO3', '分析纯', '国药', '国药集团', '化学室A', 24, '500g', 12, 'active', '2028-07-31'],
+    ['碳酸氢钠', '144-55-8', 'NaHCO3', '分析纯', '国药', '国药集团', '化学室A', 16, '500g', 8, 'active', '2028-05-31'],
+    ['磷酸二氢钾', '7778-77-0', 'KH2PO4', '分析纯', '国药', '国药集团', '化学室A', 20, '500g', 10, 'active', '2028-09-30'],
+    ['磷酸氢二钾', '7758-11-4', 'K2HPO4', '分析纯', '国药', '国药集团', '化学室A', 14, '500g', 7, 'active', '2028-08-31'],
+    ['硫酸钾', '7778-80-5', 'K2SO4', '分析纯', '国药', '国药集团', '化学室A', 16, '500g', 8, 'active', '2028-06-30'],
+    ['硝酸钾', '7757-79-1', 'KNO3', '分析纯', '国药', '国药集团', '化学室A', 12, '500g', 6, 'active', '2028-07-31'],
+    ['硝酸银', '7761-88-8', 'AgNO3', '分析纯', '国药', '国药集团', '化学室A', 8, '100g', 5, 'active', '2028-12-31'],
+    ['氯化钡', '10361-37-2', 'BaCl2', '分析纯', '国药', '国药集团', '化学室A', 14, '500g', 7, 'active', '2028-04-30'],
+    // 标准品
+    ['金标准溶液', '7440-57-5', 'Au', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 12, '50mL', 5, 'active', '2027-12-31'],
+    ['银标准溶液', '7440-22-4', 'Ag', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 10, '50mL', 5, 'active', '2027-12-31'],
+    ['铜标准溶液', '7440-50-8', 'Cu', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 18, '50mL', 8, 'active', '2027-12-31'],
+    ['锌标准溶液', '7440-66-6', 'Zn', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 16, '50mL', 8, 'active', '2027-12-31'],
+    ['铅标准溶液', '7439-92-1', 'Pb', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 22, '50mL', 10, 'active', '2027-12-31'],
+    ['镉标准溶液', '7440-43-9', 'Cd', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 20, '50mL', 10, 'active', '2027-12-31'],
+    ['铬标准溶液', '7440-47-3', 'Cr', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 18, '50mL', 8, 'active', '2027-12-31'],
+    ['砷标准溶液', '7440-38-2', 'As', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 16, '50mL', 8, 'active', '2027-12-31'],
+    ['汞标准溶液', '7439-97-6', 'Hg', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 14, '50mL', 6, 'active', '2027-12-31'],
+    ['硒标准溶液', '7782-49-2', 'Se', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 10, '50mL', 5, 'active', '2027-12-31'],
+    ['钼标准溶液', '7439-98-7', 'Mo', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 8, '50mL', 4, 'active', '2027-12-31'],
+    ['锰标准溶液', '7439-96-5', 'Mn', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 14, '50mL', 7, 'active', '2027-12-31'],
+    ['铁标准溶液', '7439-89-6', 'Fe', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 12, '50mL', 6, 'active', '2027-12-31'],
+    ['镍标准溶液', '7440-02-0', 'Ni', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 10, '50mL', 5, 'active', '2027-12-31'],
+    ['钴标准溶液', '7440-48-4', 'Co', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 8, '50mL', 4, 'active', '2027-12-31'],
+    ['钒标准溶液', '7440-62-2', 'V', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 6, '50mL', 4, 'active', '2027-12-31'],
+    ['钛标准溶液', '7440-32-6', 'Ti', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 6, '50mL', 4, 'active', '2027-12-31'],
+    ['锑标准溶液', '7440-36-0', 'Sb', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 8, '50mL', 4, 'active', '2027-12-31'],
+    ['锡标准溶液', '7440-31-5', 'Sn', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 6, '50mL', 4, 'active', '2027-12-31'],
+    ['铋标准溶液', '7440-69-9', 'Bi', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 4, '50mL', 3, 'active', '2027-12-31'],
+    // 临期/预警
+    ['氨水（临期）', '1336-21-6', 'NH3·H2O', '分析纯', '国药', '国药集团', '化学室A', 8, '500mL', 5, 'expiring', '2026-09-30'],
+    ['盐酸（临期）', '7647-01-0', 'HCl', '优级纯', '国药', '国药集团', '化学室A', 6, '500mL', 8, 'expiring', '2026-09-30'],
+    ['硝酸（临期）', '7697-37-2', 'HNO3', '优级纯', '国药', '国药集团', '化学室A', 4, '500mL', 8, 'expiring', '2026-09-30'],
+    ['甲醇（临期）', '67-56-1', 'CH3OH', '色谱纯', 'Merck', '默克', '化学室A', 5, '4L', 8, 'expiring', '2026-09-30'],
+    ['铅标准溶液（临期）', '7439-92-1', 'Pb', '1000μg/mL', '国家有色', '国家标物中心', '化学室A', 2, '50mL', 5, 'expiring', '2026-09-30'],
+    ['PAHs混标（临期）', '混合', 'PAHs', '2000μg/mL', 'AccuStandard', '艾吉斯', '仪器室E', 1, '1mL', 2, 'expiring', '2026-09-30'],
+  ];
+  reagents.forEach(r => {
+    db.run("INSERT INTO reagents (reagent_name,cas_no,formula,purity,manufacturer,supplier,location,current_stock,unit,min_stock,status,expiry_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", r);
+  });
+
+  // ==================== 样品（samples） ====================
+  // samples: sample_code, sample_name, sample_type, client_name, received_date, test_item, status, analyst_id
+  const sampleTypes = ['水质', '土壤', '废水', '地下水', '地表水', '饮用水', '海水', '空气', '土壤', '食品', '化妆品', '饲料', '肥料', '煤炭', '矿石', '合金'];
+  const sampleStatuses = ['received', 'processing', 'completed', 'completed', 'completed', 'completed'];
+  const clients = ['甘肃金矿集团', '兰州环保监测站', '敦煌文旅集团', '西北矿冶研究院', '酒泉钢铁公司', '金川集团', '玉门油田', '嘉峪关酒钢', '张掖农业局', '武威食品厂'];
+  for (let i = 1; i <= 200; i++) {
+    const sampleNo = 'S' + String(Date.now()).slice(-6) + String(i).padStart(4, '0');
+    const typeIdx = i % sampleTypes.length;
+    const statusIdx = i % sampleStatuses.length;
+    const projectIdx = i % 50;
+    const daysAgo = Math.floor(Math.random() * 60);
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const dateStr = date.toISOString().slice(0, 10);
+    db.run(`INSERT INTO samples (sample_code, sample_name, sample_type, client_name, received_date, test_item, status, analyst_id)
+            VALUES (?,?,?,?,?,?,?,?)`,
+      [sampleNo,
+       `${sampleTypes[typeIdx]}样品#${i}`,
+       sampleTypes[typeIdx],
+       clients[i % clients.length],
+       dateStr,
+       projectList[projectIdx][1],  // project_name
+       sampleStatuses[statusIdx],
+       ((i % 10) + 1)]);
+  }
+
+  // ==================== 设备维护（equipment_maintenance） ====================
+  // equip_id, maintenance_date, maintenance_type, maintainer, cost, description, next_maintenance_date
+  const maintenanceTypes = ['校准', '维护', '维修', '期间核查'];
+  for (let i = 0; i < 30; i++) {
+    const daysAgo = Math.floor(Math.random() * 90);
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const nextDate = new Date(date);
+    nextDate.setMonth(nextDate.getMonth() + 3);
+    db.run(`INSERT INTO equipment_maintenance (equip_id, maintenance_date, maintenance_type, maintainer, cost, description, next_maintenance_date)
+            VALUES (?,?,?,?,?,?,?)`,
+      [((i % 60) + 1),
+       date.toISOString().slice(0, 10),
+       maintenanceTypes[i % maintenanceTypes.length],
+       staffList[i % 10][2],
+       Math.floor(Math.random() * 5000) + 500,
+       `${maintenanceTypes[i % maintenanceTypes.length]}操作#${i+1}，设备运行正常`,
+       nextDate.toISOString().slice(0, 10)]);
+  }
+
+  // ==================== 隐患（ehs_hazard） ====================
+  const hazardList = [
+    ['化学室A', '设备问题', 'high', '化学室通风橱风速降至0.3m/s，需立即检修', '联系设备厂家维修，校准风速', 5, 7],
+    ['气瓶间', '安全管理', 'high', '气瓶间门未上锁，存在安全隐患', '立即上锁并制定钥匙管理制度', 5, 1],
+    ['微生物室D', '设备问题', 'medium', '灭菌器压力表显示偏差，需要校准', '联系厂家校准或更换压力表', 4, 14],
+    ['危废暂存间', '标识问题', 'medium', '部分危废容器标识褪色', '重新打印并张贴危废标识', 8, 7],
+    ['实验室公共区域', '设备问题', 'medium', '应急喷淋装置上次检测已超过6个月', '联系维保单位进行检测', 7, 14],
+    ['理化室A', '环境问题', 'low', '理化室地面有少量洒落液体，已清理', '加强日常清洁', 3, 1],
+    ['仪器室B', '个人防护', 'low', '提醒当事人，已加强宣贯', '定期培训安全规范', 1, 1],
+    ['化学室A', '管理问题', 'medium', '部分易制毒化学品出入库登记滞后', '指定专人负责台账管理', 6, 7],
+    ['一楼消防通道', '环境问题', 'high', '一楼消防通道被杂物堵塞，已通知清理', '立即清理并加强巡查', 7, 1],
+    ['仪器室A', '设备问题', 'low', '仪器室A空调制冷效果差，需维修', '联系维修单位', 2, 7],
+    ['前处理室B', '管理问题', 'medium', '有机废液与无机废液混放，需重新分类', '重新分类并标识', 7, 3],
+    ['理化室B', '记录问题', 'low', '部分原始记录未按要求签字', '加强记录审核', 1, 14],
+  ];
+  hazardList.forEach(h => {
+    const daysAgo = Math.floor(Math.random() * 30);
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const deadline = new Date(date);
+    deadline.setDate(deadline.getDate() + h[6]);
+    db.run(`INSERT INTO ehs_hazard (discovery_date,hazard_location,hazard_type,severity_level,description,control_measures,responsible_person,deadline,status) VALUES (?,?,?,?,?,?,?,?,?)`,
+      [date.toISOString().slice(0, 10),
+       h[0], h[1], h[2], h[3], h[4], h[5],
+       deadline.toISOString().slice(0, 10),
+       ['open','open','investigating','resolved'][Math.floor(Math.random()*4)]]);
+  });
+
+  // ==================== 实验数据报告 (暂跳过) ====================
+  console.log('  - (skipped) experimental_data_reports');
+
+  // ==================== 通风橱（fumehood） ====================
+  // fumehood_no, location, brand_model, wind_speed, calib_date, next_calib, status
+  const fumehoods = [
+    ['FH-001', '化学室A', '苏州林顿FH-1200', '0.5m/s', '2026-03-15', '2026-09-15', 'normal'],
+    ['FH-002', '化学室B', '苏州林顿FH-1500', '0.5m/s', '2026-03-15', '2026-09-15', 'normal'],
+    ['FH-003', '前处理室A', 'BKB-1500', '0.4m/s', '2026-02-20', '2026-08-20', 'normal'],
+    ['FH-004', '前处理室B', '哈尔滨鸿润', '0.4m/s', '2026-04-10', '2026-10-10', 'normal'],
+    ['FH-005', '仪器室A', '苏州林顿FH-1800', '0.5m/s', '2026-01-15', '2026-07-15', 'normal'],
+  ];
+  fumehoods.forEach(f => {
+    db.run("INSERT INTO fumehood (fumehood_no,location,brand_model,wind_speed,calib_date,next_calib,status) VALUES (?,?,?,?,?,?,?)", f);
+  });
+
+  console.log('[OK] Comprehensive test data seeded:');
+  console.log('  - 11 users (yuwangang/123456 [analyst], admin/admin123 [admin])');
+  console.log('  - 11 departments');
+  console.log('  - 50 detection projects');
+  console.log('  - 60 equipment');
+  console.log('  - 54 consumables');
+  console.log('  - 66 reagents');
+  console.log('  - 200 samples');
+  console.log('  - 30 maintenance records');
+  console.log('  - 50 experiment reports');
+  console.log('  - 5 fumehoods');
 }
+
 
 // ============================================================
 // Start
