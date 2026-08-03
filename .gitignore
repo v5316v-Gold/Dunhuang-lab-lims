@@ -1,0 +1,68 @@
+# ============================================================
+# LIMS Project - Git ignore rules
+# Generated: 2026-08-03
+# ============================================================
+
+# === Node.js ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json.bak
+
+# === Python (lims-template 子项目) ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# === 环境配置（敏感信息不入库） ===
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# === 数据库（保留 schema，忽略数据） ===
+# 业务数据包含 CNAS 敏感信息
+lims_data/*.data
+lims_data/*.data-journal
+lims_data/*.data-wal
+lims_data/*.data-shm
+
+# === 上传文件（PDF 报告可能含客户隐私） ===
+lims_uploads/*
+!lims_uploads/.gitkeep
+
+# === IDE / 编辑器 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === 日志 ===
+*.log
+logs/
+
+# === 临时 / 构建产物 ===
+dist/
+build/
+tmp/
+*.tmp
+*.bak
+
+# === 调试脚本（运行时产物，不入版本） ===
+/check_*.js

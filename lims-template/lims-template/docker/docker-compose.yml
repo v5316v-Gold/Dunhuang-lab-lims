@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lims_postgres
+    environment:
+      POSTGRES_USER: lims
+      POSTGRES_PASSWORD: lims123
+      POSTGRES_DB: lims_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lims -d lims_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lims_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  lims-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: lims_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lims:lims123@postgres:5432/lims_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=YOUR_SUPER_SECRET_KEY_CHANGE_IN_PROD
+      - DEBUG=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../app:/app/app:ro
+      - uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:

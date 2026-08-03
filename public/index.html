@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>敦煌金检测中心 LIMS 系统</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+<body>
+
+<!-- ========== MESSAGE CONTAINER ========== -->
+<div id="message-container"></div>
+
+<!-- ========== LOGIN MODAL ========== -->
+<div id="loginModal" class="login-page">
+  <div class="login-box">
+    <div class="login-logo">🔬</div>
+    <div class="login-title">敦煌金检测中心<br>LIMS 实验室信息管理系统</div>
+    <div class="form-group">
+      <input type="text" id="login-username" class="form-control" placeholder="用户名" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <input type="password" id="login-password" class="form-control" placeholder="密码" autocomplete="current-password">
+    </div>
+    <button id="btn-login" class="btn btn-primary btn-login">登录系统</button>
+    <div class="login-hint">CNAS 认证实验室信息管理系统 &copy; 敦煌金检测中心</div>
+  </div>
+</div>
+
+<!-- ========== MAIN UI (hidden until login) ========== -->
+<div id="main-ui" style="display:none;" class="app-container">
+
+  <!-- ========== SIDEBAR ========== -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">🔬 敦煌金检测 LIMS</div>
+      <div class="brand-sub">CNAS 认证实验室</div>
+    </div>
+    <div class="sidebar-nav">
+
+      <!-- 首页 -->
+      <div class="nav-section">
+        <div class="nav-section-title">概览</div>
+        <a class="nav-item" href="#home"><span class="nav-icon">🏠</span><span class="nav-text">首页</span></a>
+      </div>
+
+      <!-- CNAS体系功能 -->
+      <div class="nav-section">
+        <div class="nav-section-title">CNAS体系功能</div>
+        <a class="nav-item" href="#personnel"><span class="nav-icon">👤</span><span class="nav-text">人员管理</span></a>
+        <a class="nav-item" href="#departments"><span class="nav-icon">🏢</span><span class="nav-text">部门管理</span></a>
+        <a class="nav-item" href="#projects"><span class="nav-icon">📋</span><span class="nav-text">项目管理</span></a>
+      </div>
+
+      <!-- 样品管理 -->
+      <div class="nav-section">
+        <div class="nav-section-title">样品管理</div>
+        <a class="nav-item" href="#appointments"><span class="nav-icon">📅</span><span class="nav-text">样品预约</span></a>
+        <a class="nav-item" href="#sample-processing"><span class="nav-icon">🧪</span><span class="nav-text">样品处理</span></a>
+      </div>
+
+      <!-- 设备管理 -->
+      <div class="nav-section">
+        <div class="nav-section-title">设备管理</div>
+        <a class="nav-item" href="#equipment"><span class="nav-icon">⚙️</span><span class="nav-text">设备台账</span></a>
+        <a class="nav-item" href="#maintenance"><span class="nav-icon">🔧</span><span class="nav-text">设备维护</span></a>
+        <a class="nav-item" href="#calibration"><span class="nav-icon">📏</span><span class="nav-text">设备校准</span></a>
+        <a class="nav-item" href="#equipment-repairs"><span class="nav-icon">🔩</span><span class="nav-text">设备维修</span></a>
+      </div>
+
+      <!-- 库房功能 -->
+      <div class="nav-section">
+        <div class="nav-section-title">库房功能</div>
+        <a class="nav-item" href="#consumables"><span class="nav-icon">📦</span><span class="nav-text">耗材管理</span></a>
+        <a class="nav-item" href="#glassware"><span class="nav-icon">🫙</span><span class="nav-text">玻璃器皿</span></a>
+        <a class="nav-item" href="#reagents"><span class="nav-icon">🧴</span><span class="nav-text">试剂管理</span></a>
+        <a class="nav-item" href="#gases"><span class="nav-icon">💨</span><span class="nav-text">气体管理</span></a>
+      </div>
+
+      <!-- 后勤保障 -->
+      <div class="nav-section">
+        <div class="nav-section-title">后勤保障</div>
+        <a class="nav-item" href="#fumehood"><span class="nav-icon">🌬️</span><span class="nav-text">通风柜管理</span></a>
+        <a class="nav-item" href="#training"><span class="nav-icon">🎓</span><span class="nav-text">培训记录</span></a>
+      </div>
+
+      <!-- EHS管理 -->
+      <div class="nav-section">
+        <div class="nav-section-title">EHS管理</div>
+        <a class="nav-item" href="#ehs-inspection"><span class="nav-icon">🔍</span><span class="nav-text">日常巡检</span></a>
+        <a class="nav-item" href="#ehs-incident"><span class="nav-icon">🚨</span><span class="nav-text">事故记录</span></a>
+        <a class="nav-item" href="#ehs-hazard"><span class="nav-icon">⚠️</span><span class="nav-text">隐患管理</span></a>
+      </div>
+
+      <!-- 系统管理 -->
+      <div class="nav-section">
+        <div class="nav-section-title">系统管理</div>
+        <a class="nav-item" href="#experimental-data"><span class="nav-icon">📊</span><span class="nav-text">实验数据报告</span></a>
+      </div>
+
+      <!-- User Info & Logout -->
+      <div style="margin-top:auto; padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1);">
+        <div style="font-size:13px; color:rgba(255,255,255,0.7); margin-bottom:8px;">
+          <span id="user-name"></span>
+        </div>
+        <button id="btn-logout" class="btn btn-danger btn-sm" style="width:100%;">退出登录</button>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <div class="main-content">
+
+    <!-- ===== HOME / DASHBOARD ===== -->
+    <div id="page-home" class="page-view">
+
+      <!-- 顶部：时间 + 欢迎 -->
+      <div class="home-header-bar">
+        <div class="home-welcome">
+          <span class="home-date" id="home-date"></span>
+          <span class="home-weekday" id="home-weekday"></span>
+          <span class="home-time" id="home-time"></span>
+        </div>
+        <div class="home-user">当前用户：<strong id="home-username"></strong></div>
+      </div>
+
+      <!-- 模块直达按钮区 -->
+      <div class="home-section-title">🏛️ 功能模块</div>
+      <div class="home-module-grid" id="home-module-grid"></div>
+
+      <!-- 统计卡片 -->
+      <div class="home-section-title" style="margin-top:28px;">📊 数据概览</div>
+      <div class="home-stats-row">
+        <div class="home-stat-card home-stat-gold">
+          <div class="home-stat-icon">👤</div>
+          <div class="home-stat-num" id="stat-personnel">—</div>
+          <div class="home-stat-label">人员</div>
+        </div>
+        <div class="home-stat-card home-stat-teal">
+          <div class="home-stat-icon">⚙️</div>
+          <div class="home-stat-num" id="stat-equipment">—</div>
+          <div class="home-stat-label">设备</div>
+        </div>
+        <div class="home-stat-card home-stat-rust">
+          <div class="home-stat-icon">🧪</div>
+          <div class="home-stat-num" id="stat-samples">—</div>
+          <div class="home-stat-label">样品</div>
+        </div>
+        <div class="home-stat-card home-stat-warm">
+          <div class="home-stat-icon">📦</div>
+          <div class="home-stat-num" id="stat-consumables">—</div>
+          <div class="home-stat-label">耗材</div>
+        </div>
+        <div class="home-stat-card home-stat-teal2">
+          <div class="home-stat-icon">🧴</div>
+          <div class="home-stat-num" id="stat-reagents">—</div>
+          <div class="home-stat-label">试剂</div>
+        </div>
+        <div class="home-stat-card home-stat-rust2">
+          <div class="home-stat-icon">⚠️</div>
+          <div class="home-stat-num" id="stat-hazards">—</div>
+          <div class="home-stat-label">隐患</div>
+        </div>
+      </div>
+
+      <!-- 图表区：饼图 + 列表 -->
+      <div class="home-charts-row">
+
+        <!-- 饼图区 -->
+        <div class="home-chart-panel">
+          <div class="home-chart-title">📈 样品检测方法分布</div>
+          <div class="home-chart-body">
+            <div class="home-pie-wrap">
+              <canvas id="chart-sample-method" width="160" height="160"></canvas>
+            </div>
+            <div class="home-pie-legend" id="legend-sample-method"></div>
+          </div>
+        </div>
+
+        <div class="home-chart-panel">
+          <div class="home-chart-title">🔧 设备状态分布</div>
+          <div class="home-chart-body">
+            <div class="home-pie-wrap">
+              <canvas id="chart-equip-status" width="160" height="160"></canvas>
+            </div>
+            <div class="home-pie-legend" id="legend-equip-status"></div>
+          </div>
+        </div>
+
+        <div class="home-chart-panel">
+          <div class="home-chart-title">🧪 试剂库存状态</div>
+          <div class="home-chart-body">
+            <div class="home-pie-wrap">
+              <canvas id="chart-reagent-status" width="160" height="160"></canvas>
+            </div>
+            <div class="home-pie-legend" id="legend-reagent-status"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 聚合列表 -->
+      <div class="home-lists-row">
+
+        <div class="home-list-panel">
+          <div class="home-list-title">📋 最新样品处理记录</div>
+          <div id="home-list-samples" class="home-list-body">
+            <div class="home-list-empty">加载中...</div>
+          </div>
+        </div>
+
+        <div class="home-list-panel">
+          <div class="home-list-title">⚠️ 待处理隐患</div>
+          <div id="home-list-hazards" class="home-list-body">
+            <div class="home-list-empty">加载中...</div>
+          </div>
+        </div>
+
+        <div class="home-list-panel">
+          <div class="home-list-title">🔍 最新巡检记录</div>
+          <div id="home-list-inspections" class="home-list-body">
+            <div class="home-list-empty">加载中...</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- end page-home -->
+
+    <!-- ===== PERSONNEL ===== -->
+    <div id="page-personnel" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>👤 人员管理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('personnel-id').value='';document.getElementById('personnel-name').value='';document.getElementById('personnel-dept').value='';document.getElementById('personnel-username').value='';document.getElementById('personnel-password').value='';document.getElementById('personnel-role').value='analyst';document.getElementById('personnel-email').value='';document.getElementById('personnel-phone').value='';document.getElementById('personnel-position').value='';document.getElementById('personnel-status').value='active';showModal('modal-personnel');">新增人员</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-personnel"></div></div>
+    </div>
+
+    <!-- Modal: Personnel -->
+    <div id="modal-personnel" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>人员管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-personnel');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-personnel">
+            <input type="hidden" id="personnel-id">
+            <div class="form-group">
+              <label>姓名</label>
+              <input type="text" id="personnel-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>部门</label>
+              <input type="text" id="personnel-dept" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>用户名</label>
+              <input type="text" id="personnel-username" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>密码</label>
+              <input type="password" id="personnel-password" class="form-control" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label>角色</label>
+              <select id="personnel-role" class="form-control">
+                <option value="analyst">检测员</option>
+                <option value="admin">管理员</option>
+                <option value="reviewer">审核员</option>
+                <option value="viewer">查看者</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>邮箱</label>
+              <input type="email" id="personnel-email" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>手机</label>
+              <input type="text" id="personnel-phone" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>岗位</label>
+              <input type="text" id="personnel-position" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="personnel-status" class="form-control">
+                <option value="active">在职</option>
+                <option value="inactive">离职</option>
+              </select>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-personnel');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DEPARTMENTS ===== -->
+    <div id="page-departments" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🏢 部门管理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('dept-id').value='';document.getElementById('dept-no').value='';document.getElementById('dept-name').value='';document.getElementById('dept-parent').value='';document.getElementById('dept-phone').value='';document.getElementById('dept-status').value='active';showModal('modal-departments');">新增部门</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-departments"></div></div>
+    </div>
+
+    <!-- Modal: Departments -->
+    <div id="modal-departments" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>部门管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-departments');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-departments">
+            <input type="hidden" id="dept-id">
+            <div class="form-group">
+              <label>部门编码</label>
+              <input type="text" id="dept-no" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>部门名称</label>
+              <input type="text" id="dept-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>上级部门ID</label>
+              <input type="text" id="dept-parent" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>联系电话</label>
+              <input type="text" id="dept-phone" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="dept-status" class="form-control">
+                <option value="active">正常</option>
+                <option value="inactive">停用</option>
+              </select>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-departments');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PROJECTS ===== -->
+    <div id="page-projects" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>📋 项目管理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('project-id').value='';document.getElementById('project-no').value='';document.getElementById('project-name').value='';document.getElementById('project-method').value='';document.getElementById('project-desc').value='';showModal('modal-projects');">新增项目</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-projects"></div></div>
+    </div>
+
+    <!-- Modal: Projects -->
+    <div id="modal-projects" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>项目管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-projects');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-projects">
+            <input type="hidden" id="project-id">
+            <div class="form-group">
+              <label>项目编号</label>
+              <input type="text" id="project-no" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>项目名称</label>
+              <input type="text" id="project-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>检测方法</label>
+              <input type="text" id="project-method" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>描述</label>
+              <textarea id="project-desc" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-projects');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== APPOINTMENTS ===== -->
+    <div id="page-appointments" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>📅 样品预约</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('appt-id').value='';document.getElementById('appt-no').value='';document.getElementById('appt-client').value='';document.getElementById('appt-type').value='';document.getElementById('appt-date').value='';document.getElementById('appt-contact').value='';document.getElementById('appt-phone').value='';document.getElementById('appt-status').value='pending';document.getElementById('appt-remark').value='';showModal('modal-appointments');">新增预约</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-appointments"></div></div>
+    </div>
+
+    <!-- Modal: Appointments -->
+    <div id="modal-appointments" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>样品预约</h3>
+          <button class="modal-close" onclick="hideModal('modal-appointments');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-appointments">
+            <input type="hidden" id="appt-id">
+            <div class="form-group">
+              <label>预约编号</label>
+              <input type="text" id="appt-no" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>客户名称</label>
+              <input type="text" id="appt-client" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>样品类型</label>
+              <input type="text" id="appt-type" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>预期日期</label>
+              <input type="date" id="appt-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>联系人</label>
+              <input type="text" id="appt-contact" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>联系电话</label>
+              <input type="text" id="appt-phone" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="appt-status" class="form-control">
+                <option value="pending">待处理</option>
+                <option value="confirmed">已确认</option>
+                <option value="completed">已完成</option>
+                <option value="cancelled">已取消</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>备注</label>
+              <textarea id="appt-remark" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-appointments');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SAMPLE PROCESSING ===== -->
+    <div id="page-sample-processing" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🧪 样品处理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('sample-id').value='';document.getElementById('sample-code').value='';document.getElementById('sample-name').value='';document.getElementById('sample-type').value='';document.getElementById('sample-packaging').value='yes';document.getElementById('sample-method').value='';document.getElementById('sample-detection').value='';document.getElementById('sample-date').value='';document.getElementById('sample-desc').value='';document.getElementById('sample-result').value='';document.getElementById('sample-conclusion').value='';document.getElementById('sample-report').value='';showModal('modal-sample-processing');">新增样品</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-sample-processing"></div></div>
+    </div>
+
+    <!-- Modal: Sample Processing -->
+    <div id="modal-sample-processing" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>样品处理</h3>
+          <button class="modal-close" onclick="hideModal('modal-sample-processing');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-sample-processing">
+            <input type="hidden" id="sample-id">
+            <div class="form-group">
+              <label>样品编号</label>
+              <input type="text" id="sample-code" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>样品名称</label>
+              <input type="text" id="sample-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>样品类型</label>
+              <input type="text" id="sample-type" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>包装完整</label>
+              <select id="sample-packaging" class="form-control">
+                <option value="yes">是</option>
+                <option value="no">否</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>处理方法</label>
+              <input type="text" id="sample-method" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>检测方法</label>
+              <input type="text" id="sample-detection" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>处理日期</label>
+              <input type="date" id="sample-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>处理描述</label>
+              <textarea id="sample-desc" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>结果数据</label>
+              <textarea id="sample-result" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>结论</label>
+              <textarea id="sample-conclusion" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>报告编号</label>
+              <input type="text" id="sample-report" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>环境温度</label>
+              <input type="text" id="sample-env-temp" class="form-control" placeholder="如：25°C">
+            </div>
+            <div class="form-group">
+              <label>环境湿度</label>
+              <input type="text" id="sample-env-humidity" class="form-control" placeholder="如：60%">
+            </div>
+            <div class="form-group">
+              <label>设备ID</label>
+              <input type="text" id="sample-equip-id" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>操作员ID</label>
+              <input type="text" id="sample-operator-id" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>监督员ID</label>
+              <input type="text" id="sample-supervisor-id" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>消耗品</label>
+              <input type="text" id="sample-consumables" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>试剂</label>
+              <input type="text" id="sample-reagents" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>气体</label>
+              <input type="text" id="sample-gases" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-sample-processing');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EQUIPMENT ===== -->
+    <div id="page-equipment" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>⚙️ 设备台账</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('equip-id').value='';document.getElementById('equip-no').value='';document.getElementById('equip-name').value='';document.getElementById('equip-model').value='';document.getElementById('equip-mfr').value='';document.getElementById('equip-date').value='';document.getElementById('equip-price').value='';document.getElementById('equip-location').value='';document.getElementById('equip-status').value='normal';populateEquipDropdowns();showModal('modal-equipment');">新增设备</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-equipment"></div></div>
+    </div>
+
+    <!-- Modal: Equipment -->
+    <div id="modal-equipment" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>设备台账</h3>
+          <button class="modal-close" onclick="hideModal('modal-equipment');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-equipment">
+            <input type="hidden" id="equip-id">
+            <div class="form-group">
+              <label>设备编号</label>
+              <input type="text" id="equip-no" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>设备名称</label>
+              <input type="text" id="equip-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>型号</label>
+              <input type="text" id="equip-model" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>制造商</label>
+              <input type="text" id="equip-mfr" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>当前价值</label>
+              <input type="number" id="equip-value" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>采购日期</label>
+              <input type="date" id="equip-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>采购价格</label>
+              <input type="number" id="equip-price" class="form-control">
+            </div>
+            <div class="form-group">
+
+            <div class="form-group">
+              <label>位置</label>
+              <input type="text" id="equip-location" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>部门</label>
+              <select id="equip-dept" class="form-control">
+                <option value="">-- 请选择部门 --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="equip-status" class="form-control">
+                <option value="normal">正常</option>
+                <option value="maintenance">维护中</option>
+                <option value="calibration">校准中</option>
+                <option value="scrapped">已报废</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>负责人</label>
+              <select id="equip-responsible" class="form-control">
+                <option value="">-- 请选择负责人 --</option>
+              </select>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-equipment');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MAINTENANCE ===== -->
+    <div id="page-maintenance" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🔧 设备维护</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('maint-id').value='';document.getElementById('maint-equip').value='';document.getElementById('maint-date').value='';document.getElementById('maint-type').value='';document.getElementById('maint-person').value='';document.getElementById('maint-cost').value='';document.getElementById('maint-next').value='';document.getElementById('maint-desc').value='';showModal('modal-maintenance');">新增维护</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-maintenance"></div></div>
+    </div>
+
+    <!-- Modal: Maintenance -->
+    <div id="modal-maintenance" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>设备维护</h3>
+          <button class="modal-close" onclick="hideModal('modal-maintenance');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-maintenance">
+            <input type="hidden" id="maint-id">
+            <div class="form-group">
+              <label>设备ID</label>
+              <input type="text" id="maint-equip" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>维护日期</label>
+              <input type="date" id="maint-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>维护类型</label>
+              <input type="text" id="maint-type" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>维护人员</label>
+              <input type="text" id="maint-person" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>费用</label>
+              <input type="number" id="maint-cost" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>下次维护日期</label>
+              <input type="date" id="maint-next" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>描述</label>
+              <textarea id="maint-desc" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-maintenance');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CALIBRATION ===== -->
+    <div id="page-calibration" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>📏 设备校准</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('calib-id').value='';document.getElementById('calib-equip').value='';document.getElementById('calib-date').value='';document.getElementById('calib-org').value='';document.getElementById('calib-cert').value='';document.getElementById('calib-valid').value='';document.getElementById('calib-result').value='';showModal('modal-calibration');">新增校准</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-calibration"></div></div>
+    </div>
+
+    <!-- Modal: Calibration -->
+    <div id="modal-calibration" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>设备校准</h3>
+          <button class="modal-close" onclick="hideModal('modal-calibration');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-calibration">
+            <input type="hidden" id="calib-id">
+            <div class="form-group">
+              <label>设备ID</label>
+              <input type="text" id="calib-equip" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>校准日期</label>
+              <input type="date" id="calib-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>校准机构</label>
+              <input type="text" id="calib-org" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>证书编号</label>
+              <input type="text" id="calib-cert" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>有效日期</label>
+              <input type="date" id="calib-valid" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>结果</label>
+              <input type="text" id="calib-result" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-calibration');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EQUIPMENT REPAIRS ===== -->
+    <div id="page-equipment-repairs" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🔩 设备维修</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('repair-id').value='';document.getElementById('repair-equip').value='';document.getElementById('repair-date').value='';document.getElementById('repair-fault').value='';document.getElementById('repair-action').value='';document.getElementById('repair-person').value='';document.getElementById('repair-cost').value='';document.getElementById('repair-result').value='';document.getElementById('repair-next').value='';showModal('modal-equipment-repairs');">新增维修</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-equipment-repairs"></div></div>
+    </div>
+
+    <!-- Modal: Equipment Repairs -->
+    <div id="modal-equipment-repairs" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>设备维修</h3>
+          <button class="modal-close" onclick="hideModal('modal-equipment-repairs');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-equipment-repairs">
+            <input type="hidden" id="repair-id">
+            <div class="form-group">
+              <label>设备ID</label>
+              <input type="text" id="repair-equip" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>维修日期</label>
+              <input type="date" id="repair-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>故障描述</label>
+              <textarea id="repair-fault" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>维修措施</label>
+              <textarea id="repair-action" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>维修人员</label>
+              <input type="text" id="repair-person" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>费用</label>
+              <input type="number" id="repair-cost" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>结果</label>
+              <input type="text" id="repair-result" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>下次检验日期</label>
+              <input type="date" id="repair-next" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-equipment-repairs');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CONSUMABLES ===== -->
+    <div id="page-consumables" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>📦 耗材管理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('cons-id').value='';document.getElementById('cons-name').value='';document.getElementById('cons-spec').value='';document.getElementById('cons-unit').value='';document.getElementById('cons-cat').value='';document.getElementById('cons-min').value='';document.getElementById('cons-stock').value='';document.getElementById('cons-loc').value='';showModal('modal-consumables');">新增耗材</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-consumables"></div></div>
+    </div>
+
+    <!-- Modal: Consumables -->
+    <div id="modal-consumables" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>耗材管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-consumables');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-consumables">
+            <input type="hidden" id="cons-id">
+            <div class="form-group">
+              <label>耗材名称</label>
+              <input type="text" id="cons-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>规格</label>
+              <input type="text" id="cons-spec" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>单位</label>
+              <input type="text" id="cons-unit" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>分类</label>
+              <input type="text" id="cons-cat" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>最小库存</label>
+              <input type="number" id="cons-min" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>当前库存</label>
+              <input type="number" id="cons-stock" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>位置</label>
+              <input type="text" id="cons-loc" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-consumables');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== GLASSWARE ===== -->
+    <div id="page-glassware" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🫙 玻璃器皿</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('glass-id').value='';document.getElementById('glass-name').value='';document.getElementById('glass-spec').value='';document.getElementById('glass-material').value='';document.getElementById('glass-unit').value='';document.getElementById('glass-stock').value='';document.getElementById('glass-loc').value='';showModal('modal-glassware');">新增玻璃器皿</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-glassware"></div></div>
+    </div>
+
+    <!-- Modal: Glassware -->
+    <div id="modal-glassware" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>玻璃器皿</h3>
+          <button class="modal-close" onclick="hideModal('modal-glassware');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-glassware">
+            <input type="hidden" id="glass-id">
+            <div class="form-group">
+              <label>物品名称</label>
+              <input type="text" id="glass-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>规格</label>
+              <input type="text" id="glass-spec" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>材质</label>
+              <input type="text" id="glass-material" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>单位</label>
+              <input type="text" id="glass-unit" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>当前库存</label>
+              <input type="number" id="glass-stock" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>位置</label>
+              <input type="text" id="glass-loc" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-glassware');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== REAGENTS ===== -->
+    <div id="page-reagents" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🧴 试剂管理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('reag-id').value='';document.getElementById('reag-name').value='';document.getElementById('reag-cas').value='';document.getElementById('reag-formula').value='';document.getElementById('reag-purity').value='';document.getElementById('reag-mfr').value='';document.getElementById('reag-supplier').value='';document.getElementById('reag-location').value='';document.getElementById('reag-stock').value='';document.getElementById('reag-unit').value='';document.getElementById('reag-min').value='';document.getElementById('reag-status').value='normal';document.getElementById('reag-expiry').value='';showModal('modal-reagents');">新增试剂</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-reagents"></div></div>
+    </div>
+
+    <!-- Modal: Reagents -->
+    <div id="modal-reagents" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>试剂管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-reagents');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-reagents">
+            <input type="hidden" id="reag-id">
+            <div class="form-group">
+              <label>试剂名称</label>
+              <input type="text" id="reag-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>CAS号</label>
+              <input type="text" id="reag-cas" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>分子式</label>
+              <input type="text" id="reag-formula" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>纯度</label>
+              <input type="text" id="reag-purity" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>生产厂家</label>
+              <input type="text" id="reag-mfr" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>供应商</label>
+              <input type="text" id="reag-supplier" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>位置</label>
+              <input type="text" id="reag-location" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>当前库存</label>
+              <input type="number" id="reag-stock" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>单位</label>
+              <input type="text" id="reag-unit" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>最小库存</label>
+              <input type="number" id="reag-min" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="reag-status" class="form-control">
+                <option value="normal">正常</option>
+                <option value="expired">已过期</option>
+                <option value="low">库存不足</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>有效期</label>
+              <input type="date" id="reag-expiry" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-reagents');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== GASES ===== -->
+    <div id="page-gases" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>💨 气体管理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('gas-id').value='';document.getElementById('gas-name').value='';document.getElementById('gas-spec').value='';document.getElementById('gas-mfr').value='';document.getElementById('gas-supplier').value='';document.getElementById('gas-stock').value='';document.getElementById('gas-unit').value='';document.getElementById('gas-loc').value='';document.getElementById('gas-cylinder').value='';document.getElementById('gas-status').value='normal';document.getElementById('gas-next').value='';showModal('modal-gases');">新增气体</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-gases"></div></div>
+    </div>
+
+    <!-- Modal: Gases -->
+    <div id="modal-gases" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>气体管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-gases');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-gases">
+            <input type="hidden" id="gas-id">
+            <div class="form-group">
+              <label>气体名称</label>
+              <input type="text" id="gas-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>规格</label>
+              <input type="text" id="gas-spec" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>纯度</label>
+              <input type="text" id="gas-purity" class="form-control" placeholder="如：99.99%">
+            </div>
+            <div class="form-group">
+              <label>生产厂家</label>
+              <input type="text" id="gas-mfr" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>供应商</label>
+              <input type="text" id="gas-supplier" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>当前库存</label>
+              <input type="number" id="gas-stock" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>最低库存</label>
+              <input type="number" id="gas-min" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>单位</label>
+              <input type="text" id="gas-unit" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>位置</label>
+              <input type="text" id="gas-loc" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>气瓶编号</label>
+              <input type="text" id="gas-cylinder" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="gas-status" class="form-control">
+                <option value="normal">正常</option>
+                <option value="expired">已过期</option>
+                <option value="empty">已用尽</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>下次检验日期</label>
+              <input type="date" id="gas-next" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-gases');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== FUMEHOOD ===== -->
+    <div id="page-fumehood" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🌬️ 通风柜管理</h2>
+        <div class="header-actions">
+
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-fumehood"></div></div>
+    </div>
+
+    <!-- Modal: Fumehood -->
+    <div id="modal-fumehood" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>通风柜管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-fumehood');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-fumehood">
+            <input type="hidden" id="fh-id">
+            <div class="form-group">
+              <label>通风柜编号</label>
+              <input type="text" id="fh-no" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>设备名称</label>
+              <input type="text" id="fh-name" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>位置</label>
+              <input type="text" id="fh-location" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>品牌型号</label>
+              <input type="text" id="fh-brand" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>风速</label>
+              <input type="text" id="fh-speed" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>校准日期</label>
+              <input type="date" id="fh-calib" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>下次校准</label>
+              <input type="date" id="fh-next" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="fh-status" class="form-control">
+                <option value="normal">正常</option>
+                <option value="maintenance">维护中</option>
+                <option value="calibration">校准中</option>
+                <option value="scrapped">已报废</option>
+              </select>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-fumehood');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TRAINING ===== -->
+    <div id="page-training" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🎓 培训记录</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('tr-id').value='';document.getElementById('tr-trainer').value='';document.getElementById('tr-content').value='';document.getElementById('tr-date').value='';document.getElementById('tr-participants').value='';document.getElementById('tr-result').value='';document.getElementById('tr-cert').value='';document.getElementById('tr-expiry').value='';document.getElementById('tr-status').value='completed';showModal('modal-training');">新增培训</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-training"></div></div>
+    </div>
+
+    <!-- Modal: Training -->
+    <div id="modal-training" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>培训记录</h3>
+          <button class="modal-close" onclick="hideModal('modal-training');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-training">
+            <input type="hidden" id="tp-id">
+            <div class="form-group">
+              <label>培训记录ID</label>
+              <input type="hidden" id="tr-id">
+            </div>
+            <div class="form-group">
+              <label>培训人</label>
+              <input type="text" id="tr-trainer" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>培训内容</label>
+              <input type="text" id="tr-content" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>培训日期</label>
+              <input type="date" id="tr-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>参加人员</label>
+              <input type="text" id="tr-participants" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>考核结果</label>
+              <input type="text" id="tr-result" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>证书编号</label>
+              <input type="text" id="tr-cert" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>到期日期</label>
+              <input type="date" id="tr-expiry" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="tr-status" class="form-control">
+                <option value="completed">已完成</option>
+                <option value="pending">进行中</option>
+                <option value="cancelled">已取消</option>
+              </select>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-training');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EHS INSPECTION ===== -->
+    <div id="page-ehs-inspection" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🔍 日常巡检</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('ehsi-id').value='';document.getElementById('ehsi-date').value='';document.getElementById('ehsi-inspector').value='';document.getElementById('ehsi-area').value='';document.getElementById('ehsi-fire').value='';document.getElementById('ehsi-temp').value='';document.getElementById('ehsi-humidity').value='';document.getElementById('ehsi-vent').value='';document.getElementById('ehsi-elec').value='';document.getElementById('ehsi-chem').value='';document.getElementById('ehsi-status').value='合格';document.getElementById('ehsi-findings').value='';document.getElementById('ehsi-next').value='';document.getElementById('ehsi-remark').value='';showModal('modal-ehs-inspection');">新增巡检</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-ehs-inspection"></div></div>
+    </div>
+
+    <!-- Modal: EHS Inspection -->
+    <div id="modal-ehs-inspection" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>日常巡检</h3>
+          <button class="modal-close" onclick="hideModal('modal-ehs-inspection');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-ehs-inspection">
+            <input type="hidden" id="ehsi-id">
+            <div class="form-group">
+              <label>检查日期</label>
+              <input type="date" id="ehsi-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>检查人ID</label>
+              <input type="text" id="ehsi-inspector" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>巡检区域</label>
+              <input type="text" id="ehsi-area" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>消防设施</label>
+              <input type="text" id="ehsi-fire" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>温度</label>
+              <input type="text" id="ehsi-temp" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>湿度</label>
+              <input type="text" id="ehsi-humidity" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>通风状况</label>
+              <input type="text" id="ehsi-vent" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>电气安全</label>
+              <input type="text" id="ehsi-elec" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>化学存储</label>
+              <input type="text" id="ehsi-chem" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>总体状态</label>
+              <select id="ehsi-status" class="form-control">
+                <option value="合格">合格</option>
+                <option value="不合格">不合格</option>
+                <option value="待整改">待整改</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>发现问题</label>
+              <textarea id="ehsi-findings" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>下次巡检日期</label>
+              <input type="date" id="ehsi-next" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>备注</label>
+              <textarea id="ehsi-remark" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-ehs-inspection');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EHS INCIDENT ===== -->
+    <div id="page-ehs-incident" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>🚨 事故记录</h2>
+        <div class="header-actions">
+
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-ehs-incident"></div></div>
+    </div>
+
+    <!-- Modal: EHS Incident (no edit - form only) -->
+    <div id="modal-ehs-incident" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>事故记录</h3>
+          <button class="modal-close" onclick="hideModal('modal-ehs-incident');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-ehs-incident">
+            <input type="hidden" id="ehsin-id">
+            <div class="form-group">
+              <label>事故日期</label>
+              <input type="date" id="ehsin-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>事故类型</label>
+              <input type="text" id="ehsin-type" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>严重程度</label>
+              <select id="ehsin-severity" class="form-control">
+                <option value="">--请选择--</option>
+                <option value="轻微">轻微</option>
+                <option value="一般">一般</option>
+                <option value="严重">严重</option>
+                <option value="重大">重大</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>地点</label>
+              <input type="text" id="ehsin-loc" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>描述</label>
+              <textarea id="ehsin-desc" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+              <label>涉及人员</label>
+              <input type="text" id="ehsin-persons" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>处理结果</label>
+              <textarea id="ehsin-result" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>上报人ID</label>
+              <input type="text" id="ehsin-reporter" class="form-control">
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">提交</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-ehs-incident');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EHS HAZARD ===== -->
+    <div id="page-ehs-hazard" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>⚠️ 隐患管理</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('haz-id').value='';document.getElementById('haz-date').value='';document.getElementById('haz-loc').value='';document.getElementById('haz-type').value='';document.getElementById('haz-severity').value='';document.getElementById('haz-desc').value='';document.getElementById('haz-control').value='';document.getElementById('haz-person').value='';document.getElementById('haz-deadline').value='';document.getElementById('haz-status').value='pending';showModal('modal-ehs-hazard');">新增隐患</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-ehs-hazard"></div></div>
+    </div>
+
+    <!-- Modal: EHS Hazard -->
+    <div id="modal-ehs-hazard" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>隐患管理</h3>
+          <button class="modal-close" onclick="hideModal('modal-ehs-hazard');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-ehs-hazard">
+            <input type="hidden" id="haz-id">
+            <div class="form-group">
+              <label>发现日期</label>
+              <input type="date" id="haz-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>隐患位置</label>
+              <input type="text" id="haz-loc" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>隐患类型</label>
+              <input type="text" id="haz-type" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>严重程度</label>
+              <select id="haz-severity" class="form-control">
+                <option value="">--请选择--</option>
+                <option value="低">低</option>
+                <option value="中">中</option>
+                <option value="高">高</option>
+                <option value="重大">重大</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>描述</label>
+              <textarea id="haz-desc" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>控制措施</label>
+              <textarea id="haz-control" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>负责人</label>
+              <input type="text" id="haz-person" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>期限</label>
+              <input type="date" id="haz-deadline" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="haz-status" class="form-control">
+                <option value="pending">待处理</option>
+                <option value="in-progress">处理中</option>
+                <option value="resolved">已解决</option>
+                <option value="closed">已关闭</option>
+              </select>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-ehs-hazard');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EXPERIMENTAL DATA REPORTS ===== -->
+    <div id="page-experimental-data" class="page-view" style="display:none;">
+      <div class="content-header">
+        <h2>📊 实验数据报告</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('edr-id').value='';document.getElementById('edr-report-no').value='';document.getElementById('edr-sample-code').value='';document.getElementById('edr-project').value='';document.getElementById('edr-date').value='';document.getElementById('edr-method').value='';document.getElementById('edr-analyst').value='';document.getElementById('edr-supervisor').value='';document.getElementById('edr-equip').value='';document.getElementById('edr-result').value='';document.getElementById('edr-conclusion').value='';document.getElementById('edr-remark').value='';document.getElementById('edr-status').value='draft';document.getElementById('edr-attachment-path').value='';document.getElementById('edr-file-name').textContent='';document.getElementById('edr-pdf-upload').value='';showModal('modal-experimental-data');">新增报告</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="table-experimental-data"></div></div>
+    </div>
+
+    <!-- Modal: Experimental Data Report -->
+    <div id="modal-experimental-data" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>实验数据报告</h3>
+          <button class="modal-close" onclick="hideModal('modal-experimental-data');">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-experimental-data">
+            <input type="hidden" id="edr-id">
+            <div class="form-group">
+              <label>报告编号 <span style="color:red">*</span></label>
+              <input type="text" id="edr-report-no" class="form-control" placeholder="例如：REP-2026-001">
+            </div>
+            <div class="form-group">
+              <label>样品编号</label>
+              <input type="text" id="edr-sample-code" class="form-control" placeholder="输入样品编号，如：SP-2026-001">
+            </div>
+            <div class="form-group">
+              <label>关联项目</label>
+              <select id="edr-project" class="form-control">
+                <option value="">--请选择--</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>报告日期</label>
+              <input type="date" id="edr-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>检测方法</label>
+              <input type="text" id="edr-method" class="form-control" placeholder="例如：ICP、火法、XRF">
+            </div>
+            <div class="form-group">
+              <label>检测员</label>
+              <select id="edr-analyst" class="form-control">
+                <option value="">--请选择--</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>审核员</label>
+              <select id="edr-supervisor" class="form-control">
+                <option value="">--请选择--</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>使用设备</label>
+              <select id="edr-equip" class="form-control">
+                <option value="">--请选择--</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>结果数据</label>
+              <textarea id="edr-result" class="form-control" rows="3" placeholder="输入实验测定结果数据"></textarea>
+            </div>
+            <div class="form-group">
+              <label>结论</label>
+              <textarea id="edr-conclusion" class="form-control" rows="2" placeholder="输入检测结论"></textarea>
+            </div>
+            <div class="form-group">
+              <label>备注</label>
+              <textarea id="edr-remark" class="form-control" rows="2" placeholder="其他说明"></textarea>
+            </div>
+            <div class="form-group">
+              <label>PDF报告文件</label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="file" id="edr-pdf-upload" accept=".pdf" style="flex:1;">
+                <button type="button" class="btn btn-sm btn-info" onclick="uploadExpPdf()">上传</button>
+                <span id="edr-upload-msg" style="font-size:12px;color:#888;"></span>
+              </div>
+              <input type="hidden" id="edr-attachment-path">
+              <div id="edr-file-name" style="font-size:12px;color:#4A6B8A;margin-top:4px;"></div>
+            </div>
+            <div class="form-group">
+              <label>状态</label>
+              <select id="edr-status" class="form-control">
+                <option value="draft">草稿</option>
+                <option value="pending_review">待审核</option>
+                <option value="approved">已审核</option>
+                <option value="archived">已归档</option>
+              </select>
+            </div>
+            <div class="modal-footer" style="padding:0; border:none; margin-top:16px;">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-default" onclick="hideModal('modal-experimental-data');">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end main-content -->
+</div><!-- end main-ui -->
+
+<!-- ========== SCRIPTS ========== -->
+<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<script src="/js/app.js?v=20260707"></script>
+</body>
+</html>
