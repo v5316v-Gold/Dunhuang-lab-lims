@@ -1351,10 +1351,7 @@ code, pre, kbd, samp, .home-stat-num, .home-time, .home-stat-label {
   transform: scale(1.15);
   box-shadow: 0 2px 6px rgba(74, 122, 74, 0.4);
 }
-.nav-item-child {
-  display: flex !important;
-  align-items: center !important;
-}
+
 
 /* 顶部分类卡片可点击 */
 .home-stat-card {
@@ -1393,4 +1390,29 @@ code, pre, kbd, samp, .home-stat-num, .home-time, .home-stat-label {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(184, 134, 11, 0.2);
   background: var(--dg-cream, #FAF6EE);
+}
+
+
+/* ================== 修复 21: 模块顶部按钮 ================== */
+.btn-add-record {
+  background: var(--sem-warn, #B8860B) !important;
+  border-color: var(--sem-warn, #B8860B) !important;
+  color: #fff !important;
+  font-weight: 500;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+.btn-add-record:hover {
+  background: #9a7209 !important;
+  border-color: #9a7209 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(184, 134, 11, 0.25);
+}
+
+/* 头部按钮组 - 更好的间距 */
+.header-actions {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap;
+  gap: 6px;
 }

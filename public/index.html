@@ -17,6 +17,8 @@
   <!-- Bootstrap CSS removed (修复 17) - glyphicons replaced with Lucide -->
   <!-- Lucide Icons (2026-08-03 升级：以专业线性图标替换 emoji) -->
   <script src="/vendor/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/zod@3.22.4/lib/index.umd.min.js"></script>
+  <script src="/validators/client-schemas.js"></script>
   <style>
     /* Lucide 图标样式 — 与现有设计系统对齐 */
     .icon, [data-lucide] { width: 1em; height: 1em; vertical-align: -0.125em; }
@@ -80,9 +82,9 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#personnel"><span class="nav-icon"><i data-lucide="user"></i></span><span class="nav-text">人员管理</span><button class="nav-add-btn" onclick="showModal('modal-personnel'); event.stopPropagation(); event.preventDefault();" title="新增 人员管理">+</button></a>
-          <a class="nav-item nav-item-child" href="#departments"><span class="nav-icon"><i data-lucide="building-2"></i></span><span class="nav-text">部门管理</span><button class="nav-add-btn" onclick="showModal('modal-departments'); event.stopPropagation(); event.preventDefault();" title="新增 部门管理">+</button></a>
-          <a class="nav-item nav-item-child" href="#projects"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span><span class="nav-text">项目管理</span><button class="nav-add-btn" onclick="showModal('modal-projects'); event.stopPropagation(); event.preventDefault();" title="新增 项目管理">+</button></a>
+          <a class="nav-item nav-item-child" href="#personnel"><span class="nav-icon"><i data-lucide="user"></i></span><span class="nav-text">人员管理</span></a>
+          <a class="nav-item nav-item-child" href="#departments"><span class="nav-icon"><i data-lucide="building-2"></i></span><span class="nav-text">部门管理</span></a>
+          <a class="nav-item nav-item-child" href="#projects"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span><span class="nav-text">项目管理</span></a>
         </div>
       </div>
 
@@ -94,7 +96,7 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#appointments"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-text">样品预约</span><button class="nav-add-btn" onclick="showModal('modal-appointments'); event.stopPropagation(); event.preventDefault();" title="新增 样品预约">+</button></a>
+          <a class="nav-item nav-item-child" href="#appointments"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-text">样品预约</span></a>
           <a class="nav-item nav-item-child" href="#sample-processing"><span class="nav-icon"><i data-lucide="test-tube"></i></span><span class="nav-text">样品处理</span></a>
         </div>
       </div>
@@ -107,9 +109,9 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#equipment"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-text">设备台账</span><button class="nav-add-btn" onclick="showModal('modal-equipment'); event.stopPropagation(); event.preventDefault();" title="新增 设备台账">+</button></a>
-          <a class="nav-item nav-item-child" href="#maintenance"><span class="nav-icon"><i data-lucide="wrench"></i></span><span class="nav-text">设备维护</span><button class="nav-add-btn" onclick="showModal('modal-maintenance'); event.stopPropagation(); event.preventDefault();" title="新增 设备维护">+</button></a>
-          <a class="nav-item nav-item-child" href="#calibration"><span class="nav-icon"><i data-lucide="ruler"></i></span><span class="nav-text">设备校准</span><button class="nav-add-btn" onclick="showModal('modal-calibration'); event.stopPropagation(); event.preventDefault();" title="新增 设备校准">+</button></a>
+          <a class="nav-item nav-item-child" href="#equipment"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-text">设备台账</span></a>
+          <a class="nav-item nav-item-child" href="#maintenance"><span class="nav-icon"><i data-lucide="wrench"></i></span><span class="nav-text">设备维护</span></a>
+          <a class="nav-item nav-item-child" href="#calibration"><span class="nav-icon"><i data-lucide="ruler"></i></span><span class="nav-text">设备校准</span></a>
           <a class="nav-item nav-item-child" href="#equipment-repairs"><span class="nav-icon"><i data-lucide="hammer"></i></span><span class="nav-text">设备维修</span></a>
         </div>
       </div>
@@ -122,10 +124,10 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#consumables"><span class="nav-icon"><i data-lucide="package"></i></span><span class="nav-text">耗材管理</span><button class="nav-add-btn" onclick="showModal('modal-consumables'); event.stopPropagation(); event.preventDefault();" title="新增 耗材管理">+</button></a>
-          <a class="nav-item nav-item-child" href="#glassware"><span class="nav-icon"><i data-lucide="flask-round"></i></span><span class="nav-text">玻璃器皿</span><button class="nav-add-btn" onclick="showModal('modal-glassware'); event.stopPropagation(); event.preventDefault();" title="新增 玻璃器皿">+</button></a>
-          <a class="nav-item nav-item-child" href="#reagents"><span class="nav-icon"><i data-lucide="beaker"></i></span><span class="nav-text">试剂管理</span><button class="nav-add-btn" onclick="showModal('modal-reagents'); event.stopPropagation(); event.preventDefault();" title="新增 试剂管理">+</button></a>
-          <a class="nav-item nav-item-child" href="#gases"><span class="nav-icon"><i data-lucide="wind"></i></span><span class="nav-text">气体管理</span><button class="nav-add-btn" onclick="showModal('modal-gases'); event.stopPropagation(); event.preventDefault();" title="新增 气体管理">+</button></a>
+          <a class="nav-item nav-item-child" href="#consumables"><span class="nav-icon"><i data-lucide="package"></i></span><span class="nav-text">耗材管理</span></a>
+          <a class="nav-item nav-item-child" href="#glassware"><span class="nav-icon"><i data-lucide="flask-round"></i></span><span class="nav-text">玻璃器皿</span></a>
+          <a class="nav-item nav-item-child" href="#reagents"><span class="nav-icon"><i data-lucide="beaker"></i></span><span class="nav-text">试剂管理</span></a>
+          <a class="nav-item nav-item-child" href="#gases"><span class="nav-icon"><i data-lucide="wind"></i></span><span class="nav-text">气体管理</span></a>
         </div>
       </div>
 
@@ -137,8 +139,8 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#fumehood"><span class="nav-icon"><i data-lucide="fan"></i></span><span class="nav-text">通风柜管理</span><button class="nav-add-btn" onclick="showModal('modal-fumehood'); event.stopPropagation(); event.preventDefault();" title="新增 通风柜管理">+</button></a>
-          <a class="nav-item nav-item-child" href="#training"><span class="nav-icon"><i data-lucide="graduation-cap"></i></span><span class="nav-text">培训记录</span><button class="nav-add-btn" onclick="showModal('modal-training'); event.stopPropagation(); event.preventDefault();" title="新增 培训记录">+</button></a>
+          <a class="nav-item nav-item-child" href="#fumehood"><span class="nav-icon"><i data-lucide="fan"></i></span><span class="nav-text">通风柜管理</span></a>
+          <a class="nav-item nav-item-child" href="#training"><span class="nav-icon"><i data-lucide="graduation-cap"></i></span><span class="nav-text">培训记录</span></a>
         </div>
       </div>
 
@@ -318,9 +320,9 @@
     <div id="page-personnel" class="page-view" style="display:none;">
       <div class="content-header">
         <h2><i data-lucide="user"></i> 人员管理</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('personnel')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('personnel-id').value='';document.getElementById('personnel-name').value='';document.getElementById('personnel-dept').value='';document.getElementById('personnel-username').value='';document.getElementById('personnel-password').value='';document.getElementById('personnel-role').value='analyst';document.getElementById('personnel-email').value='';document.getElementById('personnel-phone').value='';document.getElementById('personnel-position').value='';document.getElementById('personnel-status').value='active';showModal('modal-personnel');">新增人员</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-personnel')">+ 新增人员</button></div>
       </div>
       <div class="table-wrap"><div id="table-personnel"></div></div>
     </div>
@@ -394,7 +396,7 @@
         <h2><i data-lucide="building-2"></i> 部门管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('dept-id').value='';document.getElementById('dept-no').value='';document.getElementById('dept-name').value='';document.getElementById('dept-parent').value='';document.getElementById('dept-phone').value='';document.getElementById('dept-status').value='active';showModal('modal-departments');">新增部门</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-departments')">+ 新增部门</button></div>
       </div>
       <div class="table-wrap"><div id="table-departments"></div></div>
     </div>
@@ -445,9 +447,9 @@
     <div id="page-projects" class="page-view" style="display:none;">
       <div class="content-header">
         <h2><i data-lucide="clipboard-list"></i> 项目管理</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('projects')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('project-id').value='';document.getElementById('project-no').value='';document.getElementById('project-name').value='';document.getElementById('project-method').value='';document.getElementById('project-desc').value='';showModal('modal-projects');">新增项目</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-projects')">+ 新增项目</button></div>
       </div>
       <div class="table-wrap"><div id="table-projects"></div></div>
     </div>
@@ -491,9 +493,9 @@
     <div id="page-appointments" class="page-view" style="display:none;">
       <div class="content-header">
         <h2><i data-lucide="calendar-clock"></i> 样品预约</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default" onclick="exportToExcel('appointments')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('appt-id').value='';document.getElementById('appt-no').value='';document.getElementById('appt-client').value='';document.getElementById('appt-type').value='';document.getElementById('appt-date').value='';document.getElementById('appt-contact').value='';document.getElementById('appt-phone').value='';document.getElementById('appt-status').value='pending';document.getElementById('appt-remark').value='';showModal('modal-appointments');">新增预约</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-appointments')">+ 新增预约</button></div>
       </div>
       <div class="table-wrap"><div id="table-appointments"></div></div>
     </div>
@@ -667,9 +669,9 @@
     <div id="page-equipment" class="page-view" style="display:none;">
       <div class="content-header">
         <h2><i data-lucide="settings"></i> 设备台账</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('equipment')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('equip-id').value='';document.getElementById('equip-no').value='';document.getElementById('equip-name').value='';document.getElementById('equip-model').value='';document.getElementById('equip-mfr').value='';document.getElementById('equip-date').value='';document.getElementById('equip-price').value='';document.getElementById('equip-location').value='';document.getElementById('equip-status').value='normal';populateEquipDropdowns();showModal('modal-equipment');">新增设备</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-equipment')">+ 新增设备</button></div>
       </div>
       <div class="table-wrap"><div id="table-equipment"></div></div>
     </div>
@@ -754,7 +756,7 @@
         <h2><i data-lucide="wrench"></i> 设备维护</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('maint-id').value='';document.getElementById('maint-equip').value='';document.getElementById('maint-date').value='';document.getElementById('maint-type').value='';document.getElementById('maint-person').value='';document.getElementById('maint-cost').value='';document.getElementById('maint-next').value='';document.getElementById('maint-desc').value='';showModal('modal-maintenance');">新增维护</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-maintenance')">+ 新增维护</button></div>
       </div>
       <div class="table-wrap"><div id="table-maintenance"></div></div>
     </div>
@@ -812,7 +814,7 @@
         <h2><i data-lucide="ruler"></i> 设备校准</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('calib-id').value='';document.getElementById('calib-equip').value='';document.getElementById('calib-date').value='';document.getElementById('calib-org').value='';document.getElementById('calib-cert').value='';document.getElementById('calib-valid').value='';document.getElementById('calib-result').value='';showModal('modal-calibration');">新增校准</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-calibration')">+ 新增校准</button></div>
       </div>
       <div class="table-wrap"><div id="table-calibration"></div></div>
     </div>
@@ -926,9 +928,9 @@
     <div id="page-consumables" class="page-view" style="display:none;">
       <div class="content-header">
         <h2><i data-lucide="package"></i> 耗材管理</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('consumables')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('cons-id').value='';document.getElementById('cons-name').value='';document.getElementById('cons-spec').value='';document.getElementById('cons-unit').value='';document.getElementById('cons-cat').value='';document.getElementById('cons-min').value='';document.getElementById('cons-stock').value='';document.getElementById('cons-loc').value='';showModal('modal-consumables');">新增耗材</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-consumables')">+ 新增耗材</button></div>
       </div>
       <div class="table-wrap"><div id="table-consumables"></div></div>
     </div>
@@ -986,7 +988,7 @@
         <h2><i data-lucide="flask-round"></i> 玻璃器皿</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('glass-id').value='';document.getElementById('glass-name').value='';document.getElementById('glass-spec').value='';document.getElementById('glass-material').value='';document.getElementById('glass-unit').value='';document.getElementById('glass-stock').value='';document.getElementById('glass-loc').value='';showModal('modal-glassware');">新增玻璃器皿</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-glassware')">+ 新增玻璃器皿</button></div>
       </div>
       <div class="table-wrap"><div id="table-glassware"></div></div>
     </div>
@@ -1038,9 +1040,9 @@
     <div id="page-reagents" class="page-view" style="display:none;">
       <div class="content-header">
         <h2><i data-lucide="beaker"></i> 试剂管理</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('reagents')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('reag-id').value='';document.getElementById('reag-name').value='';document.getElementById('reag-cas').value='';document.getElementById('reag-formula').value='';document.getElementById('reag-purity').value='';document.getElementById('reag-mfr').value='';document.getElementById('reag-supplier').value='';document.getElementById('reag-location').value='';document.getElementById('reag-stock').value='';document.getElementById('reag-unit').value='';document.getElementById('reag-min').value='';document.getElementById('reag-status').value='normal';document.getElementById('reag-expiry').value='';showModal('modal-reagents');">新增试剂</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-reagents')">+ 新增试剂</button></div>
       </div>
       <div class="table-wrap"><div id="table-reagents"></div></div>
     </div>
@@ -1122,7 +1124,7 @@
         <h2><i data-lucide="wind"></i> 气体管理</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('gas-id').value='';document.getElementById('gas-name').value='';document.getElementById('gas-spec').value='';document.getElementById('gas-mfr').value='';document.getElementById('gas-supplier').value='';document.getElementById('gas-stock').value='';document.getElementById('gas-unit').value='';document.getElementById('gas-loc').value='';document.getElementById('gas-cylinder').value='';document.getElementById('gas-status').value='normal';document.getElementById('gas-next').value='';showModal('modal-gases');">新增气体</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-gases')">+ 新增气体</button></div>
       </div>
       <div class="table-wrap"><div id="table-gases"></div></div>
     </div>
@@ -1271,7 +1273,7 @@
         <h2><i data-lucide="graduation-cap"></i> 培训记录</h2>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="document.getElementById('tr-id').value='';document.getElementById('tr-trainer').value='';document.getElementById('tr-content').value='';document.getElementById('tr-date').value='';document.getElementById('tr-participants').value='';document.getElementById('tr-result').value='';document.getElementById('tr-cert').value='';document.getElementById('tr-expiry').value='';document.getElementById('tr-status').value='completed';showModal('modal-training');">新增培训</button>
-        </div>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-training')">+ 新增培训</button></div>
       </div>
       <div class="table-wrap"><div id="table-training"></div></div>
     </div>
