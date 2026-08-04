@@ -1511,6 +1511,76 @@ function addExportButton() {
 }
 document.addEventListener('DOMContentLoaded', addExportButton);
 
+// 通用"新增"按钮 (修复 22)
+function addAllAddButtons() {
+  // 所有 13 个 page 都有 .header-actions
+  // tab → 中文名映射（与修复 21 一致）
+  var addMap = {
+    'personnel': '人员',
+    'departments': '部门',
+    'projects': '项目',
+    'appointments': '样品预约',
+    'sample-processing': '样品处理',
+    'equipment': '设备',
+    'maintenance': '设备维护',
+    'calibration': '设备校准',
+    'equipment-repairs': '设备维修',
+    'consumables': '耗材',
+    'glassware': '玻璃器皿',
+    'reagents': '试剂',
+    'gases': '气体',
+    'fumehood': '通风柜',
+    'training': '培训记录'
+  };
+  // tab → modal id 映射（如果存在）
+  var modalMap = {
+    'personnel': 'modal-personnel',
+    'departments': 'modal-department',
+    'projects': 'modal-project',
+    'appointments': 'modal-appointment',
+    'sample-processing': 'modal-sample-processing',
+    'equipment': 'modal-equipment',
+    'maintenance': 'modal-maintenance',
+    'calibration': 'modal-calibration',
+    'equipment-repairs': 'modal-equipment-repair',
+    'consumables': 'modal-consumable',
+    'glassware': 'modal-glassware',
+    'reagents': 'modal-reagent',
+    'gases': 'modal-gas',
+    'fumehood': 'modal-fumehood',
+    'training': 'modal-training'
+  };
+  Object.keys(addMap).forEach(function(tab) {
+    var page = document.getElementById('page-' + tab);
+    if (!page) { return; }
+    var actions = page.querySelector('.header-actions');
+    if (!actions) { return; }
+    // 不重复加
+    if (actions.querySelector('.btn-add-' + tab)) { return; }
+    var modal = modalMap[tab];
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-primary btn-add-record btn-add-' + tab;
+    btn.style.marginLeft = '8px';
+    btn.innerHTML = '<i data-lucide="plus" style="width:14px;height:14px;"></i> 新增' + addMap[tab];
+    btn.onclick = function() {
+      if (window['show' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Modal']) {
+        window['show' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Modal']();
+      } else if (typeof showModal === 'function' && document.getElementById(modal)) {
+        showModal(modal);
+      } else {
+        showToast('该模块新增功能开发中', 'warning');
+      }
+    };
+    actions.appendChild(btn);
+  });
+  if (typeof refreshLucideIcons === 'function') refreshLucideIcons();
+}
+document.addEventListener('DOMContentLoaded', addAllAddButtons);
+// 路由切换时也跑
+if (typeof routeFromHash === 'function') {
+  document.addEventListener('hashchange', addAllAddButtons);
+}
+
 // URL 自动登录 (修复 18)
 function autoLoginFromUrl() {
   var params = new URLSearchParams(window.location.search);
