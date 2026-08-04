@@ -18,12 +18,16 @@
   --dg-text:      #3D2B1F;
   --dg-text-light: #8B7355;
   --dg-bg:         #FAF6EF;
-}
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'DIN Alternate', 'JetBrains Mono', 'Consolas', 'SF Mono', 'Menlo', monospace;
+  --font-serif: 'Source Han Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+  font-family: var(--font-sans, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif) !important;
   background: var(--dg-bg);
   color: var(--dg-text);
   font-size: 14px;
@@ -684,13 +688,53 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 16px;
   background: linear-gradient(135deg, var(--dg-sidebar) 0%, var(--dg-sidebar-mid) 100%);
   color: #FFF8E7;
-  padding: 20px 28px;
+  padding: 14px 20px;
   border-radius: 14px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   box-shadow: 0 4px 16px rgba(44,24,16,0.2);
   border: 1px solid rgba(201,169,110,0.2);
+  min-height: 60px;
+  overflow: hidden;
+}
+.home-welcome {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  min-width: 0;
+}
+.home-date, .home-weekday {
+  white-space: nowrap;
+  font-size: 13px !important;
+}
+.home-time {
+  font-size: 13px !important;
+  padding: 4px 8px !important;
+  white-space: nowrap;
+}
+.home-search {
+  flex: 0 1 240px !important;
+  min-width: 180px;
+  max-width: 280px;
+}
+.home-action-btn {
+  flex: 0 0 auto !important;
+  white-space: nowrap;
+}
+.home-user {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px;
+  white-space: nowrap;
+  min-width: auto;
+  writing-mode: horizontal-tb;
+  flex: 0 0 auto !important;
 }
 
 .home-welcome { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -718,7 +762,15 @@ body {
   letter-spacing: 2px;
 }
 
-.home-user { font-size: 14px; color: rgba(255,248,231,0.7); }
+.home-user {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px;
+  white-space: nowrap;
+  min-width: auto;
+  writing-mode: horizontal-tb;
+}
 .home-user strong { color: var(--dg-gold); }
 
 .home-section-title {
@@ -982,13 +1034,19 @@ option {
   font-weight: 500;
 }
 .nav-group-toggle .nav-chevron {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: rgba(255, 248, 231, 0.8);
   transition: transform 0.2s;
+}
+.nav-chevron i {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
 }
 .nav-group-toggle .nav-chevron i {
   transition: transform 0.2s;
@@ -1028,6 +1086,11 @@ option {
   --sem-success: #4A7A4A;  /* 正常 - 试剂 */
   --sem-danger:  #A0522D;  /* 异常 - 隐患 */
   --sem-empty:   #B8AE9D;  /* 零数据 - 灰 */
+  --text-light:  #888;
+  --cream:       #FAF6EE;
+  --gold-dark:   #8B6914;
+  --gold:        #B8860B;
+  --border-soft: rgba(201, 169, 110, 0.12);
 }
 
 /* 语义化卡片变体（覆盖原有 home-stat-* 颜色） */
@@ -1127,4 +1190,207 @@ option {
 .home-action-btn i {
   width: 14px;
   height: 14px;
+}
+
+
+/* Toast 通知 */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--dg-card, #fff);
+  color: var(--dg-text, #333);
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-left: 4px solid var(--sem-info, #4A6B8A);
+  z-index: 9999;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.toast-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+.toast-error { border-left-color: #A0522D; }
+.toast-success { border-left-color: #4A7A4A; }
+.toast-warning { border-left-color: #B8860B; }
+
+/* 骨架屏 */
+.skeleton-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(201,169,110,0.1);
+}
+.skeleton-cell {
+  height: 20px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.4s infinite;
+  border-radius: 4px;
+}
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.w-30 { width: 30%; }
+.w-25 { width: 25%; }
+.w-20 { width: 20%; }
+.w-15 { width: 15%; }
+
+/* 危险/隐患卡片列表 */
+.hazard-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  background: #fff;
+  border-left: 4px solid var(--sem-info, #4A6B8A);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: transform 0.15s;
+}
+.hazard-card:hover {
+  transform: translateX(4px);
+}
+.hazard-card.severity-high { border-left-color: #A0522D; }
+.hazard-card.severity-medium { border-left-color: #B8860B; }
+.hazard-card.severity-low { border-left-color: #4A7A4A; }
+.hazard-card .hazard-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dg-cream, #FAF6EE);
+  color: var(--dg-gold, #B8860B);
+}
+.hazard-card .hazard-content {
+  flex: 1;
+  min-width: 0;
+}
+.hazard-card .hazard-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--dg-text, #333);
+  margin-bottom: 2px;
+}
+.hazard-card .hazard-meta {
+  font-size: 12px;
+  color: var(--dg-text-light, #888);
+}
+.hazard-card .hazard-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--dg-cream, #FAF6EE);
+  color: var(--dg-gold, #B8860B);
+  white-space: nowrap;
+}
+
+
+/* ================== 字体统一（修复 13）================== */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+  --font-mono: 'DIN Alternate', 'JetBrains Mono', 'Consolas', 'SF Mono', 'Menlo', monospace;
+  --font-serif: 'Source Han Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+}
+body {
+  font-family: var(--font-sans) !important;
+  font-size: 14px;
+}
+.btn, input, select, textarea {
+  font-family: var(--font-sans) !important;
+}
+.modal-title, h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans) !important;
+  font-weight: 600;
+}
+
+
+/* ================== 修复 16: 字体混排统一 ================== */
+*, *::before, *::after {
+  font-family: var(--font-sans) !important;
+}
+code, pre, kbd, samp, .home-stat-num, .home-time, .home-stat-label {
+  font-family: var(--font-mono) !important;
+}
+.btn-primary, .btn-default, .btn-danger, .btn-success, .btn-warning {
+  font-family: var(--font-sans) !important;
+}
+
+
+/* ================== 修复 18-20: UI 交互增强 ================== */
+
+/* 侧边栏 + 按钮 */
+.nav-add-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--sem-success, #4A7A4A);
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  margin-left: auto;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex: 0 0 auto;
+}
+.nav-add-btn:hover {
+  background: #3a5a3a;
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(74, 122, 74, 0.4);
+}
+.nav-item-child {
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* 顶部分类卡片可点击 */
+.home-stat-card {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.home-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+/* 统计数字可点击 */
+.home-stat-num, [id^="stat-"] {
+  cursor: pointer;
+}
+.home-stat-num:hover, [id^="stat-"]:hover {
+  color: var(--sem-warn, #B8860B);
+}
+
+/* 顶部分类标题可点击 */
+.home-section-title {
+  cursor: pointer;
+  user-select: none;
+}
+.home-section-title:hover {
+  color: var(--sem-warn, #B8860B);
+}
+
+/* 模块网格 - 已有 cursor: pointer */
+/* 修复：让模块网格的卡片更明显可点击 */
+.home-module-card {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.home-module-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(184, 134, 11, 0.2);
+  background: var(--dg-cream, #FAF6EE);
 }

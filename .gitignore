@@ -76,3 +76,7 @@ tmp/
 
 # P0-2 backups
 .backup_p0_2/
+
+# Test files
+public/test.js
+*.test.js

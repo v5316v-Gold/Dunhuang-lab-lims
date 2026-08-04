@@ -148,10 +148,11 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://code.jquery.com", "https://maxcdn.bootstrapcdn.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://maxcdn.bootstrapcdn.com"],
       imgSrc: ["'self'", "data:", "blob:"],
-      fontSrc: ["'self'", "data:"],
+      fontSrc: ["'self'", "data:", "https://maxcdn.bootstrapcdn.com"],
       connectSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameAncestors: ["'self'"],
+      scriptSrcAttr: "'unsafe-inline'"
     }
   },
   crossOriginEmbedderPolicy: false

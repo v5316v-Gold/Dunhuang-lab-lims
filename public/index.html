@@ -4,8 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>敦煌金检测中心 LIMS 系统</title>
+  <meta name="description" content="CNAS 认证实验室信息管理系统 - 敦煌金检测中心">
+  <meta name="keywords" content="LIMS, 实验室, 检测, CNAS, ISO 17025, 敦煌金检测">
+  <meta name="author" content="敦煌金检测中心 IT 部">
+  <meta name="theme-color" content="#B8860B">
+  <meta property="og:title" content="敦煌金检测中心 LIMS 系统">
+  <meta property="og:description" content="CNAS 认证实验室信息管理系统">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B8860B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2'/><path d='M8.5 2h7'/><path d='M7 16h10'/></svg>">
   <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <!-- Bootstrap CSS removed (修复 17) - glyphicons replaced with Lucide -->
   <!-- Lucide Icons (2026-08-03 升级：以专业线性图标替换 emoji) -->
   <script src="/vendor/lucide.min.js"></script>
   <style>
@@ -71,9 +80,9 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#personnel"><span class="nav-icon"><i data-lucide="user"></i></span><span class="nav-text">人员管理</span></a>
-          <a class="nav-item nav-item-child" href="#departments"><span class="nav-icon"><i data-lucide="building-2"></i></span><span class="nav-text">部门管理</span></a>
-          <a class="nav-item nav-item-child" href="#projects"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span><span class="nav-text">项目管理</span></a>
+          <a class="nav-item nav-item-child" href="#personnel"><span class="nav-icon"><i data-lucide="user"></i></span><span class="nav-text">人员管理</span><button class="nav-add-btn" onclick="showModal('modal-personnel'); event.stopPropagation(); event.preventDefault();" title="新增 人员管理">+</button></a>
+          <a class="nav-item nav-item-child" href="#departments"><span class="nav-icon"><i data-lucide="building-2"></i></span><span class="nav-text">部门管理</span><button class="nav-add-btn" onclick="showModal('modal-departments'); event.stopPropagation(); event.preventDefault();" title="新增 部门管理">+</button></a>
+          <a class="nav-item nav-item-child" href="#projects"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span><span class="nav-text">项目管理</span><button class="nav-add-btn" onclick="showModal('modal-projects'); event.stopPropagation(); event.preventDefault();" title="新增 项目管理">+</button></a>
         </div>
       </div>
 
@@ -85,7 +94,7 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#appointments"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-text">样品预约</span></a>
+          <a class="nav-item nav-item-child" href="#appointments"><span class="nav-icon"><i data-lucide="calendar-clock"></i></span><span class="nav-text">样品预约</span><button class="nav-add-btn" onclick="showModal('modal-appointments'); event.stopPropagation(); event.preventDefault();" title="新增 样品预约">+</button></a>
           <a class="nav-item nav-item-child" href="#sample-processing"><span class="nav-icon"><i data-lucide="test-tube"></i></span><span class="nav-text">样品处理</span></a>
         </div>
       </div>
@@ -98,9 +107,9 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#equipment"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-text">设备台账</span></a>
-          <a class="nav-item nav-item-child" href="#maintenance"><span class="nav-icon"><i data-lucide="wrench"></i></span><span class="nav-text">设备维护</span></a>
-          <a class="nav-item nav-item-child" href="#calibration"><span class="nav-icon"><i data-lucide="ruler"></i></span><span class="nav-text">设备校准</span></a>
+          <a class="nav-item nav-item-child" href="#equipment"><span class="nav-icon"><i data-lucide="settings"></i></span><span class="nav-text">设备台账</span><button class="nav-add-btn" onclick="showModal('modal-equipment'); event.stopPropagation(); event.preventDefault();" title="新增 设备台账">+</button></a>
+          <a class="nav-item nav-item-child" href="#maintenance"><span class="nav-icon"><i data-lucide="wrench"></i></span><span class="nav-text">设备维护</span><button class="nav-add-btn" onclick="showModal('modal-maintenance'); event.stopPropagation(); event.preventDefault();" title="新增 设备维护">+</button></a>
+          <a class="nav-item nav-item-child" href="#calibration"><span class="nav-icon"><i data-lucide="ruler"></i></span><span class="nav-text">设备校准</span><button class="nav-add-btn" onclick="showModal('modal-calibration'); event.stopPropagation(); event.preventDefault();" title="新增 设备校准">+</button></a>
           <a class="nav-item nav-item-child" href="#equipment-repairs"><span class="nav-icon"><i data-lucide="hammer"></i></span><span class="nav-text">设备维修</span></a>
         </div>
       </div>
@@ -113,10 +122,10 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#consumables"><span class="nav-icon"><i data-lucide="package"></i></span><span class="nav-text">耗材管理</span></a>
-          <a class="nav-item nav-item-child" href="#glassware"><span class="nav-icon"><i data-lucide="flask-round"></i></span><span class="nav-text">玻璃器皿</span></a>
-          <a class="nav-item nav-item-child" href="#reagents"><span class="nav-icon"><i data-lucide="beaker"></i></span><span class="nav-text">试剂管理</span></a>
-          <a class="nav-item nav-item-child" href="#gases"><span class="nav-icon"><i data-lucide="wind"></i></span><span class="nav-text">气体管理</span></a>
+          <a class="nav-item nav-item-child" href="#consumables"><span class="nav-icon"><i data-lucide="package"></i></span><span class="nav-text">耗材管理</span><button class="nav-add-btn" onclick="showModal('modal-consumables'); event.stopPropagation(); event.preventDefault();" title="新增 耗材管理">+</button></a>
+          <a class="nav-item nav-item-child" href="#glassware"><span class="nav-icon"><i data-lucide="flask-round"></i></span><span class="nav-text">玻璃器皿</span><button class="nav-add-btn" onclick="showModal('modal-glassware'); event.stopPropagation(); event.preventDefault();" title="新增 玻璃器皿">+</button></a>
+          <a class="nav-item nav-item-child" href="#reagents"><span class="nav-icon"><i data-lucide="beaker"></i></span><span class="nav-text">试剂管理</span><button class="nav-add-btn" onclick="showModal('modal-reagents'); event.stopPropagation(); event.preventDefault();" title="新增 试剂管理">+</button></a>
+          <a class="nav-item nav-item-child" href="#gases"><span class="nav-icon"><i data-lucide="wind"></i></span><span class="nav-text">气体管理</span><button class="nav-add-btn" onclick="showModal('modal-gases'); event.stopPropagation(); event.preventDefault();" title="新增 气体管理">+</button></a>
         </div>
       </div>
 
@@ -128,8 +137,8 @@
           <span class="nav-chevron"><i data-lucide="chevron-down"></i></span>
         </button>
         <div class="nav-group-children">
-          <a class="nav-item nav-item-child" href="#fumehood"><span class="nav-icon"><i data-lucide="fan"></i></span><span class="nav-text">通风柜管理</span></a>
-          <a class="nav-item nav-item-child" href="#training"><span class="nav-icon"><i data-lucide="graduation-cap"></i></span><span class="nav-text">培训记录</span></a>
+          <a class="nav-item nav-item-child" href="#fumehood"><span class="nav-icon"><i data-lucide="fan"></i></span><span class="nav-text">通风柜管理</span><button class="nav-add-btn" onclick="showModal('modal-fumehood'); event.stopPropagation(); event.preventDefault();" title="新增 通风柜管理">+</button></a>
+          <a class="nav-item nav-item-child" href="#training"><span class="nav-icon"><i data-lucide="graduation-cap"></i></span><span class="nav-text">培训记录</span><button class="nav-add-btn" onclick="showModal('modal-training'); event.stopPropagation(); event.preventDefault();" title="新增 培训记录">+</button></a>
         </div>
       </div>
 
@@ -1662,8 +1671,8 @@
 </div><!-- end main-ui -->
 
 <!-- ========== SCRIPTS ========== -->
-<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<!-- jQuery removed (修复 17) - not used -->
+<!-- Bootstrap JS removed (修复 17) - replaced with vanilla JS -->
 <script src="/js/app.js?v=20260707"></script>
 <!-- Lucide 兜底：内联初始化（确保 DOMContentLoaded 后图标渲染） -->
   <script>

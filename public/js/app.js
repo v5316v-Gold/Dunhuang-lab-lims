@@ -975,7 +975,7 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('loginModal').style.display = 'none';
       document.getElementById('main-ui').style.display = 'block';
       document.getElementById('user-name').textContent = r.user.name;
-      switchTab('home');
+      routeFromHash();
     }
   });
 
@@ -1462,9 +1462,153 @@ function refreshLucideIcons() {
   }
 }
 // Hook into hashchange (page switch)
-window.addEventListener('hashchange', function() {
+// 路由切换 (修复 1: hashchange → switchTab, 不重复设 display)
+function routeFromHash() {
+  var hash = (window.location.hash || '#home').slice(1) || 'home';
+  if (typeof switchTab === 'function') {
+    switchTab(hash);
+  }
   setTimeout(refreshLucideIcons, 50);
+}
+window.addEventListener('hashchange', routeFromHash);
+window.addEventListener('load', routeFromHash);
+
+
+// 全局 Excel 导出函数 (修复 11)
+window.exportToExcel = function(table) {
+  showToast('正在导出 ' + table + '...', 'info');
+  fetch('/api/excel/export/' + table, { credentials: 'include' })
+    .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.blob(); })
+    .then(function(blob) {
+      var filename = table + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      showToast('导出成功: ' + filename, 'success');
+    })
+    .catch(function(err) { showToast('导出失败: ' + err.message, 'error'); });
+};
+
+// 自动给 6 个核心表加"导出"按钮
+function addExportButton() {
+  var exportableTables = ['equipment', 'personnel', 'projects', 'samples', 'consumables', 'reagents'];
+  exportableTables.forEach(function(table) {
+    var page = document.getElementById('page-' + table);
+    if (!page) return;
+    var actions = page.querySelector('.header-actions');
+    if (!actions) return;
+    if (actions.querySelector('.btn-export-' + table)) return;
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-default btn-export-' + table;
+    btn.style.marginLeft = '8px';
+    btn.innerHTML = '<i data-lucide="download" style="width:14px;height:14px;"></i> 导出 Excel';
+    btn.onclick = function() { window.exportToExcel(table); };
+    actions.appendChild(btn);
+  });
+  if (typeof refreshLucideIcons === 'function') refreshLucideIcons();
+}
+document.addEventListener('DOMContentLoaded', addExportButton);
+
+// URL 自动登录 (修复 18)
+function autoLoginFromUrl() {
+  var params = new URLSearchParams(window.location.search);
+  var u = params.get('user');
+  var p = params.get('pass');
+  if (u && p && !window.currentUser) {
+    document.getElementById('login-username').value = u;
+    document.getElementById('login-password').value = p;
+    setTimeout(function() {
+      var btn = document.getElementById('btn-login');
+      if (btn) btn.click();
+    }, 200);
+  }
+}
+
+// 主页可点击跳转 (修复 20)
+function makeHomeClickable() {
+  // 顶部分类卡片
+  var statMap = {
+    'stat-personnel': 'personnel',
+    'stat-equipment': 'equipment',
+    'stat-samples': 'appointments',
+    'stat-consumables': 'consumables',
+    'stat-reagents': 'reagents',
+    'stat-hazards': 'ehs-hazard'
+  };
+  Object.keys(statMap).forEach(function(statId) {
+    var el = document.getElementById(statId);
+    if (el) {
+      el.style.cursor = 'pointer';
+      el.title = '点击查看 ' + statMap[statId];
+      el.addEventListener('click', function() {
+        window.location.hash = '#' + statMap[statId];
+      });
+    }
+  });
+  // 模块网格（已在动态生成时绑定 onclick）
+  // 顶部分类标题也可点击
+  document.querySelectorAll('.home-section-title').forEach(function(title) {
+    title.style.cursor = 'pointer';
+    title.title = '点击查看';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', autoLoginFromUrl);
+document.addEventListener('DOMContentLoaded', makeHomeClickable);
+
+
+// 全局错误处理
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[PROMISE ERROR]', e.reason);
+  if (typeof showToast === 'function') {
+    showToast('网络错误：' + (e.reason && e.reason.message || '未知'), 'error');
+  }
 });
+window.addEventListener('error', function(e) {
+  console.error('[JS ERROR]', e.message, e.filename, e.lineno);
+});
+
+// 工具函数
+function debounce(fn, delay) {
+  delay = delay || 300;
+  var t;
+  return function() {
+    var args = arguments, ctx = this;
+    clearTimeout(t);
+    t = setTimeout(function() { fn.apply(ctx, args); }, delay);
+  };
+}
+
+// 骨架屏
+function renderSkeleton(container, rows) {
+  rows = rows || 5;
+  if (!container) return;
+  var html = '';
+  for (var i = 0; i < rows; i++) {
+    html += '<div class="skeleton-row">';
+    html += '<div class="skeleton-cell w-30"></div>';
+    html += '<div class="skeleton-cell w-20"></div>';
+    html += '<div class="skeleton-cell w-15"></div>';
+    html += '<div class="skeleton-cell w-25"></div>';
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function showToast(msg, type) {
+  type = type || 'info';
+  var t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { t.classList.add('toast-show'); }, 10);
+  setTimeout(function() {
+    t.classList.remove('toast-show');
+    setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 300);
+  }, 3000);
+}
 
 // ---------- 折叠菜单 P1-1 ----------
 document.addEventListener('DOMContentLoaded', function() {
