@@ -1,0 +1,23 @@
+{
+  "name": "@dunhuang/lims-compliance-core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "合规核心包 - SHA256 审计链 + ALCOA+ + CA 签名(零外部业务依赖)",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

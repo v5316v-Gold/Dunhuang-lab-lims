@@ -1,0 +1,127 @@
+// =====================================================
+// 业务枚举(共享给前后端)
+// 与 Prisma schema 中的 enum 一一对应
+// =====================================================
+
+// 用户角色
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  LAB_DIRECTOR = 'LAB_DIRECTOR',
+  QUALITY_MANAGER = 'QUALITY_MANAGER',
+  EQUIPMENT_MANAGER = 'EQUIPMENT_MANAGER',
+  REAGENT_MANAGER = 'REAGENT_MANAGER',
+  SENIOR_ANALYST = 'SENIOR_ANALYST',
+  ANALYST = 'ANALYST',
+  INTERN = 'INTERN',
+  EXTERNAL_AUDITOR = 'EXTERNAL_AUDITOR',
+}
+
+// 用户状态
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  LOCKED = 'LOCKED',
+  PENDING = 'PENDING',
+}
+
+// 样品类型(贵金属专用)
+export enum SampleType {
+  GOLD_INGOT = 'GOLD_INGOT',
+  GOLD_POWDER = 'GOLD_POWDER',
+  GOLD_ALLOY = 'GOLD_ALLOY',
+  JEWELRY = 'JEWELRY',
+  RECYCLED_GOLD = 'RECYCLED_GOLD',
+  SILVER = 'SILVER',
+  PLATINUM = 'PLATINUM',
+  PALLADIUM = 'PALLADIUM',
+  OTHER = 'OTHER',
+}
+
+// 样品状态
+export enum SampleStatus {
+  RECEIVED = 'RECEIVED',
+  BATCHED = 'BATCHED',
+  IN_TEST = 'IN_TEST',
+  TESTED = 'TESTED',
+  REPORT_DRAFT = 'REPORT_DRAFT',
+  REPORT_REVIEW = 'REPORT_REVIEW',
+  REPORT_APPROVED = 'REPORT_APPROVED',
+  ARCHIVED = 'ARCHIVED',
+  REJECTED = 'REJECTED',
+}
+
+// 检测方法(详见 ADR-0011)
+export enum AssayMethod {
+  FIRE_ASSAY = 'FIRE_ASSAY',
+  ICP_OES = 'ICP_OES',
+  ICP_MS = 'ICP_MS',
+  XRF = 'XRF',
+  FIRE_ASSAY_GRAVIMETRIC = 'FIRE_ASSAY_GRAVIMETRIC',
+  VOLUMETRIC = 'VOLUMETRIC',
+  ICP_GBC = 'ICP_GBC',
+  OTHER = 'OTHER',
+}
+
+// 批次状态
+export enum BatchStatus {
+  PENDING = 'PENDING',
+  MIXING = 'MIXING',
+  FUSING = 'FUSING',
+  CUPELLING = 'CUPELLING',
+  PARTING = 'PARTING',
+  ANNEALING = 'ANNEALING',
+  WEIGHING = 'WEIGHING',
+  CALCULATING = 'CALCULATING',
+  COMPLETED = 'COMPLETED',
+  REJECTED = 'REJECTED',
+}
+
+// 检测任务状态
+export enum TestStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  QC_FAILED = 'QC_FAILED',
+  REJECTED = 'REJECTED',
+}
+
+// 报告状态
+export enum ReportStatus {
+  DRAFT = 'DRAFT',
+  INTERNAL_REVIEW = 'INTERNAL_REVIEW',
+  FINAL_REVIEW = 'FINAL_REVIEW',
+  APPROVED = 'APPROVED',
+  ISSUED = 'ISSUED',
+  REJECTED = 'REJECTED',
+  SUPERSEDED = 'SUPERSEDED',
+}
+
+// QC 类型
+export enum QcType {
+  BLANK = 'BLANK',
+  PARALLEL = 'PARALLEL',
+  SPIKE = 'SPIKE',
+  STANDARD = 'STANDARD',
+}
+
+// 设备类型(敦煌金专用)
+export enum EquipmentType {
+  FIRE_ASSAY_FURNACE = 'FIRE_ASSAY_FURNACE',
+  CUPELLATION_FURNACE = 'CUPELLATION_FURNACE',
+  ANALYTICAL_BALANCE = 'ANALYTICAL_BALANCE',
+  ICP_OES = 'ICP_OES',
+  ICP_MS = 'ICP_MS',
+  XRF = 'XRF',
+  MICROWAVE_DIGESTION = 'MICROWAVE_DIGESTION',
+  WATER_PURIFIER = 'WATER_PURIFIER',
+  OTHER = 'OTHER',
+}
+
+// 浓度单位
+export enum ConcentrationUnit {
+  PERCENTAGE = 'PERCENTAGE',
+  PPM = 'PPM',
+  PPB = 'PPB',
+  PPT = 'PPT',
+  MG_PER_G = 'MG_PER_G',
+}

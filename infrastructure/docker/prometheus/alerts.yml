@@ -1,0 +1,106 @@
+# Prometheus 告警规则 - 敦煌金质检 LIMS
+# 详见 docs/04-CNAS-COMPLIANCE.md / Phase 5
+
+groups:
+  # ========================================
+  # API 性能告警
+  # ========================================
+  - name: api
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx 错误率超过 1%"
+          description: "最近 5 分钟错误率 {{ $value | humanizePercentage }}"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, http_request_duration_seconds_bucket) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95 超过 500ms"
+
+      - alert: CriticalLatency
+        expr: histogram_quantile(0.99, http_request_duration_seconds_bucket) > 1.0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API P99 超过 1 秒"
+
+  # ========================================
+  # 审计链告警(最关键合规告警)
+  # ========================================
+  - name: audit_chain
+    rules:
+      - alert: AuditChainBroken
+        expr: audit_chain_verify_result == 0
+        for: 1m
+        labels:
+          severity: critical
+          pager: 'p0'
+        annotations:
+          summary: "🚨 审计链断链!"
+          description: "立即人工介入,审计链 SHA256 验证失败"
+
+      - alert: AuditChainVerifyStale
+        expr: time() - audit_chain_last_verify_timestamp > 86400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "审计链自检超过 24 小时未运行"
+
+  # ========================================
+  # 数据库告警
+  # ========================================
+  - name: database
+    rules:
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_activity_count > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库连接数超过 80"
+
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL 不可达"
+
+  # ========================================
+  # 系统资源告警
+  # ========================================
+  - name: system
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 使用率超过 80%"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率超过 85%"
+
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘使用率超过 85%"

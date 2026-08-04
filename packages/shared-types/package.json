@@ -1,0 +1,25 @@
+{
+  "name": "@dunhuang/lims-shared-types",
+  "version": "1.0.0",
+  "private": true,
+  "description": "跨前后端共享类型 + Zod schemas + 业务常量",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

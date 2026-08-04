@@ -1,0 +1,48 @@
+{
+  "name": "dunhuang-lims",
+  "version": "1.0.0",
+  "private": true,
+  "description": "敦煌金质检 LIMS - CNAS 合规实验室信息管理系统",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "dev:backend": "turbo run dev --filter=@dunhuang/lims-backend",
+    "dev:frontend": "turbo run dev --filter=@dunhuang/lims-frontend",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint -- --fix",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "test:cov": "turbo run test:cov",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\" --ignore-path .gitignore",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "db:migrate": "cd apps/backend && pnpm prisma migrate deploy",
+    "db:migrate:dev": "cd apps/backend && pnpm prisma migrate dev",
+    "db:seed": "cd apps/backend && pnpm prisma db seed",
+    "db:studio": "cd apps/backend && pnpm prisma studio",
+    "db:verify-audit": "tsx scripts/audit-verify.ts",
+    "audit:verify": "tsx scripts/audit-verify.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "tsx": "^4.7.2",
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "pg": "^8.13.1"
+  }
+}

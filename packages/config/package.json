@@ -1,0 +1,14 @@
+{
+  "name": "@dunhuang/lims-config",
+  "version": "1.0.0",
+  "private": true,
+  "description": "共享配置(ESLint/Prettier/TS)",
+  "license": "UNLICENSED",
+  "files": [
+    "eslint-preset.cjs",
+    "prettier-preset.cjs"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist .turbo"
+  }
+}

@@ -1,0 +1,899 @@
+// =====================================================
+// 敦煌金质检 LIMS - Prisma Schema
+// 详见 docs/02-DATABASE.md 与 ADR-0002 / ADR-0011
+//
+// 业务核心:贵金属(黄金)检测 —— 火试金法 + ICP-OES/MS
+// 黄金纯度必须 Decimal(10,6),严禁 float/double
+// =====================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuidOssp(map: "uuid-ossp"), pgcrypto, citext, timescaledb]
+}
+
+// =====================================================
+// 域 1: identity - 用户/部门/角色/会话
+// =====================================================
+
+enum UserRole {
+  ADMIN
+  LAB_DIRECTOR
+  QUALITY_MANAGER
+  EQUIPMENT_MANAGER
+  REAGENT_MANAGER
+  SENIOR_ANALYST
+  ANALYST
+  INTERN
+  EXTERNAL_AUDITOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  PENDING
+}
+
+model User {
+  id             String     @id @default(uuid()) @db.Uuid
+  username       String     @unique @db.VarChar(50)
+  email          String     @unique @db.VarChar(100)
+  passwordHash   String     @map("password_hash") @db.VarChar(255)
+  name           String     @db.VarChar(50)
+  phone          String?    @db.VarChar(20)
+  deptId         String?    @map("dept_id") @db.Uuid
+  title          String?    @db.VarChar(50)
+  role           UserRole   @default(ANALYST)
+  status         UserStatus @default(ACTIVE)
+  mfaSecret      String?    @map("mfa_secret") @db.VarChar(255)
+  mfaEnabled     Boolean    @default(false) @map("mfa_enabled")
+  mfaBackupCodes String[]   @map("mfa_backup_codes")
+  lastLoginAt    DateTime?  @map("last_login_at") @db.Timestamptz
+  lastLoginIp    String?    @map("last_login_ip") @db.VarChar(45)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  createdById    String?    @map("created_by_id") @db.Uuid
+  updatedById    String?    @map("updated_by_id") @db.Uuid
+  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz
+
+  dept              Department?            @relation(fields: [deptId], references: [id])
+  createdBy         User?                  @relation("UserCreatedBy", fields: [createdById], references: [id])
+  updatedBy         User?                  @relation("UserUpdatedBy", fields: [updatedById], references: [id])
+  createdUsers      User[]                 @relation("UserCreatedBy")
+  updatedUsers      User[]                 @relation("UserUpdatedBy")
+  sessions          UserSession[]
+  roleAssignments   UserRoleAssignment[]
+  auditLogs         AuditLog[]
+  receivedSamples   Sample[]               @relation("SampleReceivedBy")
+  operatedTests     Test[]                 @relation("TestOperator")
+  operatedBatches   SampleBatch[]          @relation("BatchOperator")
+  createdReports    Report[]               @relation("ReportCreator")
+  signedSignatures  ReportSignature[]
+  uploadedFiles     FileAttachment[]       @relation("FileAttachmentUploader")
+  personnel         Personnel?
+
+  @@index([username])
+  @@index([email])
+  @@index([deptId])
+  @@index([status, deletedAt])
+  @@map("users")
+}
+
+model Department {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  parentId  String?  @map("parent_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  parent    Department?  @relation("DeptHierarchy", fields: [parentId], references: [id])
+  children  Department[] @relation("DeptHierarchy")
+  users     User[]
+
+  @@index([code])
+  @@index([parentId])
+  @@map("departments")
+}
+
+model UserRoleAssignment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      UserRole
+  scope     String?  @db.VarChar(100) // 资源范围(如部门 ID)
+  grantedBy String?  @map("granted_by") @db.Uuid
+  grantedAt DateTime @default(now()) @map("granted_at") @db.Timestamptz
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role, scope])
+  @@index([userId])
+  @@map("user_role_assignments")
+}
+
+model UserSession {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  refreshTokenHash String   @map("refresh_token_hash") @db.VarChar(255)
+  userAgent        String?  @map("user_agent") @db.Text
+  ip               String?  @db.VarChar(45)
+  expiresAt        DateTime @map("expires_at") @db.Timestamptz
+  revoked          Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshTokenHash])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// =====================================================
+// 域 1.5: audit_logs - SHA256 链(详见 ADR-0003)
+// =====================================================
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  userId     String?  @map("user_id") @db.Uuid
+  username   String   @db.VarChar(50) // 冗余存储,user 删除后不丢
+  action     String   @db.VarChar(100)
+  tableName  String?  @map("table_name") @db.VarChar(50)
+  recordId   String?  @map("record_id") @db.Uuid
+  oldData    Json?    @map("old_data") @db.JsonB
+  newData    Json?    @map("new_data") @db.JsonB
+  ip         String?  @db.VarChar(45)
+  prevHash   String   @map("prev_hash") @db.Char(64)
+  currHash   String   @map("curr_hash") @db.Char(64)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([tableName, recordId])
+  @@index([createdAt(sort: Desc)])
+  @@index([currHash])
+  @@map("audit_logs")
+}
+
+// =====================================================
+// 域 2: personnel - 人员/培训/能力
+// =====================================================
+
+enum PersonnelStatus {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+model Personnel {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @unique @map("user_id") @db.Uuid
+  employeeNo  String          @unique @map("employee_no") @db.VarChar(20)
+  name        String          @db.VarChar(50)
+  gender      String?         @db.Char(1)
+  birthDate   DateTime?       @map("birth_date") @db.Date
+  idCard      String?         @map("id_card") @db.VarChar(20)
+  phone       String?         @db.VarChar(20)
+  email       String?         @db.VarChar(100)
+  education   String?         @db.VarChar(50)
+  title       String?         @db.VarChar(50)
+  certNo      String?         @map("cert_no") @db.VarChar(50)
+  hiredate    DateTime?       @db.Date
+  status      PersonnelStatus @default(ACTIVE)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainings   Training[]
+  competencies Competency[]
+
+  @@index([employeeNo])
+  @@map("personnel")
+}
+
+enum TrainingResult {
+  PASS
+  FAIL
+  EXCELLENT
+}
+
+model Training {
+  id              String         @id @default(uuid()) @db.Uuid
+  personnelId     String         @map("personnel_id") @db.Uuid
+  trainingType    String         @map("training_type") @db.VarChar(50)
+  trainingName    String         @map("training_name") @db.VarChar(200)
+  trainingDate    DateTime       @map("training_date") @db.Date
+  durationHours   Decimal?       @map("duration_hours") @db.Decimal(5, 2)
+  trainer         String?        @db.VarChar(100)
+  content         String?        @db.Text
+  result          TrainingResult?
+  certificateNo   String?        @map("certificate_no") @db.VarChar(50)
+  certificateFileId String?      @map("certificate_file_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  personnel       Personnel      @relation(fields: [personnelId], references: [id], onDelete: Cascade)
+
+  @@index([personnelId])
+  @@index([trainingDate(sort: Desc)])
+  @@map("trainings")
+}
+
+model Competency {
+  id           String       @id @default(uuid()) @db.Uuid
+  personnelId  String       @map("personnel_id") @db.Uuid
+  method       String       @db.VarChar(50) // AssayMethod 值
+  level        String       @db.VarChar(20) // TRAINEE / JUNIOR / SENIOR / EXPERT
+  certifiedAt  DateTime     @map("certified_at") @db.Date
+  expiresAt    DateTime     @map("expires_at") @db.Date
+  certifiedBy  String?      @map("certified_by") @db.Uuid
+  remarks      String?      @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  personnel    Personnel    @relation(fields: [personnelId], references: [id], onDelete: Cascade)
+
+  @@unique([personnelId, method])
+  @@index([method, expiresAt])
+  @@map("competencies")
+}
+
+// =====================================================
+// 域 3: equipment - 设备/校准/维护/期间核查
+// =====================================================
+
+enum EquipmentType {
+  FIRE_ASSAY_FURNACE
+  CUPELLATION_FURNACE
+  ANALYTICAL_BALANCE
+  ICP_OES
+  ICP_MS
+  XRF
+  MICROWAVE_DIGESTION
+  WATER_PURIFIER
+  OTHER
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+  BROKEN
+}
+
+model Equipment {
+  id              String         @id @default(uuid()) @db.Uuid
+  equipmentNo     String         @unique @map("equipment_no") @db.VarChar(50)
+  name            String         @db.VarChar(100)
+  type            EquipmentType
+  model           String?        @db.VarChar(100)
+  serialNo        String?        @map("serial_no") @db.VarChar(100)
+  manufacturer    String?        @db.VarChar(100)
+  purchaseDate    DateTime?      @map("purchase_date") @db.Date
+  warrantyExpiresAt DateTime?    @map("warranty_expires_at") @db.Date
+  location        String?        @db.VarChar(100)
+  status          EquipmentStatus @default(ACTIVE)
+  accuracy        String?        @db.VarChar(50) // e.g. "0.001mg", "0.1ppm"
+  range           String?        @db.VarChar(100)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime?      @map("deleted_at") @db.Timestamptz
+
+  calibrations    Calibration[]
+  maintenances    Maintenance[]
+  periodicChecks  PeriodicCheck[]
+  files           FileAttachment[]
+
+  @@index([equipmentNo])
+  @@index([type, status])
+  @@map("equipment")
+}
+
+model Calibration {
+  id              String    @id @default(uuid()) @db.Uuid
+  equipmentId     String    @map("equipment_id") @db.Uuid
+  calibrationDate DateTime  @map("calibration_date") @db.Date
+  calibrationOrg  String    @map("calibration_org") @db.VarChar(200)
+  certificateNo   String    @map("certificate_no") @db.VarChar(100)
+  certificateFileId String? @map("certificate_file_id") @db.Uuid
+  result          String?   @db.VarChar(50)
+  nextDueDate     DateTime  @map("next_due_date") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@index([nextDueDate])
+  @@map("calibrations")
+}
+
+model Maintenance {
+  id              String    @id @default(uuid()) @db.Uuid
+  equipmentId     String    @map("equipment_id") @db.Uuid
+  maintenanceType String    @map("maintenance_type") @db.VarChar(50)
+  maintenanceDate DateTime  @map("maintenance_date") @db.Date
+  performedBy     String    @map("performed_by") @db.Uuid
+  content         String?   @db.Text
+  nextDueDate     DateTime? @map("next_due_date") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@index([maintenanceDate(sort: Desc)])
+  @@map("maintenances")
+}
+
+model PeriodicCheck {
+  id            String    @id @default(uuid()) @db.Uuid
+  equipmentId   String    @map("equipment_id") @db.Uuid
+  checkDate     DateTime  @map("check_date") @db.Date
+  performedBy   String    @map("performed_by") @db.Uuid
+  result        String?   @db.Text
+  zScore        Decimal?  @map("z_score") @db.Decimal(8, 4)
+  passed        Boolean   @default(true)
+  remarks       String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@index([checkDate(sort: Desc)])
+  @@map("periodic_checks")
+}
+
+// =====================================================
+// 域 4: method - 检测方法/方法学验证
+// =====================================================
+
+model Method {
+  id              String   @id @default(uuid()) @db.Uuid
+  methodCode      String   @unique @map("method_code") @db.VarChar(50)
+  methodName      String   @map("method_name") @db.VarChar(200)
+  assayType       String   @map("assay_type") @db.VarChar(50) // FIRE_ASSAY / ICP_OES / ICP_MS ...
+  standard        String?  @db.VarChar(100) // GB/T 9288 ...
+  scope          String?  @db.Text
+  lod            Decimal? @map("lod") @db.Decimal(15, 9) // 检出限
+  loq            Decimal? @map("loq") @db.Decimal(15, 9) // 定量限
+  uncertainty    Decimal? @db.Decimal(10, 6)
+  status         String   @default("ACTIVE") @db.VarChar(20)
+  version        Int      @default(1)
+  effectiveAt    DateTime? @map("effective_at") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  validations    MethodValidation[]
+  samples        Sample[]
+
+  @@index([methodCode])
+  @@index([assayType])
+  @@map("methods")
+}
+
+model MethodValidation {
+  id          String   @id @default(uuid()) @db.Uuid
+  methodId    String   @map("method_id") @db.Uuid
+  validationType String @map("validation_type") @db.VarChar(50)
+  parameter   String   @db.VarChar(100)
+  result      String   @db.VarChar(100)
+  acceptable  String?  @db.VarChar(100)
+  passed      Boolean
+  reportFileId String? @map("report_file_id") @db.Uuid
+  validatedAt DateTime @map("validated_at") @db.Date
+  validatedBy String   @map("validated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  method      Method   @relation(fields: [methodId], references: [id], onDelete: Cascade)
+
+  @@index([methodId])
+  @@map("method_validations")
+}
+
+// =====================================================
+// 域 5: sample - 样品/批次/流转(垂直切片核心)
+// =====================================================
+
+enum SampleType {
+  GOLD_INGOT
+  GOLD_POWDER
+  GOLD_ALLOY
+  JEWELRY
+  RECYCLED_GOLD
+  SILVER
+  PLATINUM
+  PALLADIUM
+  OTHER
+}
+
+enum SampleStatus {
+  RECEIVED
+  BATCHED
+  IN_TEST
+  TESTED
+  REPORT_DRAFT
+  REPORT_REVIEW
+  REPORT_APPROVED
+  ARCHIVED
+  REJECTED
+}
+
+model Sample {
+  id               String       @id @default(uuid()) @db.Uuid
+  sampleNo         String       @unique @map("sample_no") @db.VarChar(20)
+  batchId          String?      @map("batch_id") @db.Uuid
+  customerName     String       @map("customer_name") @db.VarChar(200)
+  customerRef      String?      @map("customer_ref") @db.VarChar(100)
+  sampleType       SampleType   @map("sample_type")
+  declaredPurityPct Decimal?     @map("declared_purity_pct") @db.Decimal(10, 6)
+  weightG          Decimal      @map("weight_g") @db.Decimal(15, 6)
+  receivedAt       DateTime     @default(now()) @map("received_at") @db.Timestamptz
+  receivedById     String?      @map("received_by_id") @db.Uuid
+  storageLocation  String?      @map("storage_location") @db.VarChar(200)
+  status           SampleStatus @default(RECEIVED)
+  photoFileIds     String[]     @map("photo_file_ids") @db.Uuid
+  remarks          String?      @db.Text
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime?    @map("deleted_at") @db.Timestamptz
+
+  batch            SampleBatch? @relation(fields: [batchId], references: [id])
+  receivedBy       User?        @relation("SampleReceivedBy", fields: [receivedById], references: [id])
+  methodId         String?      @map("method_id") @db.Uuid
+  method           Method?      @relation(fields: [methodId], references: [id])
+  tests            Test[]
+  reports          Report[]
+
+  @@index([sampleNo])
+  @@index([batchId])
+  @@index([status])
+  @@index([receivedAt(sort: Desc)])
+  @@index([customerName])
+  @@map("samples")
+}
+
+enum AssayMethod {
+  FIRE_ASSAY
+  ICP_OES
+  ICP_MS
+  XRF
+  FIRE_ASSAY_GRAVIMETRIC
+  VOLUMETRIC
+  ICP_GBC
+  OTHER
+}
+
+enum BatchStatus {
+  PENDING
+  MIXING
+  FUSING
+  CUPELLING
+  PARTING
+  ANNEALING
+  WEIGHING
+  CALCULATING
+  COMPLETED
+  REJECTED
+}
+
+model SampleBatch {
+  id              String      @id @default(uuid()) @db.Uuid
+  batchNo         String      @unique @map("batch_no") @db.VarChar(30)
+  method          AssayMethod
+  startedAt       DateTime?   @map("started_at") @db.Timestamptz
+  completedAt     DateTime?   @map("completed_at") @db.Timestamptz
+  operatorId      String?     @map("operator_id") @db.Uuid
+  qcSampleId      String?     @map("qc_sample_id") @db.Uuid
+  replicateCount  Int         @default(3) @map("replicate_count")
+  furnaceNo       String?     @map("furnace_no") @db.VarChar(50)
+  status          BatchStatus @default(PENDING)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  operator        User?       @relation("BatchOperator", fields: [operatorId], references: [id])
+  samples         Sample[]
+
+  @@index([batchNo])
+  @@index([method, status])
+  @@index([startedAt(sort: Desc)])
+  @@map("sample_batches")
+}
+
+// =====================================================
+// 域 6: test - 检测任务/结果/火试金/ICP 多元素
+// =====================================================
+
+enum TestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  QC_FAILED
+  REJECTED
+}
+
+enum ConcentrationUnit {
+  PERCENTAGE
+  PPM
+  PPB
+  PPT
+  MG_PER_G
+}
+
+model Test {
+  id           String      @id @default(uuid()) @db.Uuid
+  sampleId     String      @map("sample_id") @db.Uuid
+  batchId      String?     @map("batch_id") @db.Uuid
+  method       AssayMethod
+  startedAt    DateTime?   @map("started_at") @db.Timestamptz
+  completedAt  DateTime?   @map("completed_at") @db.Timestamptz
+  operatorId   String?     @map("operator_id") @db.Uuid
+  status       TestStatus  @default(PENDING)
+  purityPct    Decimal?    @map("purity_pct") @db.Decimal(10, 6)  // 主元素纯度(黄金)
+  uncertainty  Decimal?    @db.Decimal(10, 6)  // 不确定度 k=2
+  unit         String      @default("%") @db.VarChar(20)
+  qcPassed     Boolean?    @map("qc_passed")
+  qcRemarks    String?     @map("qc_remarks") @db.Text
+  remarks      String?     @db.Text
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  sample           Sample           @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  operator         User?            @relation("TestOperator", fields: [operatorId], references: [id])
+  fireAssay        FireAssayDetail?
+  elementResults   ElementResult[]
+  qcMeasurements   QcMeasurement[]
+
+  @@index([sampleId])
+  @@index([method, status])
+  @@index([operatorId])
+  @@map("tests")
+}
+
+// 火试金专用字段(一对一)
+model FireAssayDetail {
+  id                String   @id @default(uuid()) @db.Uuid
+  testId            String   @unique @map("test_id") @db.Uuid
+  sampleWeightG     Decimal  @map("sample_weight_g") @db.Decimal(15, 6)
+  leadButtonWeightG Decimal? @map("lead_button_weight_g") @db.Decimal(15, 6)
+  prillWeightG      Decimal? @map("prill_weight_g") @db.Decimal(15, 6)
+  partingAcid       String?  @map("parting_acid") @db.VarChar(50)
+  furnaceTempC      Int?     @map("furnace_temp_c")
+  cupellationMin    Int?     @map("cupellation_min")
+  partingMin        Int?     @map("parting_min")
+  annealingMin      Int?     @map("annealing_min")
+  qcRecoveryPct     Decimal? @map("qc_recovery_pct") @db.Decimal(5, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  test              Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@map("fire_assay_details")
+}
+
+// ICP 多元素结果(一对多)
+model ElementResult {
+  id            String   @id @default(uuid()) @db.Uuid
+  testId        String   @map("test_id") @db.Uuid
+  element       String   @db.VarChar(10) // Au / Ag / Cu / Fe / Pb / Pt / Pd ...
+  wavelengthNm  Decimal? @map("wavelength_nm") @db.Decimal(8, 3)
+  intensity     Decimal? @db.Decimal(15, 3)
+  concentration Decimal  @db.Decimal(15, 9)
+  unit          String   @default("ppm") @db.VarChar(20)
+  lod           Decimal? @db.Decimal(15, 9)
+  loq           Decimal? @db.Decimal(15, 9)
+  uncertainty   Decimal? @db.Decimal(15, 9)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  test          Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@index([testId])
+  @@index([element])
+  @@map("element_results")
+}
+
+// =====================================================
+// 域 7: qc - QC + 6σ + Westgard
+// =====================================================
+
+enum QcType {
+  BLANK           // 空白
+  PARALLEL        // 平行样
+  SPIKE           // 加标
+  STANDARD        // QC 样(标准物质)
+}
+
+model ReferenceMaterial {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique @db.VarChar(50) // e.g. GBW02757
+  name            String   @db.VarChar(200)
+  element         String   @db.VarChar(10) // Au
+  certifiedPct    Decimal  @map("certified_pct") @db.Decimal(10, 6)
+  uncertainty     Decimal  @db.Decimal(10, 6)
+  manufacturer    String?  @db.VarChar(100)
+  certificateFileId String? @map("certificate_file_id") @db.Uuid
+  receivedDate    DateTime? @map("received_date") @db.Date
+  expiryDate      DateTime? @map("expiry_date") @db.Date
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  qcMeasurements  QcMeasurement[]
+
+  @@index([code])
+  @@index([element])
+  @@map("reference_materials")
+}
+
+model QcMeasurement {
+  id            String     @id @default(uuid()) @db.Uuid
+  testId        String?    @map("test_id") @db.Uuid
+  referenceId   String?    @map("reference_id") @db.Uuid
+  qcType        QcType     @map("qc_type")
+  element       String     @db.VarChar(10)
+  measured      Decimal    @db.Decimal(15, 9)
+  expected      Decimal?   @db.Decimal(15, 9)
+  sd            Decimal?   @db.Decimal(15, 9)
+  zScore        Decimal?   @map("z_score") @db.Decimal(8, 4)
+  recoveryPct   Decimal?   @map("recovery_pct") @db.Decimal(5, 2)
+  westgardRule  String?    @map("westgard_rule") @db.VarChar(20)
+  passed        Boolean
+  operatorId    String?    @map("operator_id") @db.Uuid
+  measuredAt    DateTime   @default(now()) @map("measured_at") @db.Timestamptz
+
+  test          Test?             @relation(fields: [testId], references: [id], onDelete: SetNull)
+  reference     ReferenceMaterial? @relation(fields: [referenceId], references: [id])
+
+  @@index([testId])
+  @@index([referenceId])
+  @@index([element, measuredAt(sort: Desc)])
+  @@map("qc_measurements")
+}
+
+// =====================================================
+// 域 8: report - 报告/审核/签名
+// =====================================================
+
+enum ReportStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  FINAL_REVIEW
+  APPROVED
+  ISSUED
+  REJECTED
+  SUPERSEDED
+}
+
+model Report {
+  id           String       @id @default(uuid()) @db.Uuid
+  reportNo     String       @unique @map("report_no") @db.VarChar(30)
+  sampleId     String       @map("sample_id") @db.Uuid
+  status       ReportStatus @default(DRAFT)
+  pdfFileId    String?      @map("pdf_file_id") @db.Uuid
+  pdfSha256    String?      @map("pdf_sha256") @db.Char(64)
+  qrCode       String?      @map("qr_code") @db.Text
+  summary      String?      @db.Text
+  remarks      String?      @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  issuedAt     DateTime?    @map("issued_at") @db.Timestamptz
+  createdById  String?      @map("created_by_id") @db.Uuid
+
+  sample       Sample           @relation(fields: [sampleId], references: [id])
+  createdBy    User?            @relation("ReportCreator", fields: [createdById], references: [id])
+  stages       ReportStage[]
+  signatures   ReportSignature[]
+
+  @@index([reportNo])
+  @@index([sampleId])
+  @@index([status])
+  @@index([issuedAt(sort: Desc)])
+  @@map("reports")
+}
+
+model ReportStage {
+  id          String       @id @default(uuid()) @db.Uuid
+  reportId    String       @map("report_id") @db.Uuid
+  stage       ReportStatus
+  userId      String       @map("user_id") @db.Uuid
+  comments    String?      @db.Text
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  report      Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([createdAt(sort: Desc)])
+  @@map("report_stages")
+}
+
+model ReportSignature {
+  id                String   @id @default(uuid()) @db.Uuid
+  reportId          String   @map("report_id") @db.Uuid
+  signerId          String   @map("signer_id") @db.Uuid
+  signerRole        UserRole @map("signer_role")
+  signatureData     String   @map("signature_data") @db.Text // Base64 CA 签名
+  certificateSerial String   @map("certificate_serial") @db.VarChar(100)
+  timestampToken    String?  @map("timestamp_token") @db.Text
+  signedAt          DateTime @default(now()) @map("signed_at") @db.Timestamptz
+  ipAddress         String?  @map("ip_address") @db.VarChar(45)
+
+  report            Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  signer            User     @relation(fields: [signerId], references: [id])
+
+  @@index([reportId])
+  @@index([signerId])
+  @@map("report_signatures")
+}
+
+// =====================================================
+// 域 9: reagent - 试剂/耗材/库存
+// =====================================================
+
+enum ReagentType {
+  GOLD_STANDARD
+  SILVER_STANDARD
+  LEAD_BUTTON
+  BORAX
+  SILICA_SAND
+  SODIUM_CARBONATE
+  NITRIC_ACID
+  HYDROCHLORIC_ACID
+  AQUA_REGIA
+  HYDROFLUORIC_ACID
+  PERCHLORIC_ACID
+  ICP_CALIBRATION_STD
+  ARGON_GAS
+  OTHER
+}
+
+model Reagent {
+  id                String      @id @default(uuid()) @db.Uuid
+  code              String      @unique @db.VarChar(50)
+  name              String      @db.VarChar(200)
+  type              ReagentType
+  casNo             String?     @map("cas_no") @db.VarChar(50)
+  purity            String?     @db.VarChar(50)
+  manufacturer      String?     @db.VarChar(100)
+  unit              String      @db.VarChar(20) // g / mL / L
+  packageSize       Decimal?    @map("package_size") @db.Decimal(15, 6)
+  storageCondition  String?     @map("storage_condition") @db.VarChar(200)
+  hazardClass       String?     @map("hazard_class") @db.VarChar(50)
+  safetyStock       Decimal?    @map("safety_stock") @db.Decimal(15, 6)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?   @map("deleted_at") @db.Timestamptz
+
+  lots              ReagentLot[]
+
+  @@index([code])
+  @@index([type])
+  @@map("reagents")
+}
+
+model ReagentLot {
+  id              String   @id @default(uuid()) @db.Uuid
+  reagentId       String   @map("reagent_id") @db.Uuid
+  lotNo           String   @map("lot_no") @db.VarChar(50)
+  receivedDate    DateTime @map("received_date") @db.Date
+  expiryDate      DateTime @map("expiry_date") @db.Date
+  quantity        Decimal  @db.Decimal(15, 6)
+  remainingQty    Decimal  @map("remaining_qty") @db.Decimal(15, 6)
+  unitPrice       Decimal? @map("unit_price") @db.Decimal(15, 6)
+  supplier        String?  @db.VarChar(100)
+  certificateFileId String? @map("certificate_file_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  reagent         Reagent  @relation(fields: [reagentId], references: [id], onDelete: Cascade)
+
+  @@unique([reagentId, lotNo])
+  @@index([expiryDate])
+  @@map("reagent_lots")
+}
+
+model ReagentUsage {
+  id            String     @id @default(uuid()) @db.Uuid
+  reagentLotId  String     @map("reagent_lot_id") @db.Uuid
+  quantity      Decimal    @db.Decimal(15, 6)
+  testId        String?    @map("test_id") @db.Uuid
+  operatorId    String     @map("operator_id") @db.Uuid
+  usedAt        DateTime   @default(now()) @map("used_at") @db.Timestamptz
+  remarks       String?    @db.Text
+
+  @@index([reagentLotId])
+  @@index([testId])
+  @@map("reagent_usages")
+}
+
+// =====================================================
+// 域 10: ehs - 隐患/应急
+// =====================================================
+
+enum HazardSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum HazardStatus {
+  REPORTED
+  INVESTIGATING
+  RESOLVED
+  ESCALATED
+}
+
+model Hazard {
+  id            String         @id @default(uuid()) @db.Uuid
+  source        String         @db.VarChar(100)
+  description   String         @db.Text
+  severity      HazardSeverity
+  location      String?        @db.VarChar(200)
+  reportedById  String         @map("reported_by_id") @db.Uuid
+  reportedAt    DateTime       @default(now()) @map("reported_at") @db.Timestamptz
+  status        HazardStatus   @default(REPORTED)
+  resolvedAt    DateTime?      @map("resolved_at") @db.Timestamptz
+  resolvedById  String?        @map("resolved_by_id") @db.Uuid
+  resolution    String?        @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([severity, status])
+  @@index([reportedAt(sort: Desc)])
+  @@map("hazards")
+}
+
+model EmergencyPlan {
+  id          String   @id @default(uuid()) @db.Uuid
+  planType    String   @map("plan_type") @db.VarChar(50)
+  title       String   @db.VarChar(200)
+  content     String   @db.Text
+  version     Int      @default(1)
+  approvedAt  DateTime? @map("approved_at") @db.Timestamptz
+  approvedBy  String?  @map("approved_by") @db.Uuid
+  fileId      String?  @map("file_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([planType])
+  @@map("emergency_plans")
+}
+
+// =====================================================
+// 域 11: files - 文件附件(通用)
+// =====================================================
+
+enum FileCategory {
+  REPORT_PDF
+  CERTIFICATE
+  QC_DATA
+  SAMPLE_PHOTO
+  TRAINING_CERT
+  METHOD_VALIDATION
+  EMERGENCY_PLAN
+  OTHER
+}
+
+model FileAttachment {
+  id            String       @id @default(uuid()) @db.Uuid
+  fileName      String       @map("file_name") @db.VarChar(255)
+  originalName  String       @map("original_name") @db.VarChar(255)
+  mimeType      String       @map("mime_type") @db.VarChar(100)
+  size          BigInt
+  category      FileCategory
+  storagePath   String       @map("storage_path") @db.VarChar(500) // MinIO path
+  sha256        String       @db.Char(64)
+  uploadedById  String       @map("uploaded_by_id") @db.Uuid
+  equipmentId   String?      @map("equipment_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  uploadedBy    User?        @relation("FileAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  equipment     Equipment?   @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([sha256])
+  @@index([equipmentId])
+  @@map("file_attachments")
+}

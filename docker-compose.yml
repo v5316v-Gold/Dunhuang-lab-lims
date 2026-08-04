@@ -1,0 +1,205 @@
+# ==========================================================
+# 敦煌金质检 LIMS - Docker 本地开发环境
+# ==========================================================
+# 启动: docker compose up -d
+# 停止: docker compose down
+# 日志: docker compose logs -f
+# ==========================================================
+
+version: '3.9'
+
+x-pg-env: &pg-env
+  POSTGRES_DB: dunhuang_lims
+  POSTGRES_USER: dunhuang
+  POSTGRES_PASSWORD: dunhuang_dev_pwd
+
+services:
+  # ========================================
+  # PostgreSQL 16 + TimescaleDB
+  # ========================================
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: dunhuang-pg
+    restart: unless-stopped
+    environment:
+      <<: *pg-env
+      # TimescaleDB 调优
+      TS_TUNE_MEMORY: 2GB
+      TS_TUNE_NUM_CPUS: 2
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./infrastructure/docker/postgres/triggers/audit_chain.sql:/docker-entrypoint-initdb.d/01-audit-chain.sql:ro
+      - ./infrastructure/docker/postgres/triggers/no_modify_audit.sql:/docker-entrypoint-initdb.d/02-no-modify-audit.sql:ro
+      - ./infrastructure/docker/postgres/triggers/timescaledb.sql:/docker-entrypoint-initdb.d/03-timescaledb.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dunhuang -d dunhuang_lims']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dunhuang-net
+
+  # ========================================
+  # Redis 7 (缓存/会话/MFA)
+  # ========================================
+  redis:
+    image: redis:7-alpine
+    container_name: dunhuang-redis
+    restart: unless-stopped
+    command: >
+      sh -c "
+        redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+      "
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - dunhuang-net
+
+  # ========================================
+  # MinIO (S3 兼容对象存储)
+  # ========================================
+  minio:
+    image: minio/minio:latest
+    container_name: dunhuang-minio
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: dunhuang_minio
+      MINIO_ROOT_PASSWORD: dunhuang_minio_dev_pwd
+    ports:
+      - '9000:9000'  # S3 API
+      - '9001:9001'  # Web Console
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - dunhuang-net
+
+  # ========================================
+  # RabbitMQ (异步消息队列)
+  # ========================================
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: dunhuang-mq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: dunhuang
+      RABBITMQ_DEFAULT_PASS: dunhuang_mq_pwd
+    ports:
+      - '5672:5672'    # AMQP
+      - '15672:15672'  # Management UI
+    volumes:
+      - mqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - dunhuang-net
+
+  # ========================================
+  # Prometheus (监控指标)
+  # ========================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dunhuang-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./infrastructure/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - promdata:/prometheus
+    networks:
+      - dunhuang-net
+
+  # ========================================
+  # Grafana (可视化仪表盘)
+  # ========================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dunhuang-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin_dev_pwd
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_INSTALL_PLUGINS: 'grafana-clock-panel,grafana-piechart-panel'
+    ports:
+      - '3001:3000'
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./infrastructure/docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - dunhuang-net
+
+  # ========================================
+  # Loki (日志聚合)
+  # ========================================
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: dunhuang-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./infrastructure/docker/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - lokidata:/loki
+    networks:
+      - dunhuang-net
+
+  # ========================================
+  # Tempo (链路追踪)
+  # ========================================
+  tempo:
+    image: grafana/tempo:2.4.0
+    container_name: dunhuang-tempo
+    restart: unless-stopped
+    command: ['-config.file=/etc/tempo.yaml']
+    ports:
+      - '3200:3200'   # Tempo
+      - '4317:4317'   # OTLP gRPC
+      - '4318:4318'   # OTLP HTTP
+    volumes:
+      - ./infrastructure/docker/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempodata:/var/tempo
+    networks:
+      - dunhuang-net
+
+networks:
+  dunhuang-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  mqdata:
+  promdata:
+  grafanadata:
+  lokidata:
+  tempodata:

@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, feature/*, hotfix/*]
+  pull_request:
+    branches: [main, develop]
+
+# 取消同分支同 workflow 上一次运行
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NODE_ENV: test
+
+jobs:
+  # ============== 1. Lint ==============
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 注:Phase 0 阶段 eslint-plugin-import 路径解析器在 monorepo 下尚未调通
+    # Phase 1 重构:改用 shared @dunhuang/eslint-config + flat config
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm lint
+
+  # ============== 2. TypeCheck ==============
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run TypeScript check (backend)
+        run: cd apps/backend && pnpm typecheck
+
+      - name: Run TypeScript check (frontend)
+        run: cd apps/frontend && pnpm typecheck
+
+      - name: Run TypeScript check (shared packages)
+        run: |
+          cd packages/shared-types && pnpm typecheck
+          cd ../compliance-core && pnpm typecheck
+
+  # ============== 3. Build ==============
+  build:
+    name: Build (Turbo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+  # ============== 4. Test (Unit) ==============
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg16
+        env:
+          POSTGRES_DB: dunhuang_lims_test
+          POSTGRES_USER: dunhuang
+          POSTGRES_PASSWORD: dunhuang_test_pwd
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dunhuang"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        env:
+          DATABASE_URL: postgresql://dunhuang:dunhuang_test_pwd@localhost:5432/dunhuang_lims_test?schema=public
+        run: cd apps/backend && pnpm prisma:generate
+
+      - name: Run Backend Tests
+        env:
+          DATABASE_URL: postgresql://dunhuang:dunhuang_test_pwd@localhost:5432/dunhuang_lims_test?schema=public
+          JWT_SECRET: test-secret-min-32-characters-for-ci-only
+          JWT_REFRESH_SECRET: test-refresh-secret-min-32-characters
+          NODE_ENV: test
+        run: cd apps/backend && pnpm test
+
+      - name: Run Frontend Tests
+        run: cd apps/frontend && pnpm test
+
+  # ============== 5. Audit Verify (CNAS 合规) ==============
+  audit-verify:
+    name: Audit Chain Verify (CNAS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build]
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg16
+        env:
+          POSTGRES_DB: dunhuang_lims_test
+          POSTGRES_USER: dunhuang
+          POSTGRES_PASSWORD: dunhuang_test_pwd
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply schema + audit triggers
+        env:
+          DATABASE_URL: postgresql://dunhuang:dunhuang_test_pwd@localhost:5432/dunhuang_lims_test?schema=public
+          PGPASSWORD: dunhuang_test_pwd
+        run: |
+          cd apps/backend
+          pnpm prisma db push --skip-generate
+          psql "postgresql://dunhuang:dunhuang_test_pwd@localhost:5432/dunhuang_lims_test" \
+            -v ON_ERROR_STOP=1 -f ../../infrastructure/docker/postgres/triggers/audit_chain.sql
+
+      - name: Run audit chain verification
+        env:
+          DATABASE_URL: postgresql://dunhuang:dunhuang_test_pwd@localhost:5432/dunhuang_lims_test?schema=public
+        run: pnpm audit:verify

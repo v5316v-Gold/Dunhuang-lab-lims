@@ -1,0 +1,56 @@
+# Prometheus 配置文件 - 敦煌金质检 LIMS
+# 详见 docs/05-DEPLOYMENT.md
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'dunhuang-lims-dev'
+    environment: 'development'
+
+# 加载告警规则
+rule_files:
+  - 'alerts.yml'
+
+# 告警管理器
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+      # Phase 5 接入: ['alertmanager:9093']
+
+# 抓取任务
+scrape_configs:
+  # Prometheus 自身
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # NestJS 后端(Phase 1 接入)
+  - job_name: 'lims-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:3000']
+        labels:
+          service: 'backend'
+          app: 'dunhuang-lims'
+
+  # PostgreSQL exporter(可选,Phase 5 接入)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis exporter(可选,Phase 5 接入)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # RabbitMQ exporter(可选,Phase 5 接入)
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq-exporter:9419']
+
+  # Node exporter(宿主机指标)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']

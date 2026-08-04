@@ -1,0 +1,107 @@
+// =====================================================
+// 主布局 - 侧边栏 + Header + Outlet
+// =====================================================
+
+import { Layout, Menu, Avatar, Dropdown, Space, Typography } from 'antd';
+import {
+  DashboardOutlined,
+  ExperimentOutlined,
+  ClusterOutlined,
+  FileSearchOutlined,
+  FileDoneOutlined,
+  ToolOutlined,
+  TeamOutlined,
+  ExperimentLabOutlined,
+  AuditOutlined,
+  UserOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../stores/auth.store';
+
+const { Sider, Header, Content } = Layout;
+const { Text } = Typography;
+
+const menuItems = [
+  { key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">仪表盘</Link> },
+  { key: '/samples', icon: <ExperimentOutlined />, label: <Link to="/samples">样品管理</Link> },
+  { key: '/batches', icon: <ClusterOutlined />, label: <Link to="/batches">批次管理</Link> },
+  { key: '/tests', icon: <FileSearchOutlined />, label: <Link to="/tests">检测任务</Link> },
+  { key: '/reports', icon: <FileDoneOutlined />, label: <Link to="/reports">检测报告</Link> },
+  { key: '/equipment', icon: <ToolOutlined />, label: <Link to="/equipment">设备管理</Link> },
+  { key: '/personnel', icon: <TeamOutlined />, label: <Link to="/personnel">人员管理</Link> },
+  { key: '/reagents', icon: <ExperimentLabOutlined />, label: <Link to="/reagents">试剂库存</Link> },
+  { key: '/audit-logs', icon: <AuditOutlined />, label: <Link to="/audit-logs">审计日志</Link> },
+];
+
+export function MainLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  const selectedKey = menuItems.find((m) => location.pathname.startsWith(m.key))?.key ?? '/dashboard';
+
+  const userMenuItems = [
+    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
+  ];
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider theme="dark" width={220}>
+        <div
+          style={{
+            height: 64,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: 600,
+            background: 'rgba(255,255,255,0.05)',
+          }}
+        >
+          敦煌金质检 LIMS
+        </div>
+        <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={menuItems} />
+      </Sider>
+
+      <Layout>
+        <Header
+          style={{
+            background: '#fff',
+            padding: '0 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 1px 4px rgba(0,21,41,0.08)',
+          }}
+        >
+          <Text strong style={{ fontSize: 18 }}>
+            {menuItems.find((m) => m.key === selectedKey)?.label?.props?.children ?? '敦煌金质检 LIMS'}
+          </Text>
+          <Dropdown
+            menu={{
+              items: userMenuItems,
+              onClick: ({ key }) => {
+                if (key === 'logout') {
+                  logout();
+                  navigate('/login');
+                }
+              },
+            }}
+          >
+            <Space style={{ cursor: 'pointer' }}>
+              <Avatar icon={<UserOutlined />} />
+              <Text>{user?.name ?? '未登录'}</Text>
+            </Space>
+          </Dropdown>
+        </Header>
+
+        <Content style={{ margin: 16, padding: 24, background: '#fff', borderRadius: 8 }}>
+          <Outlet />
+        </Content>
+      </Layout>
+    </Layout>
+  );
+}
