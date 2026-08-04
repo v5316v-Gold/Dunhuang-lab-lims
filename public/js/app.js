@@ -1625,3 +1625,51 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+
+// 客户端 zod 校验拦截 (任务 D)
+document.addEventListener('submit', function(e) {
+  var form = e.target;
+  if (!form || form.tagName !== 'FORM') return;
+  var formId = form.id;
+  
+  // 人员
+  if (formId === 'form-personnel' && window.validateForm) {
+    var data = {
+      name: document.getElementById('personnel-name')?.value,
+      dept: document.getElementById('personnel-dept')?.value,
+      title: document.getElementById('personnel-position')?.value,
+      phone: document.getElementById('personnel-phone')?.value,
+      email: document.getElementById('personnel-email')?.value
+    };
+    var result = window.validateForm('personnel', data);
+    if (!result.valid) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      window.showFormErrors('#form-personnel', result.errors);
+      return false;
+    } else {
+      window.showFormErrors('#form-personnel', []);  // 清错误
+    }
+  }
+  
+  // 设备
+  if (formId === 'form-equipment' && window.validateForm) {
+    var data = {
+      equip_no: document.getElementById('equip-no')?.value,
+      equip_name: document.getElementById('equip-name')?.value,
+      model: document.getElementById('equip-model')?.value,
+      manufacturer: document.getElementById('equip-mfr')?.value,
+      location: document.getElementById('equip-location')?.value
+    };
+    var result = window.validateForm('equipment', data);
+    if (!result.valid) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      window.showFormErrors('#form-equipment', result.errors);
+      return false;
+    } else {
+      window.showFormErrors('#form-equipment', []);
+    }
+  }
+}, true);  // capture phase
