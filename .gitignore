@@ -73,3 +73,6 @@ tmp/
 
 # Tier 1 backups
 .backup_tier1/
+
+# P0-2 backups
+.backup_p0_2/

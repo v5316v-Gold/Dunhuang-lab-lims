@@ -14,6 +14,7 @@ const fs = require('fs');
 const multer = require('multer');
 const helmet = require('helmet');
 const { z } = require('zod');
+const { AuditChain } = require('./lib/audit-chain');
 const crypto = require('crypto');
 
 const app = express();
@@ -111,18 +112,26 @@ function saveDB() {
 // ============================================================
 // CNAS Audit Trail
 // ============================================================
-function makeAudit(action, table_name, record_id, old_data, req) {
-  const user_id = req.session.userId || null;
-  const username = req.session.username || '';
-  const ip_address = req.ip || req.connection.remoteAddress || '';
-  run(
-    `INSERT INTO audit_logs (user_id, username, action, table_name, record_id, old_data, new_data, ip_address, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [user_id, username, action, table_name, record_id,
-     old_data ? JSON.stringify(old_data) : null,
-     req.body ? JSON.stringify(req.body) : null,
-     ip_address]
-  );
+function makeAudit(req, action, tableName, recordId, oldData, newData) {
+  // P0-2 CNAS: 使用 SHA256 hash chain
+  if (global.auditChain) {
+    return global.auditChain.append({
+      user_id: req.session?.userId || null,
+      action,
+      table_name: tableName,
+      record_id: recordId,
+      old_data: oldData,
+      new_data: newData,
+      ip_address: req.ip || req.headers?.['x-forwarded-for'] || null
+    });
+  }
+  // Fallback: 旧的 makeAudit（如果 auditChain 未初始化）
+  const userId = req.session ? req.session.userId : null;
+  const ip = req.ip || (req.headers && req.headers['x-forwarded-for']) || '';
+  try {
+    run("INSERT INTO audit_logs (user_id, action, table_name, record_id, old_data, new_data, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [userId, action, tableName, recordId, oldData ? JSON.stringify(oldData) : null, newData ? JSON.stringify(newData) : null, ip]);
+  } catch(e) { console.error('[AUDIT] write failed:', e.message); }
 }
 
 // Also write audit entries for LIST queries (optional, skip for now)
@@ -543,6 +552,50 @@ async function initDB() {
     const { createTables, runMigrations } = require('./db/schema');
     createTables(db);
     runMigrations(db);
+
+    // Initialize audit chain (P0-2 CNAS compliance)
+    // 必须先于 seedData()，因为 seedData 内部可能写 audit
+    const auditChain = new AuditChain(db);
+    auditChain.installTriggers();
+    global.auditChain = auditChain;
+    console.log('[OK] Audit chain initialized (SHA256 + append-only triggers)');
+
+    // Migrate existing audit_logs to hash chain (idempotent)
+    if (process.env.SKIP_AUDIT_MIGRATE !== '1') {
+      try {
+        const verifyResult = auditChain.verify();
+        if (!verifyResult.valid && verifyResult.total > 0) {
+          console.log('[AUDIT-CHAIN] Existing records detected, migrating...');
+          const rows = db.prepare('SELECT * FROM audit_logs ORDER BY id ASC').all();
+          let prevHash = '0'.repeat(64);
+          const update = db.prepare('UPDATE audit_logs SET prev_hash = ?, curr_hash = ? WHERE id = ?');
+          const crypto = require('crypto');
+          db.transaction(() => {
+            for (const row of rows) {
+              if (row.curr_hash && row.curr_hash !== 'pending') {
+                if (row.prev_hash === prevHash) { prevHash = row.curr_hash; continue; }
+              }
+              const data = {
+                ts: row.created_at,
+                user_id: row.user_id,
+                action: row.action,
+                table_name: row.table_name,
+                record_id: row.record_id,
+                old_data: row.old_data ? JSON.parse(row.old_data) : null,
+                new_data: row.new_data ? JSON.parse(row.new_data) : null
+              };
+              const json = JSON.stringify(data);
+              const newHash = crypto.createHash('sha256').update(prevHash + json).digest('hex');
+              update.run(prevHash, newHash, row.id);
+              prevHash = newHash;
+            }
+          })();
+          console.log('[AUDIT-CHAIN] Migration complete: ' + rows.length + ' records');
+        }
+      } catch (e) {
+        console.warn('[AUDIT-CHAIN] Migration skipped (no existing data):', e.message);
+      }
+    }
 
     seedData();
     return db;
