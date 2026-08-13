@@ -275,3 +275,91 @@ docker compose up -d
 4. **重启 Phase 0.5** 从基线 `7873db7` 重新执行,跳过本次未 commit 的改动
 
 **PHASE 0.5 GATE: FAIL** — Phase 1 不应启动,需先恢复阻塞项。
+
+
+---
+
+## CORRECTION APPENDIX — 2026-08-13 20:58
+
+### 重大环境修正(必须先看)
+
+| 修正前(误) | 修正后(正) | 证据 |
+|---|---|---|
+| Phase 0 验证用的 `127.0.0.1:55432/56379` 是 LIMS 容器 | **错**。该端口的 PG/Redis 实际是 **`dunhuang-ai`** 项目的容器(compose label `com.docker.compose.project=dunhuang-ai`),与 LIMS **完全无关** | `docker ps` 显示 `dunhuang-postgres` label=`dunhuang-ai`;数据库 `current_user` ≠ `dunhuang` |
+| `dunhuang-lmis` 是 compose 项目名 | `dunhuang-lab-lims-main`(基于目录名)才是真正的 compose project(网络/卷名由目录名生成,已存在 `dunhuang-lab-lims-main_dunhuang-net` 等) | `docker network ls` / `docker volume ls` 列出 `dunhuang-lab-lims-main_*` 命名空间 |
+| LIMS 容器用 host port 5432/6379 | **错** —— 与 dunhuang-ai 撞车,容器根本起不来(且当前发现 LIMS PG 容器没连任何 network) | 第一次 `up -d` 后 inspect:`'networks': []` |
+| **修正**:LIMS 改 host port `55432:5432` + `56379:6379`,**与原 backend `.env` 完全匹配** | ✅ | `docker-compose.yml` 已 patch;LIMS 容器 now `0.0.0.0:55432→5432/tcp` healthy |
+
+### LIMS 真容器状态(post-fix,2026-08-13 20:58)
+
+```
+NAME             IMAGE                               STATUS                     PORTS
+dunhuang-pg      timescale/timescaledb:latest-pg16   Up (healthy)               0.0.0.0:55432->5432/tcp
+dunhuang-redis   redis:7-alpine                      Up (healthy)               0.0.0.0:56379->6379/tcp
+```
+
+| 检查项 | 结果 |
+|---|---|
+| 容器内 psql 登录 | `current_database=dunhuang_lims, current_user=dunhuang` ✓ |
+| 30 张表已建(Phase 0 `db push` 残留) | ✅(`\dt` 输出 30 rows) |
+| Host 端 `127.0.0.1:55432` TCP 可达 | ✅(node net.connect test) |
+| Host 端 `127.0.0.1:56379` TCP 可达 | ✅ |
+| backend `.env` `DATABASE_URL` = `127.0.0.1:55432` | ✅ 不需改 |
+| backend `.env` `REDIS_URL` = `127.0.0.1:56379` | ✅ 不需改 |
+
+### LIMS PG 现状盘点(关键决策依据)
+
+**表存在**:30 张(samples / tests / reports / equipment / sample_batches / methods / personnel / reagents / qc_measurements / departments / reference_materials 等)
+
+**数据状态**:
+```
+users          = 1   (admin, Session 1 残留)
+samples        = 0
+sample_batches = 0
+tests          = 0
+reports        = 0
+audit_logs     = 1
+```
+
+**audit triggers 现状**(对照 Phase 0.5 Task C 目标):
+| 表 | 触发器 | 缺什么 |
+|---|---|---|
+| `equipment` | `trg_audit_equipment` | OK |
+| `reports` | `trg_audit_reports` | OK |
+| `sample_batches` | `trg_audit_sample_batches` | OK |
+| `samples` | `trg_audit_samples` | OK |
+| `tests` | `trg_audit_tests` | OK |
+| `users` | `trg_audit_users` | OK |
+| `calibrations / methods / personnel / reagents / qc_measurements / departments / reference_materials / reagent_lots / report_signatures / report_stages / file_attachments / maintenances / hazards / periodic_checks / trainings / competencies / user_role_assignments / user_sessions / fire_assay_details / element_results / emergency_plans` | ❌ 缺失 | **Task C 主战场** |
+| `audit_logs` 表本身 | ❌ 无 `prevent_audit_modification` 触发器 | **Task C 必须补**(函数已有,trigger 缺挂) |
+
+**审计函数**:
+- `compute_audit_hash()` ✓
+- `audit_trigger()` ✓
+- `prevent_audit_modification()` ✓(但 **未挂任何 trigger**)
+
+### Phase 0.5 现状(经修正后)
+
+| Task | 状态 | 备注 |
+|---|---|---|
+| **A** BigInt 序列化 + DTO | ✅ 代码完成,**⏳ jest 测试仍未验证 PASS**(Windows shim bug) | 提交于 `e3c9763` |
+| **B** Prisma baseline migration | ✅ SQL 已生成(936 行),**⏳ 需 `prisma migrate deploy` 跑一次以建立 `_prisma_migrations` 表 + 实际生效(目前是 db push 残留状态)** | 提交于 `e3c9763` |
+| **C** Audit trigger 补全(12+ 表)+ prevent_modify trigger | ⏳ 待办 | 上面盘点列出 6 张已挂,21 张需补 |
+| **D** Audit compliance 集成测试 | ⏳ 待办 | |
+| **E** 软删除统一 | ⏳ 待办 | |
+| **F** ESLint + CI | ⏳ 待办 | |
+| **G** E2E 垂直切片 | ⏳ 待办 | |
+| **H** 风险评估 + VMP | ⏳ 待办 | |
+
+### 下一步
+
+1. **优先 Task A 验证**:换用 `pnpm test` 或 `npx jest` 绕开 Windows shim
+2. **Task B 部署**:在真 LIMS PG 上跑 `prisma migrate deploy`,建立迁移基线
+3. **Task C 触发器补全**:按上面盘点,把 21 张表的 audit trigger 补齐;并 `CREATE TRIGGER prevent_audit_modification ON audit_logs ...`
+4. **后续 D-G 顺次**
+
+### 仍残留的事项
+
+- 18 个 Session 1 modified 文件未 commit(按 Section 3 不动)
+- backend 服务未启动(待 LIMS PG 验证 + Task A 验证后启动)
+- jest shim 错误未修

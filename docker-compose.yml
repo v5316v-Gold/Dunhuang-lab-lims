@@ -26,8 +26,10 @@ services:
       # TimescaleDB 调优
       TS_TUNE_MEMORY: 2GB
       TS_TUNE_NUM_CPUS: 2
+    # 2026-08-13 [Phase 0.5 fix]: 改 host 端口 5432→55432,避免与 dunhuang-ai 项目撞车
+    # 容器内端口仍为 5432;backend 走 host loopback 127.0.0.1:55432 连入
     ports:
-      - '5432:5432'
+      - '55432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
@@ -53,8 +55,10 @@ services:
       sh -c "
         redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
       "
+    # 2026-08-13 [Phase 0.5 fix]: 改 host 端口 6379→56379,避免与 dunhuang-ai 项目撞车
+    # 容器内端口仍为 6379;backend 走 host loopback 127.0.0.1:56379 连入
     ports:
-      - '6379:6379'
+      - '56379:6379'
     volumes:
       - redisdata:/data
     healthcheck:
