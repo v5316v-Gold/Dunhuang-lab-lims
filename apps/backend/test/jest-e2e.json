@@ -1,0 +1,19 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": "test/integration/.*\\.spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "tsconfig.json" }]
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/src/$1",
+    "^@dunhuang/lims-(.*)$": "<rootDir>/../../packages/$1/src"
+  },
+  "moduleDirectories": [
+    "node_modules",
+    "../../node_modules",
+    "../../node_modules/.pnpm/node_modules"
+  ],
+  "testTimeout": 30000
+}

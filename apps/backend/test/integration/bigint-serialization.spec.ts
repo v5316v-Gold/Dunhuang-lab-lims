@@ -9,7 +9,7 @@ import { AppModule } from '../../src/app.module';
 import { installBigIntReplacer } from '../../src/common/filters/bigint-replacer';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
-import * as request from 'supertest';
+import request = require('supertest');
 
 describe('BigInt JSON serialization (Phase 0.5 Task A)', () => {
   let app: INestApplication;
@@ -23,7 +23,15 @@ describe('BigInt JSON serialization (Phase 0.5 Task A)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    // 与 main.ts 保持一致:whitelist + forbidNonWhitelisted + transform
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+        transformOptions: { enableImplicitConversion: true },
+      }),
+    );
     await app.init();
     prisma = app.get(PrismaService);
     jwt = app.get(JwtService);
@@ -31,9 +39,12 @@ describe('BigInt JSON serialization (Phase 0.5 Task A)', () => {
     // 拿 admin 用户 id
     const admin = await prisma.user.findUnique({ where: { username: 'admin' } });
     if (!admin) throw new Error('admin user not seeded');
-    adminToken = jwt.sign(
+    // 用 jsonwebtoken 直接签,绕开 JwtService 的 expiresIn 解析问题
+    const jwtLib = require('jsonwebtoken');
+    const secret = process.env.JWT_SECRET || 'test-secret-32-chars-minimum-test';
+    adminToken = jwtLib.sign(
       { sub: admin.id, username: admin.username, role: admin.role },
-      process.env.JWT_SECRET || 'test-secret-32-chars-minimum-test',
+      secret,
       { expiresIn: '15m' },
     );
   });
@@ -51,7 +62,7 @@ describe('BigInt JSON serialization (Phase 0.5 Task A)', () => {
 
   it('GET /audit-logs returns 200 with BigInt serialized as string', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/v1/audit-logs?pageSize=3')
+      .get('/audit-logs?pageSize=3')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data).toBeInstanceOf(Array);
@@ -65,16 +76,17 @@ describe('BigInt JSON serialization (Phase 0.5 Task A)', () => {
   it('GET /audit-logs with invalid filter (extra field) returns 400', async () => {
     // forbidNonWhitelisted: true + DTO 没有 maliciousField,应被 ValidationPipe 拒
     const res = await request(app.getHttpServer())
-      .get('/api/v1/audit-logs?maliciousField=evil')
+      .get('/audit-logs?maliciousField=evil')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(400);
   });
 
   it('GET /audit-logs/verify stays 200', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/v1/audit-logs/verify')
+      .get('/audit-logs/verify')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.valid).toBe(true);
+    // verify 返回 { passed, totalRecords, errors, ... }
+    expect(res.body.passed).toBe(true);
   });
 });
