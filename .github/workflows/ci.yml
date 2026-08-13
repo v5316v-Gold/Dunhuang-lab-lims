@@ -21,9 +21,8 @@ jobs:
     name: Lint (ESLint)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # 注:Phase 0 阶段 eslint-plugin-import 路径解析器在 monorepo 下尚未调通
-    # Phase 1 重构:改用 shared @dunhuang/eslint-config + flat config
-    continue-on-error: true
+    # Phase 0.5 Task F: 移除 continue-on-error:true(原来 resolver 错误时设的)
+    # 改用 max-warnings 100(允许 style warnings,不允许 errors)
     steps:
       - uses: actions/checkout@v4
 
@@ -39,10 +38,14 @@ jobs:
           version: 9.x
 
       - name: Install dependencies
+        env:
+          NODE_ENV: development
         run: pnpm install --frozen-lockfile
 
       - name: Run ESLint
-        run: pnpm lint
+        env:
+          NODE_ENV: development
+        run: pnpm lint -- --max-warnings 100
 
   # ============== 2. TypeCheck ==============
   typecheck:

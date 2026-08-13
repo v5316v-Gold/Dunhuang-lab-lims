@@ -5,6 +5,7 @@
 
 // 必须最先加载 dotenv,否则 Prisma 客户端构造时拿不到 DATABASE_URL
 import * as dotenv from 'dotenv';
+
 import * as path from 'path';
 // 兜底多个候选路径,兼容 dev (src) / build (dist) / monorepo
 const envCandidates = [
@@ -18,16 +19,17 @@ for (const p of envCandidates) {
   dotenv.config({ path: p });
 }
 
-import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import helmet from 'helmet';
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+
 import { AppModule } from './app.module';
+import { AuditContextInterceptor } from './common/audit/audit-context.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { AuditContextInterceptor } from './common/audit/audit-context.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {

@@ -1,11 +1,15 @@
 // =====================================================
 // 审计日志服务 - SHA256 链断链自检
 // 详见 ADR-0003
+// Phase 0.5 Task A: BigInt 序列化 + DTO 校验
 // =====================================================
 
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
+import { AuditLogFilterDto } from './dto/audit-log-filter.dto';
 
 export interface AuditVerifyResult {
   passed: boolean;
@@ -20,18 +24,6 @@ export interface AuditVerifyResult {
   durationMs: number;
 }
 
-export interface AuditLogFilter {
-  userId?: string;
-  username?: string;
-  tableName?: string;
-  recordId?: string;
-  action?: string;
-  from?: Date;
-  to?: Date;
-  page?: number;
-  pageSize?: number;
-}
-
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
@@ -41,9 +33,17 @@ export class AuditService {
   /**
    * 查询审计日志(分页 + 过滤)
    */
-  async findAll(filter: AuditLogFilter) {
+  async findAll(filter: AuditLogFilterDto) {
     const { page = 1, pageSize = 50, ...where } = filter;
     const where_ = this.buildWhere(where);
+
+    // Phase 0.5 Task A: from / to 是 ISO 字符串,转 Date 对象传给 Prisma
+    if (typeof filter.from === 'string') {
+      where_.createdAt = { ...(where_.createdAt as object ?? {}), gte: new Date(filter.from) };
+    }
+    if (typeof filter.to === 'string') {
+      where_.createdAt = { ...(where_.createdAt as object ?? {}), lte: new Date(filter.to) };
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.auditLog.findMany({
@@ -92,6 +92,7 @@ export class AuditService {
 
     // 分批查询,每批 1000 条
     const batchSize = 1000;
+    // eslint-disable-next-line no-constant-condition -- 流式分批查询需要 while-true 模式
     while (true) {
       const batch = await this.prisma.auditLog.findMany({
         where: { id: { gt: lastId } },
@@ -173,18 +174,13 @@ export class AuditService {
   /**
    * 构建 Prisma where 条件
    */
-  private buildWhere(filter: Omit<AuditLogFilter, 'page' | 'pageSize'>) {
+  private buildWhere(filter: Omit<AuditLogFilterDto, 'page' | 'pageSize'>) {
     const where: Prisma.AuditLogWhereInput = {};
     if (filter.userId) where.userId = filter.userId;
     if (filter.username) where.username = filter.username;
     if (filter.tableName) where.tableName = filter.tableName;
     if (filter.recordId) where.recordId = filter.recordId;
     if (filter.action) where.action = { contains: filter.action };
-    if (filter.from || filter.to) {
-      where.createdAt = {};
-      if (filter.from) where.createdAt.gte = filter.from;
-      if (filter.to) where.createdAt.lte = filter.to;
-    }
     return where;
   }
 }

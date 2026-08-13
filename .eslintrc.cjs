@@ -31,7 +31,9 @@ module.exports = {
   ],
   settings: {
     'import/resolver': {
-      typescript: {
+      // Phase 0.5 Task F: 改用 eslint-import-resolver-typescript(原本写 'typescript' 是错的)
+      // 解决 pnpm monorepo 下 @/* 跨包 import 解析问题
+      'eslint-import-resolver-typescript': {
         alwaysTryTypes: true,
         project: ['apps/*/tsconfig.json', 'packages/*/tsconfig.json'],
       },
