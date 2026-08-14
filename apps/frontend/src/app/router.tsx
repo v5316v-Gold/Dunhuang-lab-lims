@@ -12,6 +12,7 @@ import { ReportsList } from '../views/report/ReportsList';
 import { EquipmentList } from '../views/equipment/EquipmentList';
 import { PersonnelList } from '../views/personnel/PersonnelList';
 import { ReagentsList } from '../views/reagent/ReagentsList';
+import { SampleDetail } from '../views/sample/SampleDetail';
 import { RequireAuth } from './RequireAuth';
 
 const LoginPage = lazy(() => import('../views/auth/Login'));
@@ -51,6 +52,7 @@ export function AppRouter() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="samples" element={<SamplesListPage />} />
+          <Route path="samples/:id" element={<SampleDetail />} />
           <Route path="samples/receive" element={<SampleReceivePage />} />
           <Route path="batches" element={<BatchesListPage />} />
           <Route path="batches/:id" element={<BatchDetailPage />} />
