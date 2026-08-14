@@ -3,11 +3,24 @@
 // 模块化架构 + CNAS 审计追踪
 // ============================================================
 // 配置加载（必须最先执行，使 process.env 在其他模块 require 前生效）
-require('dotenv').config();
+require('dotenv').config({ override: true });
+console.log('[BOOT] dotenv 加载完成 PORT=' + JSON.stringify(process.env.PORT));
 
 const express = require('express');
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
+// 阶段 1.2 修复: __db shim (让 db.exec(SQL, params) 工作)
+const __db = {
+  exec: function(sql, params) {
+    const _d = global.db;
+    if (params !== undefined && params !== null) {
+      if (Array.isArray(params)) return _d.prepare(sql).run(params);
+      return _d.prepare(sql).run([params]);
+    }
+    return _d.exec(sql);
+  }
+};
+// 阶段 1.2 修复: better-sqlite3 的 db.exec 不支持参数// 用一个 shim 让旧代码 __db.exec(SQL, params) 也能工作const __origDbExec = Database.prototype.exec;Database.prototype.exec = function(sql, params) {  if (params) return this.prepare(sql).run(params);  return __origDbExec.call(this, sql);};
 const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
@@ -145,7 +158,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://code.jquery.com", "https://maxcdn.bootstrapcdn.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://code.jquery.com", "https://maxcdn.bootstrapcdn.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://maxcdn.bootstrapcdn.com"],
       imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'", "data:", "https://maxcdn.bootstrapcdn.com"],
@@ -168,7 +181,8 @@ app.use(session({
 }));
 
 // Make globals available to route modules
-global.db = db;
+  // 阶段 1.2: db instance shim disabled - using global __db wrapper
+app.locals.db = db;  // 阶段 1.2 - RBAC 中间件需要
 global.requireAuth = (req, res, next) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
   next();
@@ -214,6 +228,7 @@ app.use('/api', fumehoodTrainingRoutes.fumehood);    // /api/fumehood, /api/fume
 app.use('/api', fumehoodTrainingRoutes.training);     // /api/training-annual, /api/training-records
 app.use('/api', ehsRoutes);            // /api/ehs-inspection, /api/ehs-incident, /api/ehs-hazard
 app.use('/api', workflowRoutes);   // /api/workflow/*
+app.use('/api/permissions', require('./routes/permissions'));  // 阶段 1.2 - 8 岗位 RBAC
 app.use('/api/excel', require('./routes/excel'));   // /api/excel/*
 
 // ============================================================
@@ -493,7 +508,7 @@ app.post('/api/workflow/complete-processing', requireAuth, (req, res) => {
       else continue;
 
       try {
-        db.run(`UPDATE ${table} SET ${stockCol} = ${stockCol} - ? WHERE id = ?`, [quantity, item_id]);
+        __db.exec(`UPDATE ${table} SET ${stockCol} = ${stockCol} - ? WHERE id = ?`, [quantity, item_id]);
       } catch(e) { /* ignore if column missing */ }
 
       // 插入消耗记录
@@ -541,13 +556,13 @@ async function initDB() {
     db.pragma('foreign_keys = ON');
     db.pragma('journal_mode = WAL');
 
-    // 兼容 schema.js: sql.js 的 db.run(sqlString) / db.exec(sqlString)
-    // better-sqlite3 没有这些方法，monkey-patch
-    db.run = function(sql) { db.exec(sql); };
-    db.exec = function(sql) { db.prepare(sql).run(); };
-
     // Update global db reference
+    // better-sqlite3 原生支持 db.exec(sqlString) 多语句执行 + db.prepare(sql).run() 单语句
+    // 不再 monkey-patch（之前版本与 sql.js 兼容导致多语句 CREATE TABLE 失败）
+
+    // 设置 global.db (阶段 1.2 RBAC 中间件需要) + app.locals.db
     global.db = db;
+  // 阶段 1.2: db instance shim disabled - using global __db wrapper
 
     // Load schema
     const { createTables, runMigrations } = require('./db/schema');
@@ -622,11 +637,11 @@ function seedData() {
   const adminHash = bcrypt.hashSync('admin123', 10);
 
   // 主用户：yuwangang / 123456 / 检测员
-  db.run("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
+  __db.exec("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
     ['yuwangang', ywgHash, 'analyst', '余万刚', '检测部', '高级检测员']);
 
   // 备用管理员
-  db.run("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
+  __db.exec("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
     ['admin', adminHash, 'admin', '系统管理员', '质量管理部', 'LIMS系统管理员']);
 
   // 实验室主管 + 高级分析师
@@ -644,7 +659,7 @@ function seedData() {
     ['staff10', 'analyst', '马志强', '仪器室', '工程师'],
   ];
   staffList.forEach(s => {
-    db.run("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
+    __db.exec("INSERT INTO users (username,password,role,name,dept,title) VALUES (?,?,?,?,?,?)",
       [s[0], ywgHash, s[1], s[2], s[3], s[4]]);
   });
 
@@ -653,7 +668,7 @@ function seedData() {
     '质量管理部', '检测部', '化学室', '仪器室', '微生物室',
     '理化室', '前处理室', '样品管理部', '设备管理部', '综合管理部', '质量监督'
   ];
-  deptNames.forEach(d => db.run("INSERT INTO departments (name) VALUES (?)", [d]));
+  deptNames.forEach(d => __db.exec("INSERT INTO departments (name) VALUES (?)", [d]));
 
   // ==================== 检测项目（projects） ====================
   // projects 表：id, project_no, project_name, method_type, description, created_at
@@ -711,7 +726,7 @@ function seedData() {
     ['HPLC-S-003', 'HPLC氨基酸分析', '液相色谱', '食品中18种氨基酸检测'],
   ];
   projectList.forEach(p => {
-    db.run("INSERT INTO projects (project_no,project_name,method_type,description) VALUES (?,?,?,?)", p);
+    __db.exec("INSERT INTO projects (project_no,project_name,method_type,description) VALUES (?,?,?,?)", p);
   });
 
   // ==================== 设备（equipment） ====================
@@ -781,7 +796,7 @@ function seedData() {
     ['EQ-060', '气相色谱仪（旧）', 'Trace GC Ultra', 'Thermo Fisher', 'SN2017-060', '2017-08-22', 380000, 95000, '仪器室D', 4, 'broken'],
   ];
   equipmentList.forEach(e => {
-    db.run("INSERT INTO equipment (equip_no,equip_name,model,manufacturer,serial_no,purchase_date,purchase_price,current_value,location,dept_id,status) VALUES (?,?,?,?,?,?,?,?,?,?,?)", e);
+    __db.exec("INSERT INTO equipment (equip_no,equip_name,model,manufacturer,serial_no,purchase_date,purchase_price,current_value,location,dept_id,status) VALUES (?,?,?,?,?,?,?,?,?,?,?)", e);
   });
 
   // ==================== 耗材（consumables） ====================
@@ -844,7 +859,7 @@ function seedData() {
     ['卡尔费休试剂', '500mL', '瓶', '试剂', 5, 3, '理化室D'],
   ];
   consumables.forEach(c => {
-    db.run("INSERT INTO consumables (item_name,specification,unit,category,min_stock,current_stock,location) VALUES (?,?,?,?,?,?,?)", c);
+    __db.exec("INSERT INTO consumables (item_name,specification,unit,category,min_stock,current_stock,location) VALUES (?,?,?,?,?,?,?)", c);
   });
 
   // ==================== 试剂（reagents） ====================
@@ -920,7 +935,7 @@ function seedData() {
     ['PAHs混标（临期）', '混合', 'PAHs', '2000μg/mL', 'AccuStandard', '艾吉斯', '仪器室E', 1, '1mL', 2, 'expiring', '2026-09-30'],
   ];
   reagents.forEach(r => {
-    db.run("INSERT INTO reagents (reagent_name,cas_no,formula,purity,manufacturer,supplier,location,current_stock,unit,min_stock,status,expiry_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", r);
+    __db.exec("INSERT INTO reagents (reagent_name,cas_no,formula,purity,manufacturer,supplier,location,current_stock,unit,min_stock,status,expiry_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", r);
   });
 
   // ==================== 样品（samples） ====================
@@ -937,7 +952,7 @@ function seedData() {
     const date = new Date();
     date.setDate(date.getDate() - daysAgo);
     const dateStr = date.toISOString().slice(0, 10);
-    db.run(`INSERT INTO samples (sample_code, sample_name, sample_type, client_name, received_date, test_item, status, analyst_id)
+    __db.exec(`INSERT INTO samples (sample_code, sample_name, sample_type, client_name, received_date, test_item, status, analyst_id)
             VALUES (?,?,?,?,?,?,?,?)`,
       [sampleNo,
        `${sampleTypes[typeIdx]}样品#${i}`,
@@ -958,7 +973,7 @@ function seedData() {
     date.setDate(date.getDate() - daysAgo);
     const nextDate = new Date(date);
     nextDate.setMonth(nextDate.getMonth() + 3);
-    db.run(`INSERT INTO equipment_maintenance (equip_id, maintenance_date, maintenance_type, maintainer, cost, description, next_maintenance_date)
+    __db.exec(`INSERT INTO equipment_maintenance (equip_id, maintenance_date, maintenance_type, maintainer, cost, description, next_maintenance_date)
             VALUES (?,?,?,?,?,?,?)`,
       [((i % 60) + 1),
        date.toISOString().slice(0, 10),
@@ -990,7 +1005,7 @@ function seedData() {
     date.setDate(date.getDate() - daysAgo);
     const deadline = new Date(date);
     deadline.setDate(deadline.getDate() + h[6]);
-    db.run(`INSERT INTO ehs_hazard (discovery_date,hazard_location,hazard_type,severity_level,description,control_measures,responsible_person,deadline,status) VALUES (?,?,?,?,?,?,?,?,?)`,
+    __db.exec(`INSERT INTO ehs_hazard (discovery_date,hazard_location,hazard_type,severity_level,description,control_measures,responsible_person,deadline,status) VALUES (?,?,?,?,?,?,?,?,?)`,
       [date.toISOString().slice(0, 10),
        h[0], h[1], h[2], h[3], h[4], h[5],
        deadline.toISOString().slice(0, 10),
@@ -1010,7 +1025,7 @@ function seedData() {
     ['FH-005', '仪器室A', '苏州林顿FH-1800', '0.5m/s', '2026-01-15', '2026-07-15', 'normal'],
   ];
   fumehoods.forEach(f => {
-    db.run("INSERT INTO fumehood (fumehood_no,location,brand_model,wind_speed,calib_date,next_calib,status) VALUES (?,?,?,?,?,?,?)", f);
+    __db.exec("INSERT INTO fumehood (fumehood_no,location,brand_model,wind_speed,calib_date,next_calib,status) VALUES (?,?,?,?,?,?,?)", f);
   });
 
   console.log('[OK] Comprehensive test data seeded:');
@@ -1031,7 +1046,7 @@ function seedData() {
 // Start
 // ============================================================
 initDB().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, '::', () => {
     console.log(`\n  敦煌金检测中心LIMS系统已启动 [模块化架构]`);
     console.log(`  地址: http://localhost:${PORT}`);
     console.log(`  局域网: http://192.168.2.55:${PORT}`);

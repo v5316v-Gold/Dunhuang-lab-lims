@@ -81,6 +81,11 @@ function switchTab(tab) {
   if (typeof window['load' + capitalize(tab)] === 'function') {
     window['load' + capitalize(tab)]();
   }
+  // 2026-08-11：调用 page-init.js 的初始化（筛选器/批量栏/分页器）
+  var initName = 'init' + capitalize(tab);
+  if (typeof window[initName] === 'function') {
+    setTimeout(function() { window[initName](); }, 100);
+  }
 }
 
 function capitalize(s) { return s.split('-').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(''); }
@@ -103,7 +108,7 @@ function renderTable(headers, rows, containerId) {
       return '<td>' + (cell === null || cell === undefined ? '' : cell) + '</td>';
     }).join('') + '</tr>';
   }).join('');
-  container.innerHTML = '<table class="table table-bordered table-striped table-hover"><thead><tr>' + ths + '</tr></thead><tbody>' + trs + '</tbody></table>';
+  container.innerHTML = '<table class="data-table"><thead><tr>' + ths + '</tr></thead><tbody>' + trs + '</tbody></table>';
 }
 
 function deleteItem(tab, id) {
@@ -964,6 +969,7 @@ window.uploadExpPdf = function() {
 
 // ========== ALL DOMContentLoaded handlers ==========
 document.addEventListener('DOMContentLoaded', function() {
+
   // 2026-08-03 升级：初始化 Lucide 图标
   if (window.lucide) { try { window.lucide.createIcons(); } catch(e) { console.warn('lucide init failed:', e); } }
 
@@ -1702,44 +1708,129 @@ document.addEventListener('submit', function(e) {
   var form = e.target;
   if (!form || form.tagName !== 'FORM') return;
   var formId = form.id;
-  
+
   // 人员
   if (formId === 'form-personnel' && window.validateForm) {
-    var data = {
-      name: document.getElementById('personnel-name')?.value,
-      dept: document.getElementById('personnel-dept')?.value,
-      title: document.getElementById('personnel-position')?.value,
-      phone: document.getElementById('personnel-phone')?.value,
-      email: document.getElementById('personnel-email')?.value
-    };
+    var data = { name: document.getElementById('personnel-name')?.value, dept: document.getElementById('personnel-dept')?.value, title: document.getElementById('personnel-position')?.value, phone: document.getElementById('personnel-phone')?.value, email: document.getElementById('personnel-email')?.value };
     var result = window.validateForm('personnel', data);
-    if (!result.valid) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      window.showFormErrors('#form-personnel', result.errors);
-      return false;
-    } else {
-      window.showFormErrors('#form-personnel', []);  // 清错误
-    }
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-personnel', result.errors); return false; }
+    else window.showFormErrors('#form-personnel', []);
   }
-  
+  // 部门
+  else if (formId === 'form-department' && window.validateForm) {
+    var data = { name: document.getElementById('dept-name')?.value };
+    var result = window.validateForm('departments', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-department', result.errors); return false; }
+    else window.showFormErrors('#form-department', []);
+  }
+  // 项目
+  else if (formId === 'form-project' && window.validateForm) {
+    var data = { project_no: document.getElementById('project-no')?.value, project_name: document.getElementById('project-name')?.value, method_type: document.getElementById('project-method')?.value, description: document.getElementById('project-desc')?.value };
+    var result = window.validateForm('projects', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-project', result.errors); return false; }
+    else window.showFormErrors('#form-project', []);
+  }
+  // 预约
+  else if (formId === 'form-appointment' && window.validateForm) {
+    var data = { appointment_no: document.getElementById('appt-no')?.value, client_name: document.getElementById('appt-client')?.value, sample_type: document.getElementById('appt-type')?.value, expected_date: document.getElementById('appt-date')?.value };
+    var result = window.validateForm('appointments', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-appointment', result.errors); return false; }
+    else window.showFormErrors('#form-appointment', []);
+  }
+  // 样品处理
+  else if (formId === 'form-sample-processing' && window.validateForm) {
+    var data = { sample_code: document.getElementById('sp-code')?.value, sample_name: document.getElementById('sp-name')?.value, sample_type: document.getElementById('sp-type')?.value };
+    var result = window.validateForm('sample-processing', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-sample-processing', result.errors); return false; }
+    else window.showFormErrors('#form-sample-processing', []);
+  }
   // 设备
-  if (formId === 'form-equipment' && window.validateForm) {
-    var data = {
-      equip_no: document.getElementById('equip-no')?.value,
-      equip_name: document.getElementById('equip-name')?.value,
-      model: document.getElementById('equip-model')?.value,
-      manufacturer: document.getElementById('equip-mfr')?.value,
-      location: document.getElementById('equip-location')?.value
-    };
+  else if (formId === 'form-equipment' && window.validateForm) {
+    var data = { equip_no: document.getElementById('equip-no')?.value, equip_name: document.getElementById('equip-name')?.value, model: document.getElementById('equip-model')?.value, manufacturer: document.getElementById('equip-mfr')?.value, location: document.getElementById('equip-location')?.value };
     var result = window.validateForm('equipment', data);
-    if (!result.valid) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      window.showFormErrors('#form-equipment', result.errors);
-      return false;
-    } else {
-      window.showFormErrors('#form-equipment', []);
-    }
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-equipment', result.errors); return false; }
+    else window.showFormErrors('#form-equipment', []);
+  }
+  // 设备维护
+  else if (formId === 'form-maintenance' && window.validateForm) {
+    var data = { equip_id: document.getElementById('maint-equip')?.value, maintenance_type: document.getElementById('maint-type')?.value, maintenance_date: document.getElementById('maint-date')?.value };
+    var result = window.validateForm('maintenance', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-maintenance', result.errors); return false; }
+    else window.showFormErrors('#form-maintenance', []);
+  }
+  // 设备校准
+  else if (formId === 'form-calibration' && window.validateForm) {
+    var data = { equip_id: document.getElementById('cal-equip')?.value, calibration_date: document.getElementById('cal-date')?.value, calibration_org: document.getElementById('cal-org')?.value };
+    var result = window.validateForm('calibration', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-calibration', result.errors); return false; }
+    else window.showFormErrors('#form-calibration', []);
+  }
+  // 设备维修
+  else if (formId === 'form-equipment-repair' && window.validateForm) {
+    var data = { equip_id: document.getElementById('rep-equip')?.value, repair_date: document.getElementById('rep-date')?.value, fault_desc: document.getElementById('rep-fault')?.value };
+    var result = window.validateForm('equipment-repairs', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-equipment-repair', result.errors); return false; }
+    else window.showFormErrors('#form-equipment-repair', []);
+  }
+  // 耗材
+  else if (formId === 'form-consumable' && window.validateForm) {
+    var data = { item_name: document.getElementById('cons-name')?.value, specification: document.getElementById('cons-spec')?.value, unit: document.getElementById('cons-unit')?.value };
+    var result = window.validateForm('consumables', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-consumable', result.errors); return false; }
+    else window.showFormErrors('#form-consumable', []);
+  }
+  // 玻璃器皿
+  else if (formId === 'form-glassware' && window.validateForm) {
+    var data = { item_name: document.getElementById('gw-name')?.value, specification: document.getElementById('gw-spec')?.value };
+    var result = window.validateForm('glassware', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-glassware', result.errors); return false; }
+    else window.showFormErrors('#form-glassware', []);
+  }
+  // 试剂
+  else if (formId === 'form-reagent' && window.validateForm) {
+    var data = { reagent_name: document.getElementById('reg-name')?.value, cas_no: document.getElementById('reg-cas')?.value };
+    var result = window.validateForm('reagents', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-reagent', result.errors); return false; }
+    else window.showFormErrors('#form-reagent', []);
+  }
+  // 气体
+  else if (formId === 'form-gas' && window.validateForm) {
+    var data = { gas_name: document.getElementById('gas-name')?.value, specification: document.getElementById('gas-spec')?.value };
+    var result = window.validateForm('gases', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-gas', result.errors); return false; }
+    else window.showFormErrors('#form-gas', []);
+  }
+  // 通风柜
+  else if (formId === 'form-fumehood' && window.validateForm) {
+    var data = { fumehood_no: document.getElementById('fh-no')?.value, location: document.getElementById('fh-location')?.value };
+    var result = window.validateForm('fumehood', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-fumehood', result.errors); return false; }
+    else window.showFormErrors('#form-fumehood', []);
+  }
+  // 培训
+  else if (formId === 'form-training' && window.validateForm) {
+    var data = { training_name: document.getElementById('train-name')?.value, training_date: document.getElementById('train-date')?.value };
+    var result = window.validateForm('training', data);
+    if (!result.valid) { e.preventDefault(); e.stopImmediatePropagation(); window.showFormErrors('#form-training', result.errors); return false; }
+    else window.showFormErrors('#form-training', []);
   }
 }, true);  // capture phase
+
+
+// 8 岗位 RBAC 助手 (阶段 1.2)
+window.LIMS_ROLES = {
+  'lab_director': { name: '实验室主任', rank: 1, signatory: 3 },
+  'qa_manager': { name: '质量负责人', rank: 2, signatory: 3 },
+  'technical_manager': { name: '技术负责人', rank: 3, signatory: 2 },
+  'analyst': { name: '检测员', rank: 4, signatory: 0 },
+  'reviewer': { name: '复核员', rank: 4, signatory: 2 },
+  'equipment_officer': { name: '设备员', rank: 5, signatory: 0 },
+  'reagent_officer': { name: '试剂员', rank: 5, signatory: 0 },
+  'part_time': { name: '兼职', rank: 7, signatory: 0 },
+  'admin': { name: '系统管理员', rank: 0, signatory: 0 }
+};
+
+window.userCanDo = function(action) {
+  if (!window.currentRoles) return true; // 默认允许
+  return true; // 简化：暂不实现精细
+};

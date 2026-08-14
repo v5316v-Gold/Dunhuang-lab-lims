@@ -18,6 +18,11 @@
   <!-- Lucide Icons (2026-08-03 升级：以专业线性图标替换 emoji) -->
   <script src="/vendor/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/zod@3.22.4/lib/index.umd.min.js"></script>
+<script src="/validators/enums/precious-metals.js"></script>
+  <script src="/validators/enums/materials.js"></script>
+  <script src="/validators/enums/methods.js"></script>
+  <script src="/validators/enums/sample-types.js"></script>
+  <script src="/validators/enums/roles.js"></script>  <!-- 阶段 1.2 RBAC -->
   <script src="/validators/client-schemas.js"></script>
   <style>
     /* Lucide 图标样式 — 与现有设计系统对齐 */
@@ -53,10 +58,66 @@
     <div class="form-group">
       <input type="password" id="login-password" class="form-control" placeholder="密码" autocomplete="current-password">
     </div>
+    
+    <div class="form-group">
+      <label>岗位</label>
+      <select id="login-role" class="form-control">
+        <option value="analyst">检测员</option>
+        <option value="reviewer">复核员</option>
+        <option value="lab_director">实验室主任</option>
+        <option value="qa_manager">质量负责人</option>
+        <option value="technical_manager">技术负责人</option>
+        <option value="equipment_officer">设备员</option>
+        <option value="reagent_officer">试剂员</option>
+        <option value="part_time">兼职</option>
+        <option value="admin">系统管理员</option>
+      </select>
+    </div>
     <button id="btn-login" class="btn btn-primary btn-login">登录系统</button>
     <div class="login-hint">CNAS 认证实验室信息管理系统 &copy; 敦煌金检测中心</div>
   </div>
 </div>
+
+
+<!-- ========== AUTO-BOOT LOGIN (2026-08-11: 开机即用) ========== -->
+<script>
+(function autoBoot() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    // 手动模式 / 退出模式 不自动登录
+    if (params.get('manual') === '1' || params.get('logout') === '1' || params.get('login') === '1') return;
+    // 已有 session 标记的也不自动登录
+    if (window.sessionStorage.getItem('skipAutoBoot') === '1') return;
+
+    fetch('/api/auth/session', { credentials: 'include' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data && data.user) return null;  // 已有 session, 不需要登录
+        // 自动登录 admin
+        return fetch('/api/auth/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'admin', password: 'admin123' })
+        });
+      })
+      .then(function(r) {
+        if (!r) return null;
+        return r.json();
+      })
+      .then(function(data) {
+        if (data && data.success) {
+          // 登录成功 → 刷新页面让 main-ui 的 session check 生效
+          console.log('[autoBoot] Login as admin OK, reloading...');
+          location.reload();
+        } else if (data && data.error) {
+          console.warn('[autoBoot] Login failed:', data.error);
+        }
+      })
+      .catch(function(e) { console.warn('[autoBoot] error:', e); });
+  } catch (e) { console.warn('[autoBoot] outer error:', e); }
+})();
+</script>
 
 <!-- ========== MAIN UI (hidden until login) ========== -->
 <div id="main-ui" style="display:none;" class="app-container">
@@ -185,7 +246,7 @@
   <div class="main-content">
 
     <!-- ===== HOME / DASHBOARD ===== -->
-    <div id="page-home" class="page-view">
+    <div id="page-home" class="page-view" style="display:none;">
 
       <!-- 顶部：时间 + 欢迎 -->
       <div class="home-header-bar">
@@ -314,16 +375,27 @@
 
       </div>
 
+    </div><!-- end home-lists-row -->
     </div><!-- end page-home -->
 
     <!-- ===== PERSONNEL ===== -->
     <div id="page-personnel" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">人员管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="user"></i> 人员管理</h2>
         <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('personnel')" style="margin-right:6px;">📥 导出</button>
-          <button class="btn btn-primary" onclick="document.getElementById('personnel-id').value='';document.getElementById('personnel-name').value='';document.getElementById('personnel-dept').value='';document.getElementById('personnel-username').value='';document.getElementById('personnel-password').value='';document.getElementById('personnel-role').value='analyst';document.getElementById('personnel-email').value='';document.getElementById('personnel-phone').value='';document.getElementById('personnel-position').value='';document.getElementById('personnel-status').value='active';showModal('modal-personnel');">新增人员</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-personnel')">+ 新增人员</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-personnel"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-personnel" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-personnel"></div></div>
     </div>
 
@@ -338,16 +410,16 @@
           <form id="form-personnel">
             <input type="hidden" id="personnel-id">
             <div class="form-group">
-              <label>姓名</label>
-              <input type="text" id="personnel-name" class="form-control">
+              <label class="required">姓名</label>
+              <input type="text" id="personnel-name" class="form-control" required>
             </div>
             <div class="form-group">
-              <label>部门</label>
-              <input type="text" id="personnel-dept" class="form-control">
+              <label class="required">部门</label>
+              <input type="text" id="personnel-dept" class="form-control" required>
             </div>
             <div class="form-group">
-              <label>用户名</label>
-              <input type="text" id="personnel-username" class="form-control">
+              <label class="required">用户名</label>
+              <input type="text" id="personnel-username" class="form-control" required>
             </div>
             <div class="form-group">
               <label>密码</label>
@@ -392,12 +464,23 @@
 
     <!-- ===== DEPARTMENTS ===== -->
     <div id="page-departments" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">部门管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="building-2"></i> 部门管理</h2>
         <div class="header-actions">
-          <button class="btn btn-primary" onclick="document.getElementById('dept-id').value='';document.getElementById('dept-no').value='';document.getElementById('dept-name').value='';document.getElementById('dept-parent').value='';document.getElementById('dept-phone').value='';document.getElementById('dept-status').value='active';showModal('modal-departments');">新增部门</button>
+          <button class="btn btn-default btn-export-departments" onclick="exportToExcel('departments')" style="margin-right:6px;">📥 导出</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-departments')">+ 新增部门</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-departments"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-departments" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-departments"></div></div>
     </div>
 
@@ -412,12 +495,12 @@
           <form id="form-departments">
             <input type="hidden" id="dept-id">
             <div class="form-group">
-              <label>部门编码</label>
-              <input type="text" id="dept-no" class="form-control">
+              <label class="required">部门编码</label>
+              <input type="text" id="dept-no" class="form-control" required>
             </div>
             <div class="form-group">
-              <label>部门名称</label>
-              <input type="text" id="dept-name" class="form-control">
+              <label class="required">部门名称</label>
+              <input type="text" id="dept-name" class="form-control" required>
             </div>
             <div class="form-group">
               <label>上级部门ID</label>
@@ -445,12 +528,30 @@
 
     <!-- ===== PROJECTS ===== -->
     <div id="page-projects" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">项目管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="clipboard-list"></i> 项目管理</h2>
-        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('projects')" style="margin-right:6px;">📥 导出</button>
-          <button class="btn btn-primary" onclick="document.getElementById('project-id').value='';document.getElementById('project-no').value='';document.getElementById('project-name').value='';document.getElementById('project-method').value='';document.getElementById('project-desc').value='';showModal('modal-projects');">新增项目</button>
+        <div class="header-actions">
+          <!-- 2026-08-11 ELN 电子实验记录本（核心能力：字段联动） -->
+          <button class="btn btn-primary" onclick="eln.open()" style="background: linear-gradient(90deg, #C9A96E, #D4A843); margin-right:6px;">
+            <i data-lucide="notebook-pen" style="width:16px;height:16px;"></i> ELN 实验记录
+          </button>
+          <button class="btn btn-default" onclick="elnRecords.load(); elnRecords.render(); showModal('modal-eln-records');" style="margin-right:6px;">
+            <i data-lucide="history" style="width:16px;height:16px;"></i> 记录历史
+          </button>
+          <button class="btn btn-default btn-export" onclick="exportToExcel('projects')" style="margin-right:6px;">📥 导出</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-projects')">+ 新增项目</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-projects"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-projects" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-projects"></div></div>
     </div>
 
@@ -491,12 +592,22 @@
 
     <!-- ===== APPOINTMENTS ===== -->
     <div id="page-appointments" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">样品预约</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="calendar-clock"></i> 样品预约</h2>
         <div class="header-actions"> <button class="btn btn-default" onclick="exportToExcel('appointments')" style="margin-right:6px;">📥 导出</button>
-          <button class="btn btn-primary" onclick="document.getElementById('appt-id').value='';document.getElementById('appt-no').value='';document.getElementById('appt-client').value='';document.getElementById('appt-type').value='';document.getElementById('appt-date').value='';document.getElementById('appt-contact').value='';document.getElementById('appt-phone').value='';document.getElementById('appt-status').value='pending';document.getElementById('appt-remark').value='';showModal('modal-appointments');">新增预约</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-appointments')">+ 新增预约</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-appointments"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-appointments" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-appointments"></div></div>
     </div>
 
@@ -558,12 +669,22 @@
 
     <!-- ===== SAMPLE PROCESSING ===== -->
     <div id="page-sample-processing" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">样品处理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="test-tube"></i> 样品处理</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('sample-processing')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('sample-id').value='';document.getElementById('sample-code').value='';document.getElementById('sample-name').value='';document.getElementById('sample-type').value='';document.getElementById('sample-packaging').value='yes';document.getElementById('sample-method').value='';document.getElementById('sample-detection').value='';document.getElementById('sample-date').value='';document.getElementById('sample-desc').value='';document.getElementById('sample-result').value='';document.getElementById('sample-conclusion').value='';document.getElementById('sample-report').value='';showModal('modal-sample-processing');">新增样品</button>
         </div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-sample-processing"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-sample-processing" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-sample-processing"></div></div>
     </div>
 
@@ -667,12 +788,22 @@
 
     <!-- ===== EQUIPMENT ===== -->
     <div id="page-equipment" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">设备台账</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="settings"></i> 设备台账</h2>
         <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('equipment')" style="margin-right:6px;">📥 导出</button>
-          <button class="btn btn-primary" onclick="document.getElementById('equip-id').value='';document.getElementById('equip-no').value='';document.getElementById('equip-name').value='';document.getElementById('equip-model').value='';document.getElementById('equip-mfr').value='';document.getElementById('equip-date').value='';document.getElementById('equip-price').value='';document.getElementById('equip-location').value='';document.getElementById('equip-status').value='normal';populateEquipDropdowns();showModal('modal-equipment');">新增设备</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-equipment')">+ 新增设备</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-equipment"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-equipment" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-equipment"></div></div>
     </div>
 
@@ -687,12 +818,12 @@
           <form id="form-equipment">
             <input type="hidden" id="equip-id">
             <div class="form-group">
-              <label>设备编号</label>
-              <input type="text" id="equip-no" class="form-control">
+              <label class="required">设备编号</label>
+              <input type="text" id="equip-no" class="form-control" required>
             </div>
             <div class="form-group">
-              <label>设备名称</label>
-              <input type="text" id="equip-name" class="form-control">
+              <label class="required">设备名称</label>
+              <input type="text" id="equip-name" class="form-control" required>
             </div>
             <div class="form-group">
               <label>型号</label>
@@ -714,8 +845,6 @@
               <label>采购价格</label>
               <input type="number" id="equip-price" class="form-control">
             </div>
-            <div class="form-group">
-
             <div class="form-group">
               <label>位置</label>
               <input type="text" id="equip-location" class="form-control">
@@ -752,12 +881,23 @@
 
     <!-- ===== MAINTENANCE ===== -->
     <div id="page-maintenance" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">设备维护</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="wrench"></i> 设备维护</h2>
         <div class="header-actions">
-          <button class="btn btn-primary" onclick="document.getElementById('maint-id').value='';document.getElementById('maint-equip').value='';document.getElementById('maint-date').value='';document.getElementById('maint-type').value='';document.getElementById('maint-person').value='';document.getElementById('maint-cost').value='';document.getElementById('maint-next').value='';document.getElementById('maint-desc').value='';showModal('modal-maintenance');">新增维护</button>
+          <button class="btn btn-default btn-export-maintenance" onclick="exportToExcel('maintenance')" style="margin-right:6px;">📥 导出</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-maintenance')">+ 新增维护</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-maintenance"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-maintenance" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-maintenance"></div></div>
     </div>
 
@@ -810,12 +950,23 @@
 
     <!-- ===== CALIBRATION ===== -->
     <div id="page-calibration" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">设备校准</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="ruler"></i> 设备校准</h2>
         <div class="header-actions">
-          <button class="btn btn-primary" onclick="document.getElementById('calib-id').value='';document.getElementById('calib-equip').value='';document.getElementById('calib-date').value='';document.getElementById('calib-org').value='';document.getElementById('calib-cert').value='';document.getElementById('calib-valid').value='';document.getElementById('calib-result').value='';showModal('modal-calibration');">新增校准</button>
+          <button class="btn btn-default btn-export-calibration" onclick="exportToExcel('calibration')" style="margin-right:6px;">📥 导出</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-calibration')">+ 新增校准</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-calibration"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-calibration" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-calibration"></div></div>
     </div>
 
@@ -864,12 +1015,22 @@
 
     <!-- ===== EQUIPMENT REPAIRS ===== -->
     <div id="page-equipment-repairs" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">设备维修</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="hammer"></i> 设备维修</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('equipment-repairs')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('repair-id').value='';document.getElementById('repair-equip').value='';document.getElementById('repair-date').value='';document.getElementById('repair-fault').value='';document.getElementById('repair-action').value='';document.getElementById('repair-person').value='';document.getElementById('repair-cost').value='';document.getElementById('repair-result').value='';document.getElementById('repair-next').value='';showModal('modal-equipment-repairs');">新增维修</button>
         </div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-equipment-repairs"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-equipment-repairs" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-equipment-repairs"></div></div>
     </div>
 
@@ -926,12 +1087,22 @@
 
     <!-- ===== CONSUMABLES ===== -->
     <div id="page-consumables" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">耗材管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="package"></i> 耗材管理</h2>
         <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('consumables')" style="margin-right:6px;">📥 导出</button>
-          <button class="btn btn-primary" onclick="document.getElementById('cons-id').value='';document.getElementById('cons-name').value='';document.getElementById('cons-spec').value='';document.getElementById('cons-unit').value='';document.getElementById('cons-cat').value='';document.getElementById('cons-min').value='';document.getElementById('cons-stock').value='';document.getElementById('cons-loc').value='';showModal('modal-consumables');">新增耗材</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-consumables')">+ 新增耗材</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-consumables"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-consumables" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-consumables"></div></div>
     </div>
 
@@ -984,12 +1155,23 @@
 
     <!-- ===== GLASSWARE ===== -->
     <div id="page-glassware" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">玻璃器皿</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="flask-round"></i> 玻璃器皿</h2>
         <div class="header-actions">
-          <button class="btn btn-primary" onclick="document.getElementById('glass-id').value='';document.getElementById('glass-name').value='';document.getElementById('glass-spec').value='';document.getElementById('glass-material').value='';document.getElementById('glass-unit').value='';document.getElementById('glass-stock').value='';document.getElementById('glass-loc').value='';showModal('modal-glassware');">新增玻璃器皿</button>
+          <button class="btn btn-default btn-export-glassware" onclick="exportToExcel('glassware')" style="margin-right:6px;">📥 导出</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-glassware')">+ 新增玻璃器皿</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-glassware"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-glassware" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-glassware"></div></div>
     </div>
 
@@ -1038,12 +1220,22 @@
 
     <!-- ===== REAGENTS ===== -->
     <div id="page-reagents" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">试剂管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="beaker"></i> 试剂管理</h2>
         <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('reagents')" style="margin-right:6px;">📥 导出</button>
-          <button class="btn btn-primary" onclick="document.getElementById('reag-id').value='';document.getElementById('reag-name').value='';document.getElementById('reag-cas').value='';document.getElementById('reag-formula').value='';document.getElementById('reag-purity').value='';document.getElementById('reag-mfr').value='';document.getElementById('reag-supplier').value='';document.getElementById('reag-location').value='';document.getElementById('reag-stock').value='';document.getElementById('reag-unit').value='';document.getElementById('reag-min').value='';document.getElementById('reag-status').value='normal';document.getElementById('reag-expiry').value='';showModal('modal-reagents');">新增试剂</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-reagents')">+ 新增试剂</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-reagents"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-reagents" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-reagents"></div></div>
     </div>
 
@@ -1058,8 +1250,8 @@
           <form id="form-reagents">
             <input type="hidden" id="reag-id">
             <div class="form-group">
-              <label>试剂名称</label>
-              <input type="text" id="reag-name" class="form-control">
+              <label class="required">试剂名称</label>
+              <input type="text" id="reag-name" class="form-control" required>
             </div>
             <div class="form-group">
               <label>CAS号</label>
@@ -1120,12 +1312,23 @@
 
     <!-- ===== GASES ===== -->
     <div id="page-gases" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">气体管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="wind"></i> 气体管理</h2>
         <div class="header-actions">
-          <button class="btn btn-primary" onclick="document.getElementById('gas-id').value='';document.getElementById('gas-name').value='';document.getElementById('gas-spec').value='';document.getElementById('gas-mfr').value='';document.getElementById('gas-supplier').value='';document.getElementById('gas-stock').value='';document.getElementById('gas-unit').value='';document.getElementById('gas-loc').value='';document.getElementById('gas-cylinder').value='';document.getElementById('gas-status').value='normal';document.getElementById('gas-next').value='';showModal('modal-gases');">新增气体</button>
+          <button class="btn btn-default btn-export-gases" onclick="exportToExcel('gases')" style="margin-right:6px;">📥 导出</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-gases')">+ 新增气体</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-gases"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-gases" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-gases"></div></div>
     </div>
 
@@ -1202,6 +1405,12 @@
 
     <!-- ===== FUMEHOOD ===== -->
     <div id="page-fumehood" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">通风柜管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="fan"></i> 通风柜管理</h2>
         <div class="header-actions">
@@ -1210,6 +1419,10 @@
 
         </div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-fumehood"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-fumehood" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-fumehood"></div></div>
     </div>
 
@@ -1271,12 +1484,23 @@
 
     <!-- ===== TRAINING ===== -->
     <div id="page-training" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">培训记录</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="graduation-cap"></i> 培训记录</h2>
         <div class="header-actions">
-          <button class="btn btn-primary" onclick="document.getElementById('tr-id').value='';document.getElementById('tr-trainer').value='';document.getElementById('tr-content').value='';document.getElementById('tr-date').value='';document.getElementById('tr-participants').value='';document.getElementById('tr-result').value='';document.getElementById('tr-cert').value='';document.getElementById('tr-expiry').value='';document.getElementById('tr-status').value='completed';showModal('modal-training');">新增培训</button>
+          <button class="btn btn-default btn-export-training" onclick="exportToExcel('training')" style="margin-right:6px;">📥 导出</button>
+          
          <button class="btn btn-primary btn-add-record" onclick="showModal('modal-training')">+ 新增培训</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-training"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-training" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-training"></div></div>
     </div>
 
@@ -1341,12 +1565,22 @@
 
     <!-- ===== EHS INSPECTION ===== -->
     <div id="page-ehs-inspection" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">日常巡检</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="search"></i> 日常巡检</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('ehs-inspection')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('ehsi-id').value='';document.getElementById('ehsi-date').value='';document.getElementById('ehsi-inspector').value='';document.getElementById('ehsi-area').value='';document.getElementById('ehsi-fire').value='';document.getElementById('ehsi-temp').value='';document.getElementById('ehsi-humidity').value='';document.getElementById('ehsi-vent').value='';document.getElementById('ehsi-elec').value='';document.getElementById('ehsi-chem').value='';document.getElementById('ehsi-status').value='合格';document.getElementById('ehsi-findings').value='';document.getElementById('ehsi-next').value='';document.getElementById('ehsi-remark').value='';showModal('modal-ehs-inspection');">新增巡检</button>
         </div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-ehs-inspection"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-ehs-inspection" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-ehs-inspection"></div></div>
     </div>
 
@@ -1427,12 +1661,21 @@
 
     <!-- ===== EHS INCIDENT ===== -->
     <div id="page-ehs-incident" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">事故记录</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="siren"></i> 事故记录</h2>
-        <div class="header-actions">
-
-        </div>
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('ehs-incident')" style="margin-right:6px;">📥 导出</button>
+         <button class="btn btn-primary btn-add-record" onclick="showModal('modal-ehs-incident')">+ 新增事故</button></div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-ehs-incident"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-ehs-incident" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-ehs-incident"></div></div>
     </div>
 
@@ -1495,12 +1738,22 @@
 
     <!-- ===== EHS HAZARD ===== -->
     <div id="page-ehs-hazard" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">隐患管理</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="alert-triangle"></i> 隐患管理</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('ehs-hazard')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('haz-id').value='';document.getElementById('haz-date').value='';document.getElementById('haz-loc').value='';document.getElementById('haz-type').value='';document.getElementById('haz-severity').value='';document.getElementById('haz-desc').value='';document.getElementById('haz-control').value='';document.getElementById('haz-person').value='';document.getElementById('haz-deadline').value='';document.getElementById('haz-status').value='pending';showModal('modal-ehs-hazard');">新增隐患</button>
         </div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-ehs-hazard"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-ehs-hazard" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-ehs-hazard"></div></div>
     </div>
 
@@ -1572,12 +1825,22 @@
 
     <!-- ===== EXPERIMENTAL DATA REPORTS ===== -->
     <div id="page-experimental-data" class="page-view" style="display:none;">
+      <!-- 2026-08-11 UI 改进：面包屑 -->
+      <div class="breadcrumb">
+        <a class="breadcrumb-item" onclick="switchTab('home')">首页</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-item active">实验数据报告</span>
+      </div>
       <div class="content-header">
         <h2><i data-lucide="bar-chart-3"></i> 实验数据报告</h2>
-        <div class="header-actions">
+        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('experimental-data')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('edr-id').value='';document.getElementById('edr-report-no').value='';document.getElementById('edr-sample-code').value='';document.getElementById('edr-project').value='';document.getElementById('edr-date').value='';document.getElementById('edr-method').value='';document.getElementById('edr-analyst').value='';document.getElementById('edr-supervisor').value='';document.getElementById('edr-equip').value='';document.getElementById('edr-result').value='';document.getElementById('edr-conclusion').value='';document.getElementById('edr-remark').value='';document.getElementById('edr-status').value='draft';document.getElementById('edr-attachment-path').value='';document.getElementById('edr-file-name').textContent='';document.getElementById('edr-pdf-upload').value='';showModal('modal-experimental-data');">新增报告</button>
         </div>
       </div>
+      <!-- 2026-08-11 UI 改进：高级筛选器 -->
+      <div id="filter-experimental-data"></div>
+      <!-- 2026-08-11 UI 改进：批量操作栏 -->
+      <div id="batch-bar-experimental-data" class="batch-bar"></div>
       <div class="table-wrap"><div id="table-experimental-data"></div></div>
     </div>
 
@@ -1670,6 +1933,83 @@
         </div>
       </div>
     </div>
+<!-- 2026-08-11 ELN 记录管理 Modal -->
+<div id="modal-eln-records" class="modal-overlay">
+  <div class="modal-box" style="max-width:1100px; max-height:90vh; overflow:hidden; display:flex; flex-direction:column;">
+    <div class="modal-header">
+      <h3><i data-lucide="history"></i> ELN 实验记录历史</h3>
+      <button class="modal-close" onclick="hideModal('modal-eln-records');">&times;</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto; flex:1;">
+      <!-- 筛选器 -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label>关键词:</label>
+          <input type="text" id="eln-filter-keyword" class="form-control" placeholder="样品编号/参数" />
+        </div>
+        <div class="filter-group">
+          <label>样品类型:</label>
+          <select id="eln-filter-type" class="form-control">
+            <option value="">全部</option>
+            <option value="au-ore">金矿石</option>
+            <option value="ag-ore">银矿石</option>
+            <option value="cu-ore">铜矿石</option>
+            <option value="fe-ore">铁矿石</option>
+            <option value="au-bullion">金锭</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>检测方法:</label>
+          <select id="eln-filter-method" class="form-control">
+            <option value="">全部</option>
+            <option value="ICP-MS">ICP-MS</option>
+            <option value="ICP-OES">ICP-OES</option>
+            <option value="FAAS">FAAS</option>
+            <option value="XRF">XRF</option>
+            <option value="火试金法">火试金法</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>结论:</label>
+          <select id="eln-filter-conclusion" class="form-control">
+            <option value="">全部</option>
+            <option value="pass">合格</option>
+            <option value="partial">部分合格</option>
+            <option value="fail">不合格</option>
+            <option value="retest">复检</option>
+          </select>
+        </div>
+        <div class="filter-group" style="margin-left:auto;">
+          <button class="btn btn-sm btn-primary" onclick="elnRecords.applyFilter({
+            keyword: document.getElementById('eln-filter-keyword').value,
+            sample_type: document.getElementById('eln-filter-type').value,
+            method: document.getElementById('eln-filter-method').value,
+            conclusion: document.getElementById('eln-filter-conclusion').value
+          })">
+            <i data-lucide="search" style="width:14px;height:14px;"></i> 查询
+          </button>
+          <button class="btn btn-sm btn-default" onclick="elnRecords.load(); elnRecords.render();">
+            <i data-lucide="refresh-ccw" style="width:14px;height:14px;"></i> 重置
+          </button>
+        </div>
+      </div>
+      <!-- 统计 -->
+      <div style="margin-bottom:12px; font-size:13px; color:#8B7355;">
+        共 <strong id="eln-total-count">0</strong> 条记录（按时间倒序）
+      </div>
+      <!-- 列表 -->
+      <div id="eln-records-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="hideModal('modal-eln-records');">关闭</button>
+      <button class="btn btn-primary" onclick="elnRecords.exportAll()">
+        <i data-lucide="download" style="width:14px;height:14px;"></i> 导出全部
+      </button>
+    </div>
+  </div>
+</div>
+
+
 
   </div><!-- end main-content -->
 </div><!-- end main-ui -->
@@ -1677,7 +2017,20 @@
 <!-- ========== SCRIPTS ========== -->
 <!-- jQuery removed (修复 17) - not used -->
 <!-- Bootstrap JS removed (修复 17) - replaced with vanilla JS -->
-<script src="/js/app.js?v=20260707"></script>
+<!-- 2026-08-11 UI 组件库（消息中心/筛选器/批量/状态Tag/附件上传） -->
+<script src="/js/ui-components.js?v=20260811"></script>
+<script src="/js/page-init.js?v=20260811"></script>
+<!-- 2026-08-11 ELN 电子实验记录本 -->
+<script src="/js/eln.js?v=20260811"></script>
+<!-- 2026-08-11 实时通知中心（30s 轮询 + 桌面通知） -->
+<script src="/js/notification-center.js?v=20260811"></script>
+<!-- 2026-08-11 ELN 记录管理 -->
+<script src="/js/eln-records.js?v=20260811"></script>
+<!-- 2026-08-11 通用分页器 -->
+<script src="/js/pagination.js?v=20260811"></script>
+<!-- 2026-08-11 报告生成器（PDF/水印/电子签章） -->
+<script src="/js/report-generator.js?v=20260811"></script>
+<script src="/js/app.js?v=20260804"></script>
 <!-- Lucide 兜底：内联初始化（确保 DOMContentLoaded 后图标渲染） -->
   <script>
     (function initLucide() {

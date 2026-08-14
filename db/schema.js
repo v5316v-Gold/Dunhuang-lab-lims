@@ -1,5 +1,17 @@
+// 阶段 1.2 修复: __db shim (让 db.exec(SQL, params) 工作)
+const __db = {
+  exec: function(sql, params) {
+    const _d = global.db;
+    if (params !== undefined && params !== null) {
+      if (Array.isArray(params)) return _d.prepare(sql).run(params);
+      return _d.prepare(sql).run([params]);
+    }
+    return _d.exec(sql);
+  }
+};
+
 function createTables(db) {
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -19,7 +31,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS departments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,
@@ -29,7 +41,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS user_certifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
@@ -44,7 +56,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_no TEXT UNIQUE NOT NULL,
@@ -55,7 +67,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS project_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER,
@@ -73,7 +85,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS sample_appointments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       appointment_no TEXT UNIQUE NOT NULL,
@@ -93,7 +105,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS sample_processing (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sample_code TEXT,
@@ -125,7 +137,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS equipment (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       equip_no TEXT UNIQUE NOT NULL,
@@ -146,7 +158,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS equipment_maintenance (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       equip_id INTEGER,
@@ -161,7 +173,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS equipment_calibration (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       equip_id INTEGER,
@@ -175,7 +187,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS equipment_repairs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       equip_id INTEGER,
@@ -191,7 +203,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS consumable_suppliers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,
@@ -204,7 +216,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS consumables (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_name TEXT,
@@ -220,7 +232,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS consumable_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       consumable_id INTEGER,
@@ -235,7 +247,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS glassware_suppliers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,
@@ -247,7 +259,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS glassware (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_name TEXT,
@@ -262,7 +274,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS glassware_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       glassware_id INTEGER,
@@ -277,7 +289,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS reagents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       reagent_name TEXT,
@@ -296,7 +308,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS reagent_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       reagent_id INTEGER,
@@ -311,7 +323,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS standard_substances (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       substance_name TEXT,
@@ -329,7 +341,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS reagent_inbound (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       inbound_no TEXT UNIQUE NOT NULL,
@@ -346,7 +358,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS reagent_requisition (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       requisition_no TEXT UNIQUE NOT NULL,
@@ -366,7 +378,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS gases (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       gas_name TEXT,
@@ -383,7 +395,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS gas_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       gas_id INTEGER,
@@ -398,7 +410,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS gas_inbound (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       inbound_no TEXT UNIQUE NOT NULL,
@@ -414,7 +426,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS fumehood (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fumehood_no TEXT UNIQUE NOT NULL,
@@ -428,7 +440,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS fumehood_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fumehood_id INTEGER,
@@ -446,7 +458,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS training_annual_plan (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       year INTEGER,
@@ -460,7 +472,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS training_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id INTEGER,
@@ -478,7 +490,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS ehs_daily_inspection (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       inspection_date TEXT,
@@ -496,7 +508,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS ehs_incident (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       incident_date TEXT,
@@ -512,7 +524,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS ehs_hazard (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       discovery_date TEXT,
@@ -529,7 +541,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS workflow_samples (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sample_code TEXT UNIQUE NOT NULL,
@@ -559,7 +571,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS workflow_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sample_id INTEGER,
@@ -574,7 +586,7 @@ function createTables(db) {
   `);
 
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS samples (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sample_code TEXT UNIQUE NOT NULL,
@@ -590,7 +602,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS tests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sample_id INTEGER,
@@ -605,7 +617,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
@@ -620,7 +632,7 @@ function createTables(db) {
     )
   `);
 
-  db.run(`
+  __db.exec(`
     CREATE TABLE IF NOT EXISTS experimental_data_reports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       report_no TEXT UNIQUE NOT NULL,
@@ -649,15 +661,15 @@ function createTables(db) {
 function runMigrations(db) {
   // Migration: rebuild experimental_data_reports with sample_code (text) + attachment_path
   try {
-    const rows = db.exec("SELECT COUNT(*) FROM experimental_data_reports");
+    const rows = __db.exec("SELECT COUNT(*) FROM experimental_data_reports");
     const count = rows[0]?.values[0]?.[0] || 0;
     if (count === 0) {
-      db.run('DROP TABLE IF EXISTS experimental_data_reports');
+      __db.exec('DROP TABLE IF EXISTS experimental_data_reports');
     }
   } catch(e) {}
 
   try {
-    db.run(`CREATE TABLE IF NOT EXISTS experimental_data_reports_new (
+    __db.exec(`CREATE TABLE IF NOT EXISTS experimental_data_reports_new (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       report_no TEXT UNIQUE NOT NULL,
       sample_code TEXT,
@@ -679,14 +691,14 @@ function runMigrations(db) {
       FOREIGN KEY (supervisor_id) REFERENCES users(id),
       FOREIGN KEY (equipment_id) REFERENCES equipment(id)
     )`);
-    db.run(`INSERT INTO experimental_data_reports_new SELECT id,report_no,NULL as sample_code,project_id,report_date,detection_method,analyst_id,supervisor_id,equipment_id,result_data,conclusion,remark,NULL as attachment_path,status,created_at,updated_at FROM experimental_data_reports`);
-    db.run('DROP TABLE IF EXISTS experimental_data_reports');
-    db.run('ALTER TABLE experimental_data_reports_new RENAME TO experimental_data_reports');
+    __db.exec(`INSERT INTO experimental_data_reports_new SELECT id,report_no,NULL as sample_code,project_id,report_date,detection_method,analyst_id,supervisor_id,equipment_id,result_data,conclusion,remark,NULL as attachment_path,status,created_at,updated_at FROM experimental_data_reports`);
+    __db.exec('DROP TABLE IF EXISTS experimental_data_reports');
+    __db.exec('ALTER TABLE experimental_data_reports_new RENAME TO experimental_data_reports');
   } catch(e) {}
 
   // Migration: create workflow_assignments table
   try {
-    db.run(`CREATE TABLE IF NOT EXISTS workflow_assignments (
+    __db.exec(`CREATE TABLE IF NOT EXISTS workflow_assignments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       appointment_id INTEGER NOT NULL,
       assigned_to INTEGER NOT NULL,
@@ -702,7 +714,7 @@ function runMigrations(db) {
 
   // Migration: create consumption_records table
   try {
-    db.run(`CREATE TABLE IF NOT EXISTS consumption_records (
+    __db.exec(`CREATE TABLE IF NOT EXISTS consumption_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       processing_id INTEGER,
       item_type TEXT,
@@ -742,10 +754,58 @@ function runMigrations(db) {
 
   for (const mig of migrations) {
     try {
-      db.run(`ALTER TABLE ${mig.table} ADD COLUMN ${mig.col}`);
+      __db.exec(`ALTER TABLE ${mig.table} ADD COLUMN ${mig.col}`);
     } catch (e) {
       // ignore duplicate column errors
     }
+// ========== RBAC (阶段 1.2) ==========
+  __db.exec(`
+    CREATE TABLE IF NOT EXISTS roles (
+      id INTEGER PRIMARY KEY,
+      code VARCHAR(20) UNIQUE NOT NULL,
+      name_zh VARCHAR(50) NOT NULL,
+      name_en VARCHAR(50) NOT NULL,
+      rank INTEGER NOT NULL,
+      is_technical INTEGER DEFAULT 0,
+      is_signatory INTEGER DEFAULT 0,
+      can_be_combined INTEGER DEFAULT 1,
+      signatory_level INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  __db.exec(`
+    CREATE TABLE IF NOT EXISTS user_roles (
+      id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      role_id INTEGER NOT NULL,
+      is_primary INTEGER DEFAULT 1,
+      scope TEXT,
+      granted_at TEXT DEFAULT (datetime('now')),
+      granted_by INTEGER,
+      expires_at TEXT,
+      UNIQUE(user_id, role_id)
+    )
+  `);
+  // audit_logs 加 rbac_decision
+  try { __db.exec(`ALTER TABLE audit_logs ADD COLUMN rbac_decision TEXT`); } catch (e) {}
+  try { __db.exec(`ALTER TABLE audit_logs ADD COLUMN denial_reason TEXT`); } catch (e) {}
+
+  // 8 岗位初始数据 (idempotent)
+  const seedRoles = [
+    [1, 'lab_director',     '实验室主任', 'Lab Director',     1, 1, 1, 1, 3],
+    [2, 'qa_manager',       '质量负责人', 'QA Manager',       2, 1, 1, 1, 3],
+    [3, 'technical_manager','技术负责人', 'Technical Manager', 3, 1, 1, 1, 2],
+    [4, 'analyst',          '检测员',     'Analyst',           4, 1, 0, 1, 0],
+    [5, 'reviewer',         '复核员',     'Reviewer',          4, 1, 1, 1, 2],
+    [6, 'equipment_officer','设备员',     'Equipment Officer', 5, 0, 0, 1, 0],
+    [7, 'reagent_officer',  '试剂员',     'Reagent Officer',   5, 0, 0, 1, 0],
+    [8, 'part_time',        '兼职',       'Part-time',         7, 0, 0, 1, 0]
+  ];
+  seedRoles.forEach(r => {
+    try {
+      __db.exec('INSERT INTO roles (id, code, name_zh, name_en, rank, is_technical, is_signatory, can_be_combined, signatory_level) VALUES (?,?,?,?,?,?,?,?,?)', r);
+    } catch (e) {}
+  });
   }
 }
 
