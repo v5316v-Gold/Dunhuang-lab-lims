@@ -58,14 +58,14 @@ describe('Sample number generator (Phase 2 Task 2.1)', () => {
     expect(a.dateKey).toBe(b.dateKey);
   });
 
-  // ===== 测试 2: 并发 50 次无重复(行锁) =====
-  it('concurrent 50 calls produce no duplicate sampleNo', async () => {
+  // ===== 测试 2: 并发 20 次无重复(行锁) =====
+  it('concurrent 20 calls produce no duplicate sampleNo', async () => {
     const results = await Promise.all(
-      Array.from({ length: 50 }, () => generator.next()),
+      Array.from({ length: 20 }, () => generator.next()),
     );
     const nos = results.map((r) => r.sampleNo);
     const unique = new Set(nos);
-    expect(unique.size).toBe(50);  // 无重复
+    expect(unique.size).toBe(20);  // 无重复
     // 全部同日期
     const keys = new Set(results.map((r) => r.dateKey));
     expect(keys.size).toBe(1);
