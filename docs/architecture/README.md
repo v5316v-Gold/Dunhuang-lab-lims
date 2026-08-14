@@ -23,7 +23,8 @@
 | **L8** | [L8-operations-architecture.md](./L8-operations-architecture.md) | ✅ | 6.6 KB | 运维架构(监控/事件/SLA) |
 
 **模板一致性检查**: 10/10 层 20 字段全 PASS(2026-08-13 校验)
-**合计**: 约 92 KB / 11 份文档
+**Gate 验收**: 10/10 层 G1-G8 全 PASS(见 [review/GATE-REVIEW.md](./review/GATE-REVIEW.md))
+**合计**: 约 92 KB / 11 份文档 + 验收记录
 
 ---
 
