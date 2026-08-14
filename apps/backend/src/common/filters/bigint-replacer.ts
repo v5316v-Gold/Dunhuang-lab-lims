@@ -44,8 +44,9 @@ export function installBigIntReplacer(): void {
     replacer?: ((this: unknown, key: string, value: unknown) => unknown) | (string | number)[],
     space?: string | number,
   ): string {
+    // Phase 1 修复: 箭头函数不能带 this 参数,改为普通函数表达式(TS2730)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const wrapped = (this: unknown, k: string, v: unknown): unknown => {
+    const wrapped = function (this: unknown, k: string, v: unknown): unknown {
       const after = bigintReplacer(k, v);
       if (typeof replacer === 'function') {
         return (replacer as (this: unknown, k: string, v: unknown) => unknown).call(this, k, after);
