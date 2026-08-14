@@ -6,6 +6,12 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Spin } from 'antd';
 import { MainLayout } from '../views/layout/MainLayout';
+// Phase 2/3 填充页面: 直接 import(规避 lazy 渲染兼容问题)
+import { TestsList } from '../views/test/TestsList';
+import { ReportsList } from '../views/report/ReportsList';
+import { EquipmentList } from '../views/equipment/EquipmentList';
+import { PersonnelList } from '../views/personnel/PersonnelList';
+import { ReagentsList } from '../views/reagent/ReagentsList';
 import { RequireAuth } from './RequireAuth';
 
 const LoginPage = lazy(() => import('../views/auth/Login'));
@@ -14,13 +20,8 @@ const SamplesListPage = lazy(() => import('../views/sample/SamplesList'));
 const SampleReceivePage = lazy(() => import('../views/sample/SampleReceive'));
 const BatchesListPage = lazy(() => import('../views/batch/BatchesList'));
 const BatchDetailPage = lazy(() => import('../views/batch/BatchDetail'));
-const TestsListPage = lazy(() => import('../views/test/TestsList'));
-const ReportsListPage = lazy(() => import('../views/report/ReportsList'));
 const ReportDetailPage = lazy(() => import('../views/report/ReportDetail'));
 const QcDashboardPage = lazy(() => import('../views/qc/QcDashboard'));
-const EquipmentListPage = lazy(() => import('../views/equipment/EquipmentList'));
-const PersonnelListPage = lazy(() => import('../views/personnel/PersonnelList'));
-const ReagentsListPage = lazy(() => import('../views/reagent/ReagentsList'));
 const AuditLogsPage = lazy(() => import('../views/audit/AuditLogs'));
 
 function Loading() {
@@ -53,13 +54,13 @@ export function AppRouter() {
           <Route path="samples/receive" element={<SampleReceivePage />} />
           <Route path="batches" element={<BatchesListPage />} />
           <Route path="batches/:id" element={<BatchDetailPage />} />
-          <Route path="tests" element={<TestsListPage />} />
-          <Route path="reports" element={<ReportsListPage />} />
+          <Route path="tests" element={<TestsList />} />
+          <Route path="reports" element={<ReportsList />} />
           <Route path="reports/:id" element={<ReportDetailPage />} />
           <Route path="qc" element={<QcDashboardPage />} />
-          <Route path="equipment" element={<EquipmentListPage />} />
-          <Route path="personnel" element={<PersonnelListPage />} />
-          <Route path="reagents" element={<ReagentsListPage />} />
+          <Route path="equipment" element={<EquipmentList />} />
+          <Route path="personnel" element={<PersonnelList />} />
+          <Route path="reagents" element={<ReagentsList />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
         </Route>
 
