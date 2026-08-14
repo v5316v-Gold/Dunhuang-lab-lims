@@ -3,37 +3,76 @@
 // 详见 Phase 2 文档 §5.1
 // =====================================================
 
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { CreateSampleDto, SampleFilterDto, UpdateSampleDto } from './dto/sample.dto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Sample } from '@prisma/client';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SampleNumberGenerator } from './sample-number.generator';
+import { allowedEvents, SampleEvent, transitionSample } from './sample.state-machine';
+
+import { CreateSampleDto, SampleFilterDto, UpdateSampleDto } from './dto/sample.dto';
+
+
+/** 状态机提示(错误信息用) */
+function allowedEventHint(status: string): string {
+  try {
+    return allowedEvents(status as never).join(' | ');
+  } catch {
+    return '无';
+  }
+}
 
 @Injectable()
 export class SampleService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sampleNoGenerator: SampleNumberGenerator,
+  ) {}
 
   /**
    * 创建样品
    * - 自动生成 sampleNo: YYMMDD-NNNN(每日重置)
    * - 状态默认 RECEIVED
+   * - 在事务中设置 PG session 变量,确保审计链记录正确 user
+   * - ADR-0003: SHA256 链由 PG 触发器自动写入 audit_logs
    */
   async create(dto: CreateSampleDto, receivedById: string): Promise<Sample> {
-    const sampleNo = await this.generateSampleNo();
+    return this.prisma.$transaction(async (tx) => {
+      // Phase 2 Task 2.1: 并发安全编号生成(事务内取号,行锁)
+      const { sampleNo } = await this.sampleNoGenerator.next(tx);
+      // 获取用户信息用于审计上下文
+      const user = await tx.user.findUnique({
+        where: { id: receivedById },
+        select: { id: true, username: true },
+      });
+      if (!user) {
+        throw new Error(`接收员 ${receivedById} 不存在`);
+      }
 
-    return this.prisma.sample.create({
-      data: {
-        sampleNo,
-        customerName: dto.customerName,
-        customerRef: dto.customerRef,
-        sampleType: dto.sampleType,
-        declaredPurityPct: dto.declaredPurityPct,
-        weightG: dto.weightG,
-        receivedById,
-        storageLocation: dto.storageLocation,
-        photoFileIds: dto.photoFileIds ?? [],
-        remarks: dto.remarks,
-        status: 'RECEIVED',
-      },
+      // 设置 PG session 变量(ADR-0003 §3 步骤 3)
+      await tx.$executeRawUnsafe(
+        `SET LOCAL app.current_user_id = '${user.id}'`,
+      );
+      await tx.$executeRawUnsafe(
+        `SET LOCAL app.current_username = '${user.username}'`,
+      );
+
+      // 创建样品(触发 audit_trigger 自动写 audit_logs)
+      return tx.sample.create({
+        data: {
+          sampleNo,
+          customerName: dto.customerName,
+          customerRef: dto.customerRef,
+          sampleType: dto.sampleType,
+          declaredPurityPct: dto.declaredPurityPct,
+          weightG: dto.weightG,
+          receivedById,
+          storageLocation: dto.storageLocation,
+          photoFileIds: dto.photoFileIds ?? [],
+          remarks: dto.remarks,
+          status: 'RECEIVED',
+        },
+      });
     });
   }
 
@@ -142,4 +181,40 @@ export class SampleService {
 
     return `${datePrefix}-${String(nextSeq).padStart(4, '0')}`;
   }
+
+  /**
+   * Phase 2 Task 2.2: 样品状态转换(状态机守卫)
+   * 非法流转返回 400
+   */
+  async transition(id: string, event: SampleEvent, userId: string): Promise<Sample> {
+    const sample = await this.prisma.sample.findUnique({ where: { id } });
+    if (!sample) {
+      throw new NotFoundException('样品不存在');
+    }
+
+    const next = transitionSample(sample.status, event);
+    if (!next) {
+      throw new BadRequestException(
+        `非法状态转换: ${sample.status} + ${event}(允许: ${allowedEventHint(sample.status)})`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 审计上下文
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true },
+      });
+      if (user) {
+        await tx.$executeRawUnsafe(`SET LOCAL app.current_user_id = '${user.id}'`);
+        await tx.$executeRawUnsafe(`SET LOCAL app.current_username = '${user.username}'`);
+      }
+
+      return tx.sample.update({
+        where: { id },
+        data: { status: next },
+      });
+    });
+  }
+
 }

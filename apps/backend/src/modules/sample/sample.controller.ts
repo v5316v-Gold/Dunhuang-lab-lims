@@ -15,13 +15,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { SampleService } from './sample.service';
-import { CreateSampleDto, SampleFilterDto, UpdateSampleDto } from './dto/sample.dto';
+import { User, UserRole } from '@prisma/client';
+
+import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
-import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
-import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
-import { User, UserRole } from '@prisma/client';
+
+import { CreateSampleDto, SampleFilterDto, UpdateSampleDto } from './dto/sample.dto';
+import { SampleEvent } from './sample.state-machine';
+import { SampleService } from './sample.service';
+
 
 @ApiTags('samples')
 @ApiBearerAuth('access-token')
@@ -62,4 +66,18 @@ export class SampleController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.sampleService.softDelete(id);
   }
+
+  /**
+   * Phase 2 Task 2.2: 样品状态转换
+   */
+  @Post(':id/transition')
+  @ApiOperation({ summary: '样品状态转换(状态机守卫)' })
+  transition(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { event: SampleEvent },
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.sampleService.transition(id, body.event, user.id);
+  }
+
 }

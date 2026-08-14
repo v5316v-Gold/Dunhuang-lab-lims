@@ -4,14 +4,17 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
-import { SampleController } from './sample.controller';
-import { SampleService } from './sample.service';
+
 import { BatchModule } from '../batch/batch.module';
+
+import { SampleController } from './sample.controller';
+import { SampleNumberGenerator } from './sample-number.generator';
+import { SampleService } from './sample.service';
 
 @Module({
   imports: [BatchModule],
   controllers: [SampleController],
-  providers: [SampleService],
-  exports: [SampleService],
+  providers: [SampleService, SampleNumberGenerator],
+  exports: [SampleService, SampleNumberGenerator],
 })
 export class SampleModule {}
