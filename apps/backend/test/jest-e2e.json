@@ -15,5 +15,20 @@
     "../../node_modules",
     "../../node_modules/.pnpm/node_modules"
   ],
+  "collectCoverageFrom": [
+    "src/**/*.ts",
+    "!src/**/*.module.ts",
+    "!src/main.ts",
+    "!src/**/dto/**",
+    "!src/**/decorators/**"
+  ],
+  "coverageThreshold": {
+    "global": {
+      "statements": 50,
+      "branches": 40,
+      "functions": 45,
+      "lines": 50
+    }
+  },
   "testTimeout": 30000
 }

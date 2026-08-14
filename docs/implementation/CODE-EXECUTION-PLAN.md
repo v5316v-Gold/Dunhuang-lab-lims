@@ -318,6 +318,14 @@ Phase 5 (CNAS 预审) ← 全依赖
 
 ---
 
+
+### 技术备注(Phase 1 实盘发现)
+
+**覆盖率收集**: 集成测试(jest-e2e.json)在 ts-jest + tsconfig `rootDirs` 组合下 coverage 收集为 0(已知兼容性限制,coverageMap 为空)。处理:
+- Phase 1: CI 跑 --coverage 收集报告上传 artifact(不设硬门禁)
+- Phase 2: 建独立单元测试 jest config(tsconfig.unit.json 不含 rootDirs)启用 coverageThreshold(statements ≥ 70)
+- 已记录于 commitlint/PR 模板/覆盖率相关 commit
+
 ## 12. 版本历史
 
 | 版本 | 日期 | 变更 | 编制 |

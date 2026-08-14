@@ -16,6 +16,25 @@ env:
   NODE_ENV: test
 
 jobs:
+  # ============== 0. CommitLint ==============
+  commitlint:
+    name: Commit Message Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Run commitlint on PR commits
+        run: |
+          npx --yes commitlint --from ${{ github.event.pull_request.base.sha || 'HEAD~1' }} --to HEAD
+
   # ============== 1. Lint ==============
   lint:
     name: Lint (ESLint)
@@ -147,13 +166,22 @@ jobs:
           DATABASE_URL: postgresql://dunhuang:dunhuang_test_pwd@localhost:5432/dunhuang_lims_test?schema=public
         run: cd apps/backend && pnpm prisma:generate
 
-      - name: Run Backend Tests
+      - name: Run Backend Tests (with coverage)
         env:
           DATABASE_URL: postgresql://dunhuang:dunhuang_test_pwd@localhost:5432/dunhuang_lims_test?schema=public
           JWT_SECRET: test-secret-min-32-characters-for-ci-only
           JWT_REFRESH_SECRET: test-refresh-secret-min-32-characters
           NODE_ENV: test
-        run: cd apps/backend && pnpm test
+        # Phase 1: 覆盖率数据收集(硬门禁阈值在 Phase 2 单元测试建立后启用,见 CODE-EXECUTION-PLAN)
+        run: cd apps/backend && node node_modules/jest/bin/jest.js --config test/jest-e2e.json --coverage --runInBand
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/backend/coverage/
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Run Frontend Tests
         run: cd apps/frontend && pnpm test
