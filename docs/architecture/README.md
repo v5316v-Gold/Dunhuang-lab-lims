@@ -28,6 +28,14 @@
 
 ---
 
+
+## 代码执行方案
+
+| 文档 | 状态 | 说明 |
+|---|---|---|
+| [CODE-EXECUTION-PLAN.md](../implementation/CODE-EXECUTION-PLAN.md) | ✅ v1.0 | 专家级代码执行方案(架构→代码映射/分阶段 Phase 1-5/文件级任务) |
+| [sample-number.generator.example.ts](../implementation/examples/sample-number.generator.example.ts) | ✅ | 并发安全编号生成器代码骨架示例 |
+
 ## 既有文档引用关系
 
 | 既有文档 | 作为哪层的输入 |
