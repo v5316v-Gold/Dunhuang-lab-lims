@@ -4,10 +4,13 @@
 // =====================================================
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { reportMachine, ReportEvent } from './report.state-machine';
-import { createActor } from 'xstate';
 import { Report, ReportStatus, UserRole } from '@prisma/client';
+
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
+import { ReportEvent, transitionReport } from './report.state-machine';
+
 
 @Injectable()
 export class ReportService {
@@ -22,6 +25,9 @@ export class ReportService {
 
     const reportNo = await this.generateReportNo();
 
+    // Phase 2 Task 2.5: 生成报告内容快照(summary 含检测数据)
+    const summary = await this.buildReportSummary(sampleId);
+
     return this.prisma.$transaction(async (tx) => {
       const report = await tx.report.create({
         data: {
@@ -29,6 +35,7 @@ export class ReportService {
           sampleId,
           status: ReportStatus.DRAFT,
           createdById: userId,
+          summary,
         },
       });
 
@@ -51,25 +58,14 @@ export class ReportService {
   async transition(reportId: string, event: ReportEvent, userId: string, comments?: string): Promise<Report> {
     const report = await this.findOne(reportId);
 
-    // 用 XState 5 计算下一状态
+    // Phase 2 Task 2.5: 用纯函数转换表计算下一状态
+    // (XState 5.32 运行时 API 兼容问题,统一走 transitionReport 纯函数)
     let nextState: string;
-    const actor = createActor(reportMachine, {
-      snapshot: reportMachine.resolveState({ value: report.status }),
-    });
-    actor.start();
-    try {
-      actor.send({ type: event });
-      const snapshot = actor.getSnapshot();
-      const next = snapshot.value;
-      if (typeof next !== 'string' || next === report.status) {
-        throw new BadRequestException(`非法状态转换: ${report.status} + ${event}`);
-      }
-      nextState = next;
-    } catch (err) {
-      actor.stop();
-      throw new BadRequestException(`状态机错误: ${(err as Error).message}`);
+    const next = transitionReport(report.status, event);
+    if (!next || next === report.status) {
+      throw new BadRequestException(`非法状态转换: ${report.status} + ${event}`);
     }
-    actor.stop();
+    nextState = next;
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.report.update({
@@ -167,7 +163,50 @@ export class ReportService {
   /**
    * 生成报告编号: LIMS-YYYY-NNNNNN
    */
-  private async generateReportNo(): Promise<string> {
+  
+  /**
+   * Phase 2 Task 2.5: 从样品关联检测数据生成报告内容快照
+   * 包含: 样品信息 / 检测方法 / 纯度结果 / 元素结果 / QC 状态
+   * 合规: CNAS §7.8 结果报告(报告内容可追溯)
+   */
+  private async buildReportSummary(sampleId: string): Promise<string> {
+    const sample = await this.prisma.sample.findUnique({
+      where: { id: sampleId },
+      include: {
+        tests: {
+          include: { fireAssay: true, elementResults: true },
+        },
+      },
+    });
+    if (!sample) throw new NotFoundException('样品不存在');
+
+    const tests = sample.tests ?? [];
+    const lines: string[] = [];
+    lines.push(`样品编号: ${sample.sampleNo}`);
+    lines.push(`客户名称: ${sample.customerName}`);
+    lines.push(`样品类型: ${sample.sampleType}`);
+    lines.push(`接收重量: ${sample.weightG} g`);
+
+    for (const t of tests) {
+      lines.push(`检测方法: ${t.method}`);
+      lines.push(`检测状态: ${t.status}`);
+      if (t.purityPct) lines.push(`纯度结果: ${t.purityPct}%`);
+      if (t.uncertainty) lines.push(`不确定度: ${t.uncertainty}% (k=2)`);
+      if (t.qcPassed !== null && t.qcPassed !== undefined) {
+        lines.push(`QC 判定: ${t.qcPassed ? '通过' : '未通过'}`);
+      }
+      if (t.fireAssay) {
+        lines.push(`火试金称样量: ${t.fireAssay.sampleWeightG} g`);
+      }
+      for (const el of t.elementResults ?? []) {
+        lines.push(`元素 ${el.element}: ${el.concentration} ${el.unit ?? ''}`);
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+private async generateReportNo(): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `LIMS-${year}-`;
 
