@@ -241,3 +241,40 @@
 ## 5. 下阶段交付
 
 Phase 0 完成后,进入 [Phase 1:基础设施](./PHASE-1-infra.md)
+---
+
+## 状态更新(2026-08-13)
+
+### Phase 0 完成情况
+
+- 全部 monorepo 初始化(NestJS + React + pnpm + Turborepo)
+- Docker 容器化(TimescaleDB + Redis + NestJS)
+- 30 张业务表 + 4 业务模块(samples / batches / tests / qc)
+- 4 个种子账号 + 业务数据 seed
+- ESLint + Prettier 配置
+- CI 工作流(4 jobs:lint / typecheck / build / test)
+
+### Phase 0.5 完成情况(2026-08-13)
+
+- **Task A** BigInt 序列化 + DTO 校验(class-validator)
+- **Task B** Prisma baseline migration(32463 字节真实 SQL,空库 deploy 验证)
+- **Task C** 27 张业务表 audit trigger + audit_logs 防篡改三层(UPDATE/DELETE/TRUNCATE)
+- **Task D** 12 个 audit compliance 集成测试 PASS
+- **Task E** 软删除 Prisma extension(7 model: User / Department / Personnel / Equipment / Sample / Reagent / SampleBatch)
+- **Task F** ESLint monorepo resolver 修复 + 移除 CI continue-on-error
+- **Task G** 核心垂直切片 E2E 测试 7 个 PASS(auth → sample → batch → fire-assay → qc → audit)
+- **Task H** VMP + FMEA(48 风险点)+ Periodic Review 计划
+
+### 验证结果
+
+- **25/25** 集成测试 PASS
+- **0** ESLint errors
+- **PHASE 0.5 GATE: PASS**
+
+### 详情
+
+- 详细报告:docs/execution/PHASE-0.5-RESULT.md
+- 项目状态:docs/PROJECT-STATUS.md
+- 验证文档:docs/validation/
+- Commits:e3c9763, aed06e7, 48a473b, 9c48ffb, bd9ecae, 94e6a2f, 13cd98f, 34685b1
+

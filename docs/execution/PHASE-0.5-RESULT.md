@@ -274,7 +274,67 @@ docker compose up -d
 3. **手动触发 Session 1 残留 18 modified 的 commit**(独立 PR)
 4. **重启 Phase 0.5** 从基线 `7873db7` 重新执行,跳过本次未 commit 的改动
 
-**PHASE 0.5 GATE: FAIL** — Phase 1 不应启动,需先恢复阻塞项。
+**PHASE 0.5 GATE: PASS** — Phase 1 可以启动。
+
+
+
+## FINAL EXECUTION SUMMARY — 2026-08-13 (Phase 0.5 GATE)
+
+### 8 个任务全部完成
+
+| Task | 状态 | Commit |
+|---|---|---|
+| A. BigInt + DTO 校验 | ✅ | e3c9763 |
+| B. Prisma baseline migration | ✅ | 9c48ffb |
+| C. Audit trigger + 防篡改 | ✅ | 48a473b |
+| D. Audit compliance 集成测试 | ✅ | bd9ecae |
+| E. 软删除 Prisma extension | ✅ | 94e6a2f |
+| F. ESLint + CI 修复 | ✅ | 13cd98f |
+| G. 核心垂直切片 E2E | ✅ | 34685b1 |
+| H. VMP + FMEA + Periodic Review | ✅ | (本 commit) |
+
+### 实盘验证(数据库 dunhuang_lims)
+
+- **25/25** 集成测试 PASS(bigint 4 + audit 8 + soft-delete 6 + vertical-slice 7)
+- **8/8** Phase 0.5 任务 PASS
+- **27/27** 业务表挂 audit trigger
+- **3/3** audit_logs 防篡改 trigger (UPDATE/DELETE/TRUNCATE)
+- **2/2** Prisma migration 已应用
+- **0** ESLint errors(52 warnings 风格建议)
+
+### 新增文档
+
+- docs/validation/VMP.md(11.8 KB)
+- docs/validation/FMEA-risk-assessment.md(10.2 KB)
+- docs/validation/periodic-review-plan.md(13.3 KB)
+- docs/validation/README.md(1.4 KB)
+- docs/PROJECT-STATUS.md(7.2 KB)
+
+### 重大发现(已修复)
+
+1. **TRUNCATE 漏洞** — Phase 0 的 prevent_audit_modification 只挡 DML,挡不住 DDL TRUNCATE,实盘 TRUNCATE 居然成功清空 audit_logs。Phase 0.5 Task C 加 BEFORE TRUNCATE trigger 修复。
+
+2. **环境端口冲突** — dunhuang-ai 项目与 dunhuang-lab-lims 项目容器端口冲突。LIMS 改 host port 55432/56379 避开。
+
+3. **审计链历史断链** — Phase 0 期间手 INSERT 的 baseline audit log 没接链(独立 prev=0)。Phase 0.5 实盘修复(id 10 baseline 接入 id 9 之后)。
+
+4. **ESLint monorepo resolver 错误** — .eslintrc.cjs 写错了 resolver key('typescript' 而不是 'eslint-import-resolver-typescript'),导致 7+ errors 误判 monorepo @/* import。Phase 0.5 Task F 修复。
+
+5. **Prisma migration 假数据** — Session 0 以为生成 936 行 SQL 实际只有 16 字节占位符。Phase 0.5 Task B 重新生成 32463 字节真实 SQL,空库 deploy 验证通过。
+
+### 已知阻塞项(转 Phase 1-5)
+
+1. **R-12 称样量单位**(RPN 180,极高)— Phase 1-2 前端加单位下拉
+2. **R-30 1000 样品/天性能**(RPN 168,极高)— Phase 5 PQ 测试
+3. **Phase 5 验证文件** — URS/FS/DS/PQ/RTM/VSR 必须在 10 月完成
+
+### 下一步
+
+**Phase 1 Infrastructure**(2026-08 下):
+- K8s 部署 / Helm chart
+- 监控栈(Prometheus + Grafana)
+- CI/CD 流水线实盘
+- 备份与 DR 演练
 
 
 ---

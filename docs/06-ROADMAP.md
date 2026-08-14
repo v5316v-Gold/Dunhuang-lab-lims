@@ -2,10 +2,10 @@
 
 > **项目**: 敦煌金质检 LIMS(专家级)
 > **业务**: 贵金属(黄金)检测 —— 火试金法 + ICP(详见 [ADR-0011](./adr/0011-precious-metal-business.md))
-> **版本**: v2.0.0
-> **日期**: 2026-08-04
-> **维护者**: 天枢(架构师)
-> **状态**: 🔄 已重写为 6 阶段 13 周(对比原 12 个月)
+> **版本**: v2.1.0
+> **日期**: 2026-08-13(Phase 0.5 完成)
+> **维护者**: LIMS-Architect-01(架构师)
+> **状态**: ✅ Phase 0 + 0.5 完成,Phase 1 待启动
 
 > ⚠️ **变更说明**:本版本已重写。原 12 个月路线图移入 [archive/06-ROADMAP-12months-original.md](./archive/06-ROADMAP-12months-original.md)。
 
@@ -66,14 +66,19 @@ gantt
 
 ## 4. 阶段状态
 
-| 阶段 | 状态 | 完成度 |
-|---|---|---|
-| Phase 0 | ⏳ 待启动 | 0% |
-| Phase 1 | ⏳ 待启动 | 0% |
-| Phase 2 | ⏳ 待启动 | 0% |
-| Phase 3 | ⏳ 待启动 | 0% |
-| Phase 4 | ⏳ 待启动 | 0% |
-| Phase 5 | ⏳ 待启动 | 0% |
+| 阶段 | 状态 | 完成度 | 关键交付 |
+|---|---|---|---|
+| **Phase 0** | ✅ 完成 | 100% | NestJS 启动 + docker + 30 业务表 + seed |
+| **Phase 0.5** | ✅ 完成 | 100% | BigInt 序列化 + 27 audit trigger + 3 防篡改 + 软删除 + ESLint 修复 + E2E + VMP/FMEA |
+| Phase 1 | ⏳ 待启动 | 0% | K8s / 监控 / CI-CD / DR 演练 |
+| Phase 2 | ⏳ 待启动 | 0% | 样品→检测→报告 E2E 业务化 |
+| Phase 3 | ⏳ 待启动 | 0% | 13 模块全上线 |
+| Phase 4 | ⏳ 待启动 | 0% | 备份/灾备/自检 |
+| Phase 5 | ⏳ 待启动 | 0% | 性能/安全/整改/CNAS 现场 |
+
+**Phase 0.5 详细报告**:`docs/execution/PHASE-0.5-RESULT.md`  
+**当前项目状态**:`docs/PROJECT-STATUS.md`  
+**验证文档**:`docs/validation/`(VMP / FMEA / Periodic Review)
 
 ## 5. 与原 12 个月路线图的对比
 
