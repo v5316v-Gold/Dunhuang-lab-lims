@@ -170,6 +170,11 @@ describe('Core vertical slice E2E (Phase 0.5 Task G)', () => {
 
   // ===== 步骤 5: 记录火试金重量 =====
   it('Step 5: POST /tests/fire-assay/:testId/weights records weights', async () => {
+    // F1 步骤守卫: 先补工艺参数
+    await request(app.getHttpServer())
+      .post('/tests/fire-assay/' + testId + '/process')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ furnaceTempC: 1050, cupellationMin: 45, partingMin: 30, annealingMin: 30 });
     const res = await request(app.getHttpServer())
       .post('/tests/fire-assay/' + testId + '/weights')
       .set('Authorization', `Bearer ${accessToken}`)

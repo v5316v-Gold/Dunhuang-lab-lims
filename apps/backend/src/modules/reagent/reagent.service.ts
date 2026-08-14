@@ -3,9 +3,11 @@
 // =====================================================
 
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import Decimal from 'decimal.js';
 import { Reagent, ReagentType } from '@prisma/client';
+import Decimal from 'decimal.js';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
 
 @Injectable()
 export class ReagentService {
@@ -76,6 +78,35 @@ export class ReagentService {
       });
       return tx.reagentUsage.create({ data: { reagentLotId, ...data } });
     });
+  }
+
+
+  /**
+   * Phase 3 填充(F5): 低库存预警(remainingQty <= safetyStock)
+   */
+  async getLowStockAlerts() {
+    const reagents = await this.prisma.reagent.findMany({
+      where: { deletedAt: null },
+      include: { lots: { orderBy: { remainingQty: 'desc' } } },
+    });
+    return reagents
+      .map((r) => {
+        const totalRemaining = r.lots.reduce(
+          (sum, l) => sum + parseFloat(l.remainingQty.toString()),
+          0,
+        );
+        const safety = r.safetyStock ? parseFloat(r.safetyStock.toString()) : 0;
+        return {
+          reagentId: r.id,
+          code: r.code,
+          name: r.name,
+          unit: r.unit,
+          totalRemaining,
+          safetyStock: safety,
+          low: safety > 0 && totalRemaining <= safety,
+        };
+      })
+      .filter((r) => r.low);
   }
 
   /**

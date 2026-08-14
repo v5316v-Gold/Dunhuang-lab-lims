@@ -3,6 +3,7 @@
 // =====================================================
 
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 @Injectable()
@@ -73,6 +74,31 @@ export class PersonnelService {
   }) {
     await this.findOne(personnelId);
     return this.prisma.competency.create({ data: { personnelId, ...data } });
+  }
+
+
+  /**
+   * Phase 3 填充(F4): 培训状态(最近培训 + 是否有有效能力)
+   * 授权规则: 能力未过期(expiresAt > now)且等级 >= JUNIOR
+   */
+  async hasValidCompetency(personnelId: string, method: string): Promise<{ authorized: boolean; reason?: string }> {
+    const comp = await this.prisma.competency.findUnique({
+      where: { personnelId_method: { personnelId, method } },
+    });
+    if (!comp) return { authorized: false, reason: `无 ${method} 能力授权` };
+    if (new Date(comp.expiresAt) < new Date()) return { authorized: false, reason: '能力已过期' };
+    if (comp.level === 'TRAINEE') return { authorized: false, reason: '等级不足(需 ≥ JUNIOR)' };
+    return { authorized: true };
+  }
+
+  /** 培训记录概览(最近 5 条) */
+  async getTrainingOverview(personnelId: string) {
+    const trainings = await this.prisma.training.findMany({
+      where: { personnelId },
+      orderBy: { trainingDate: 'desc' },
+      take: 5,
+    });
+    return { count: trainings.length, recent: trainings };
   }
 
   /**

@@ -157,7 +157,11 @@ describe('Password policy + login lockout + row-level (Phase 1 Task 2.2)', () =>
       .send({ prillWeightG: '0.9988', leadButtonWeightG: '3.0' });
     expect(res.status).toBe(403);
 
-    // admin 操作 → 200
+    // admin 操作 → 200(先补工艺参数满足 F1 步骤守卫)
+    await request(app.getHttpServer())
+      .post(`/tests/fire-assay/${test.id}/process`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ furnaceTempC: 1050, cupellationMin: 45, partingMin: 30, annealingMin: 30 });
     const adminRes = await request(app.getHttpServer())
       .post(`/tests/fire-assay/${test.id}/weights`)
       .set('Authorization', `Bearer ${adminToken}`)

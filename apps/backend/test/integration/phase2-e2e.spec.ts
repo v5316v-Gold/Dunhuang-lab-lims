@@ -115,6 +115,11 @@ describe('Phase 2 full business loop E2E', () => {
     });
     testId = test.id;
 
+    // F1 步骤守卫: 先记录工艺参数
+    await request(app.getHttpServer())
+      .post(`/tests/fire-assay/${testId}/process`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ furnaceTempC: 1050, cupellationMin: 45, partingMin: 30, annealingMin: 30 });
     // 记录重量(纯度计算 + QC 回收率)
     const w = await request(app.getHttpServer())
       .post(`/tests/fire-assay/${testId}/weights`)

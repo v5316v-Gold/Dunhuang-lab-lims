@@ -2,9 +2,11 @@
 // 火试金检测服务
 // =====================================================
 
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { User, UserRole } from '@prisma/client';
 import Decimal from 'decimal.js';
+
+import { validateStepOrder, isAllStepsDone } from './fire-assay-steps';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
@@ -109,6 +111,14 @@ export class FireAssayService {
     const test = await this.findOne(dto.testId);
     if (!test.fireAssay) {
       throw new NotFoundException('火试金详情不存在');
+    }
+
+    // Phase 2 填充(F1): 步骤顺序守卫 — 称重(最终步骤)前必须完成全部前序工艺
+    const order = validateStepOrder('FINAL_WEIGHING', test.fireAssay);
+    if (!order.ok) {
+      throw new BadRequestException(
+        `火试金步骤未完成,缺少: ${order.missingSteps.join(' → ')}。请按 称样→熔融→灰吹→分金→退火 顺序执行`,
+      );
     }
 
     // 计算纯度

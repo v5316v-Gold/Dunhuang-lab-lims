@@ -10,11 +10,15 @@ import { Report, ReportStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 import { ReportEvent, transitionReport } from './report.state-machine';
+import { ReportPdfService } from './report-pdf.service';
 
 
 @Injectable()
 export class ReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pdfService: ReportPdfService,
+  ) {}
 
   /**
    * 创建报告(草稿)
@@ -68,11 +72,26 @@ export class ReportService {
     nextState = next;
 
     return this.prisma.$transaction(async (tx) => {
+      // Phase 2 填充(F2): 签发时自动生成 PDF 并绑定 SHA256
+      let pdfSha256: string | undefined;
+      if (event === 'ISSUE') {
+        const pdf = this.pdfService.generate({
+          reportNo: report.reportNo,
+          sampleNo: report.sample?.sampleNo ?? '',
+          customerName: report.sample?.customerName ?? '',
+          sampleType: report.sample?.sampleType ?? '',
+          summary: report.summary ?? '',
+          issuedAt: new Date(),
+        });
+        pdfSha256 = pdf.sha256;
+      }
+
       const updated = await tx.report.update({
         where: { id: reportId },
         data: {
           status: nextState as ReportStatus,
           ...(event === 'ISSUE' && { issuedAt: new Date() }),
+          ...(pdfSha256 && { pdfSha256 }),
         },
       });
 

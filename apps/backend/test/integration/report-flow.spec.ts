@@ -83,6 +83,11 @@ describe('Report review flow (Phase 2 Task 2.5)', () => {
       } as any,
     });
     testId = t.id;
+    // F1 步骤守卫: 先记录工艺参数(熔融/灰吹/分金/退火)
+    await request(app.getHttpServer())
+      .post(`/tests/fire-assay/${testId}/process`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ furnaceTempC: 1050, cupellationMin: 45, partingMin: 30, annealingMin: 30, partingAcid: '1:2' });
     const w = await request(app.getHttpServer())
       .post(`/tests/fire-assay/${testId}/weights`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -142,6 +147,8 @@ describe('Report review flow (Phase 2 Task 2.5)', () => {
     const final = await prisma.report.findUnique({ where: { id: reportId } });
     expect(final!.status).toBe('ISSUED');
     expect(final!.issuedAt).not.toBeNull();
+    // Phase 2 填充(F2): 签发自动生成 PDF 并绑定 SHA256
+    expect(final!.pdfSha256).toMatch(/^[a-f0-9]{64}$/);
     const stages = await prisma.reportStage.count({ where: { reportId } });
     expect(stages).toBeGreaterThanOrEqual(5); // 创建 + 4 次推进
     const signatures = await prisma.reportSignature.count({ where: { reportId } });

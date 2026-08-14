@@ -168,4 +168,51 @@ export class EquipmentService {
     return { usable: true };
   }
 
+
+  /**
+   * Phase 3 填充(F3): 设备综合健康状态(校准/维护/期间核查)
+   * 返回每项的最新记录与状态
+   */
+  async getEquipmentHealthStatus(equipmentId: string) {
+    const [calibration, maintenance, periodicCheck] = await Promise.all([
+      this.prisma.calibration.findFirst({
+        where: { equipmentId },
+        orderBy: { nextDueDate: 'desc' },
+      }),
+      this.prisma.maintenance.findFirst({
+        where: { equipmentId },
+        orderBy: { maintenanceDate: 'desc' },
+      }),
+      this.prisma.periodicCheck.findFirst({
+        where: { equipmentId },
+        orderBy: { checkDate: 'desc' },
+      }),
+    ]);
+
+    const now = new Date();
+    const calStatus = !calibration
+      ? 'NO_CALIBRATION'
+      : new Date(calibration.nextDueDate) < now
+        ? 'EXPIRED'
+        : 'OK';
+    const maintStatus = !maintenance
+      ? 'NO_MAINTENANCE'
+      : maintenance.nextDueDate && new Date(maintenance.nextDueDate) < now
+        ? 'DUE'
+        : 'OK';
+    const checkStatus = !periodicCheck
+      ? 'NO_PERIODIC_CHECK'
+      : periodicCheck.passed
+        ? 'OK'
+        : 'FAILED';
+
+    return {
+      calibration: { status: calStatus, nextDueDate: calibration?.nextDueDate ?? null },
+      maintenance: { status: maintStatus, nextDueDate: maintenance?.nextDueDate ?? null },
+      periodicCheck: { status: checkStatus, lastCheckDate: periodicCheck?.checkDate ?? null },
+      // 综合: 任一不 OK 则设备状态异常
+      overall: calStatus === 'OK' && maintStatus === 'OK' && checkStatus === 'OK' ? 'HEALTHY' : 'ATTENTION',
+    };
+  }
+
 }
