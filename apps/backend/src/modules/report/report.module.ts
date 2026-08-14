@@ -4,12 +4,15 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+
 import { ReportController } from './report.controller';
+import { ReportPdfService } from './report-pdf.service';
 import { ReportService } from './report.service';
+import { ReportSignatureService } from './report-signature.service';
 
 @Module({
   controllers: [ReportController],
-  providers: [ReportService],
-  exports: [ReportService],
+  providers: [ReportService, ReportSignatureService, ReportPdfService],
+  exports: [ReportService, ReportSignatureService, ReportPdfService],
 })
 export class ReportModule {}

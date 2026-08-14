@@ -3,12 +3,16 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+
 import { AnalyticsController } from './analytics.controller';
+import { AuditModule } from '../../common/audit/audit.module';
 import { AnalyticsService } from './analytics.service';
+import { DataRetentionService } from './data-retention.service';
 
 @Module({
+  imports: [AuditModule], // SecurityAuditService(Phase 4 归档审计)
   controllers: [AnalyticsController],
-  providers: [AnalyticsService],
-  exports: [AnalyticsService],
+  providers: [AnalyticsService, DataRetentionService],
+  exports: [AnalyticsService, DataRetentionService],
 })
 export class AnalyticsModule {}
