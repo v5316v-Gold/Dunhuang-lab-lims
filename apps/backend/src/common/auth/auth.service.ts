@@ -50,6 +50,20 @@ export class AuthService {
       where: { username: dto.username },
     });
 
+    // Phase 1 Task 2.2: 登录锁定检查(连续失败 ≥5 次锁定 15 分钟)
+    if (user && user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainingMin = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      await this.securityAudit.record({
+        event: AuditEventType.LOGIN_FAILED,
+        domain: 'auth',
+        userId: user.id,
+        username: user.username,
+        detail: { reason: 'account_locked', remainingMin, ip },
+        ip,
+      });
+      throw new UnauthorizedException(`账户已锁定,请 ${remainingMin} 分钟后重试`);
+    }
+
     if (!user || user.status !== 'ACTIVE' || user.deletedAt) {
       // Phase 1 Task 2.1: 记录登录失败审计(不泄露用户名是否存在)
       await this.securityAudit.record({
@@ -66,15 +80,34 @@ export class AuthService {
     const passwordOk = await this.passwordService.verify(user.passwordHash, dto.password);
     if (!passwordOk) {
       this.logger.warn(`登录失败: ${dto.username} from ${ip}`);
-      // Phase 1 Task 2.1: 记录登录失败审计
-      await this.securityAudit.record({
-        event: AuditEventType.LOGIN_FAILED,
-        domain: 'auth',
-        userId: user.id,
-        username: user.username,
-        detail: { reason: 'wrong_password', ip },
-        ip,
+      // Phase 1 Task 2.2: 失败计数 + 锁定
+      const newCount = user.failedLoginCount + 1;
+      const MAX_FAILURES = Number(this.config.get('AUTH_MAX_FAILURES', '5'));
+      const LOCK_MINUTES = Number(this.config.get('AUTH_LOCK_MINUTES', '15'));
+      const lockedUntil = newCount >= MAX_FAILURES ? new Date(Date.now() + LOCK_MINUTES * 60000) : null;
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginCount: newCount, lockedUntil },
       });
+      if (lockedUntil) {
+        await this.securityAudit.record({
+          event: AuditEventType.ACCOUNT_LOCKED,
+          domain: 'auth',
+          userId: user.id,
+          username: user.username,
+          detail: { failures: newCount, lockMinutes: LOCK_MINUTES, ip },
+          ip,
+        });
+      } else {
+        await this.securityAudit.record({
+          event: AuditEventType.LOGIN_FAILED,
+          domain: 'auth',
+          userId: user.id,
+          username: user.username,
+          detail: { reason: 'wrong_password', failures: newCount, ip },
+          ip,
+        });
+      }
       throw new UnauthorizedException('用户名或密码错误');
     }
 
@@ -109,7 +142,13 @@ export class AuthService {
     // 4. 更新登录信息
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date(), lastLoginIp: ip ?? null },
+      data: {
+        lastLoginAt: new Date(),
+        lastLoginIp: ip ?? null,
+        // Phase 1 Task 2.2: 登录成功重置失败计数与锁定
+        failedLoginCount: 0,
+        lockedUntil: null,
+      },
     });
 
     // 5. 颁发 token

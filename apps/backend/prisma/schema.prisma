@@ -56,6 +56,8 @@ model User {
   mfaBackupCodes String[]   @map("mfa_backup_codes")
   lastLoginAt    DateTime?  @map("last_login_at") @db.Timestamptz
   lastLoginIp    String?    @map("last_login_ip") @db.VarChar(45)
+  failedLoginCount Int      @default(0) @map("failed_login_count")
+  lockedUntil      DateTime? @map("locked_until") @db.Timestamptz
   createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
   createdById    String?    @map("created_by_id") @db.Uuid
@@ -497,6 +499,8 @@ model SampleBatch {
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt       DateTime?   @map("deleted_at") @db.Timestamptz
+
+  @@index([deletedAt])
 
   operator        User?       @relation("BatchOperator", fields: [operatorId], references: [id])
   samples         Sample[]

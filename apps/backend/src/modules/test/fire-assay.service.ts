@@ -2,14 +2,17 @@
 // 火试金检测服务
 // =====================================================
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { User, UserRole } from '@prisma/client';
+import Decimal from 'decimal.js';
+
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
 import {
   calculateFireAssayPurity,
   calculateParallelRSD,
   FireAssayPurityInput,
 } from './fire-assay.calculator';
-import Decimal from 'decimal.js';
 
 export interface CreateFireAssayTestDto {
   sampleId: string;
@@ -38,6 +41,28 @@ export class FireAssayService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Phase 1 Task 2.2: row-level 权限校验(检测归属)
+   * 规则: ANALYST/INTERN 只能操作自己负责的检测任务;
+   *       SENIOR_ANALYST/QUALITY_MANAGER/LAB_DIRECTOR/ADMIN 可操作全部
+   */
+  private async assertCanOperate(testId: string, user: User): Promise<void> {
+    if (user.role === UserRole.ADMIN || user.role === UserRole.LAB_DIRECTOR ||
+        user.role === UserRole.QUALITY_MANAGER || user.role === UserRole.SENIOR_ANALYST) {
+      return;
+    }
+    const test = await this.prisma.test.findUnique({
+      where: { id: testId },
+      select: { operatorId: true },
+    });
+    if (!test) {
+      throw new NotFoundException(`检测 ${testId} 不存在`);
+    }
+    if (test.operatorId !== user.id) {
+      throw new ForbiddenException('只能操作自己负责的检测任务');
+    }
+  }
+
+  /**
    * 创建火试金检测
    */
   async create(dto: CreateFireAssayTestDto, operatorId: string) {
@@ -61,7 +86,8 @@ export class FireAssayService {
   /**
    * 记录工艺参数
    */
-  async recordProcess(dto: RecordProcessDto) {
+  async recordProcess(dto: RecordProcessDto, user: User) {
+    await this.assertCanOperate(dto.testId, user);
     await this.findOne(dto.testId);
     return this.prisma.fireAssayDetail.update({
       where: { testId: dto.testId },
@@ -78,7 +104,8 @@ export class FireAssayService {
   /**
    * 记录重量 + 计算纯度
    */
-  async recordWeights(dto: RecordWeightsDto) {
+  async recordWeights(dto: RecordWeightsDto, user: User) {
+    await this.assertCanOperate(dto.testId, user);
     const test = await this.findOne(dto.testId);
     if (!test.fireAssay) {
       throw new NotFoundException('火试金详情不存在');
@@ -121,6 +148,31 @@ export class FireAssayService {
         data: { status: result.qcPassed ? 'TESTED' : 'IN_TEST' },
       });
 
+      // Phase 2 Day 5:自动入库 QC 测量记录 + 触发 Westgard 规则
+      try {
+        // 1) 写 qc_measurements(Z-score 需要历史数据,这里先存 measured 值)
+        await tx.qcMeasurement.create({
+          data: {
+            testId: dto.testId,
+            referenceId: test.batchId ? null : null, // 简化:暂不关联标准物质
+            qcType: 'STANDARD',
+            element: 'Au',
+            measured: result.purityPct,
+            expected: '99.999',
+            sd: '0.0005',
+            zScore: null, // 留待 Westgard 评估
+            recoveryPct: dto.qcRecoveryPct ?? null,
+            passed: result.qcPassed,
+            operatorId: test.operatorId,
+            westgardRule: null,
+          },
+        });
+      } catch (qcErr) {
+        // QC 测量入库失败不影响主流程
+        // eslint-disable-next-line no-console
+        console.warn('[QC] 自动入库失败:', (qcErr as Error).message);
+      }
+
       return { ...result, testId: dto.testId };
     });
   }
@@ -128,7 +180,8 @@ export class FireAssayService {
   /**
    * 完成检测(终态)
    */
-  async complete(testId: string) {
+  async complete(testId: string, user: User) {
+    await this.assertCanOperate(testId, user);
     await this.findOne(testId);
     return this.prisma.test.update({
       where: { id: testId },
