@@ -40,6 +40,36 @@ enum UserStatus {
   PENDING
 }
 
+
+enum WasteType {
+  WASTE_LIQUID
+  WASTE_SOLID
+  WASTE_GOLD_BEARING
+  WASTE_REAGENT
+  CONTAMINATED_SAMPLE
+  OTHER
+}
+
+enum WasteHazardClass {
+  HW34
+  HW29
+  HW37
+  HW35
+  GENERIC_HAZARDOUS
+  NON_HAZARDOUS
+}
+
+enum WasteStatus {
+  STORED
+  TRANSFERRED
+  INCINERATED
+  RECYCLED_GOLD
+  NEUTRALIZED
+  DISPOSED
+  REJECTED
+}
+
+
 model User {
   id             String     @id @default(uuid()) @db.Uuid
   username       String     @unique @db.VarChar(50)
@@ -902,3 +932,42 @@ model FileAttachment {
   @@index([equipmentId])
   @@map("file_attachments")
 }
+
+model WasteRecord {
+  id                    String           @id @default(uuid()) @db.Uuid
+  code                  String           @unique @map("code") @db.VarChar(30)
+  type                  WasteType
+  hazardClass           WasteHazardClass  @map("hazard_class")
+  hazardDesc            String?          @map("hazard_desc") @db.VarChar(500)
+  sourceType            String           @map("source_type") @db.VarChar(50)
+  sourceTestId          String?          @map("source_test_id") @db.Uuid
+  sourceSampleId        String?          @map("source_sample_id") @db.Uuid
+  weightKg              Decimal          @map("weight_kg") @db.Decimal(15, 6)
+  volumeL               Decimal?         @map("volume_l") @db.Decimal(15, 6)
+  containerCount        Int              @default(1) @map("container_count")
+  containerType         String?          @map("container_type") @db.VarChar(50)
+  generatedAt           DateTime         @default(now()) @map("generated_at") @db.Timestamptz
+  storageLocation       String           @map("storage_location") @db.VarChar(200)
+  hazardManagerId       String?          @map("hazard_manager_id") @db.Uuid
+  status                WasteStatus      @default(STORED)
+  transferredAt         DateTime?        @map("transferred_at") @db.Timestamptz
+  receiverName          String?          @map("receiver_name") @db.VarChar(200)
+  receiverLicenceNo     String?          @map("receiver_licence_no") @db.VarChar(100)
+  transferManifestNo    String?          @map("transfer_manifest_no") @db.VarChar(100)
+  transferManifestFileId String?         @map("transfer_manifest_file_id") @db.Uuid
+  disposalAt            DateTime?        @map("disposal_at") @db.Timestamptz
+  disposalMethod        String?          @map("disposal_method") @db.VarChar(200)
+  recoveredGoldWeightG  Decimal?         @map("recovered_gold_weight_g") @db.Decimal(15, 6)
+  remarks               String?          @db.Text
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([code])
+  @@index([type])
+  @@index([hazardClass])
+  @@index([status])
+  @@index([generatedAt(sort: Desc)])
+  @@index([hazardManagerId])
+  @@map("waste_records")
+}
+

@@ -3,12 +3,17 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+
 import { EhsController } from './ehs.controller';
 import { EhsService } from './ehs.service';
+import { AuditModule } from '../../common/audit/audit.module';
+import { WasteController } from './waste.controller';
+import { WasteService } from './waste.service';
 
 @Module({
-  controllers: [EhsController],
-  providers: [EhsService],
-  exports: [EhsService],
+  imports: [AuditModule],
+  controllers: [EhsController, WasteController],
+  providers: [EhsService, WasteService],
+  exports: [EhsService, WasteService],
 })
 export class EhsModule {}

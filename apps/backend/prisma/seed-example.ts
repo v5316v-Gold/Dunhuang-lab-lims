@@ -1,15 +1,15 @@
 // =====================================================
-// Phase 3 数据填充 — 示例数据 seed 扩展
-// 在现有 admin seed 基础上,补充各业务域示例数据
+// Phase 3 数据填充 - standalone seed(不依赖 src/ 内部模块)
+// 改用 PrismaClient 直接 + ts-node --transpile-only 即可运行
 // =====================================================
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 const SEED_PASSWORD = 'Analyst@Pass123';
 
-/** 本地时区 YYYY-MM-DD(与编号生成器一致) */
+/** 本地时区 YYYY-MM-DD */
 function localDateKey(d: Date = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -17,9 +17,8 @@ function localDateKey(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-/** 原子获取+更新下一个 sample 序号(行锁安全) */
+/** 原子行锁获取+更新 sample_no_sequences */
 async function nextSampleSeq(dateKey: string): Promise<number> {
-  // 行锁 + upsert 模式:用 UPDATE ... RETURNING 原子取下一值
   const rows = await prisma.$queryRawUnsafe<Array<{ last_seq: number }>>(
     `INSERT INTO sample_no_sequences (date_key, last_seq) VALUES ($1, 1)
      ON CONFLICT (date_key) DO UPDATE SET last_seq = sample_no_sequences.last_seq + 1
@@ -48,11 +47,11 @@ function daysFromNow(n: number): Date {
 }
 
 async function main() {
-  console.info('[seed] start Phase 3 example data');
+  console.log('[seed] start Phase 3 example data');
   const passwordHash = await argon2.hash(SEED_PASSWORD);
 
-  // ============= 1. 用户(3 个真实角色) =============
-  console.info('[seed] users + personnel...');
+  // 1. 用户
+  console.log('[seed] users + personnel...');
   const analystUser = await prisma.user.upsert({
     where: { username: 'zhang.san' }, update: {},
     create: { username: 'zhang.san', email: 'zhang.san@dunhuang-gold.cn', passwordHash, name: '张三', role: 'ANALYST', status: 'ACTIVE' },
@@ -66,7 +65,7 @@ async function main() {
     create: { username: 'wang.wu', email: 'wang.wu@dunhuang-gold.cn', passwordHash, name: '王五', role: 'QUALITY_MANAGER', status: 'ACTIVE' },
   });
 
-  // ============= 2. 人员档案 + 能力授权 =============
+  // 2. 人员档案
   const personnelData = [
     { employeeNo: 'EMP-0001', userId: analystUser.id, name: '张三(分析员)', position: 'ANALYST' as const },
     { employeeNo: 'EMP-0002', userId: seniorUser.id, name: '李四(高级分析员)', position: 'SENIOR_ANALYST' as const },
@@ -76,8 +75,8 @@ async function main() {
     await prisma.personnel.upsert({
       where: { employeeNo: p.employeeNo }, update: { userId: p.userId },
       create: {
-        employeeNo: p.employeeNo, userId: p.userId, name: p.name, title: p.title,
-        title: p.position, email: 'demo@dunhuang.cn', status: 'ACTIVE',
+        employeeNo: p.employeeNo, userId: p.userId, name: p.name, position: p.position,
+        phone: '13800138000', email: 'demo@dunhuang.cn', status: 'ACTIVE',
       } as any,
     });
   }
@@ -90,8 +89,8 @@ async function main() {
     });
   }
 
-  // ============= 3. 设备(4 台 + 校准) =============
-  console.info('[seed] equipment...');
+  // 3. 设备
+  console.log('[seed] equipment...');
   const equipmentData = [
     { equipmentNo: 'EQ-FA-001', name: '试金炉 #1', type: 'FIRE_ASSAY_FURNACE', model: 'Nabertherm L 9/11', location: '火试金实验室' },
     { equipmentNo: 'EQ-BAL-001', name: '分析天平', type: 'ANALYTICAL_BALANCE', model: 'Mettler-Toledo XPR', location: '称量室' },
@@ -104,14 +103,16 @@ async function main() {
   const balance = await prisma.equipment.findUnique({ where: { equipmentNo: 'EQ-BAL-001' } });
   if (balance) {
     await prisma.calibration.create({
-      data: { equipmentId: balance.id, calibrationDate: new Date(),
+      data: {
+        equipmentId: balance.id, calibrationDate: new Date(),
         calibrationOrg: '上海市计量测试研究院', certificateNo: `CERT-${Date.now()}`,
-        nextDueDate: daysFromNow(365) },
+        nextDueDate: daysFromNow(365),
+      },
     });
   }
 
-  // ============= 4. 试剂(6 种 + 批次) =============
-  console.info('[seed] reagents + lots...');
+  // 4. 试剂
+  console.log('[seed] reagents + lots...');
   const reagentData = [
     { code: 'RE-NIT-001', name: '硝酸(分析纯)', type: 'NITRIC_ACID', casNo: '7697-37-2', unit: 'mL', packageSize: '500.000000', safetyStock: '1000.000000', hazardClass: '腐蚀品' },
     { code: 'RE-HCL-001', name: '盐酸(分析纯)', type: 'HYDROCHLORIC_ACID', casNo: '7647-01-0', unit: 'mL', packageSize: '500.000000', safetyStock: '1000.000000' },
@@ -132,8 +133,8 @@ async function main() {
     });
   }
 
-  // ============= 5. 样品(3 个不同阶段) =============
-  console.info('[seed] samples...');
+  // 5. 样品
+  console.log('[seed] samples...');
   const sampleData = [
     { customer: '上海黄金交易所', purity: '99.98', status: 'ARCHIVED' },
     { customer: '紫金矿业集团', purity: '99.92', status: 'TESTED' },
@@ -145,93 +146,97 @@ async function main() {
     const sample = await prisma.sample.upsert({
       where: { sampleNo }, update: {},
       create: { sampleNo, customerName: s.customer, customerRef: `CUST-${sampleNo}`,
-        sampleType: 'GOLD_INGOT', weightG: new Prisma.Decimal(1.0230), status: s.status as any,
+        sampleType: 'GOLD_INGOT', weightG: new (prisma as any).$extends ? '1.0230' as any : ('1.0230' as any),
+        status: s.status as any,
         receivedById: analystUser.id, receivedAt: daysAgo(7), remarks: `Phase 3 示例 ${sampleNo}` } as any,
     });
     createdSamples.push({ id: sample.id, no: sampleNo, status: sample.status, purity: s.purity });
   }
 
-  // ============= 6. 批次 =============
-  console.info('[seed] batches...');
+  // 6. 批次
+  console.log('[seed] batches...');
   const batch1 = await prisma.sampleBatch.upsert({
     where: { batchNo: 'BATCH-FA-001' }, update: {},
     create: { batchNo: 'BATCH-FA-001', method: 'FIRE_ASSAY', operatorId: seniorUser.id, replicateCount: 3,
       furnaceNo: 'F1', status: 'CALCULATING' },
   });
+  await prisma.sample.update({ where: { id: createdSamples[0].id }, data: { batchId: batch1.id, status: 'TESTED' } });
+  await prisma.sample.update({ where: { id: createdSamples[1].id }, data: { batchId: batch1.id, status: 'TESTED' } });
   const batch2 = await prisma.sampleBatch.upsert({
     where: { batchNo: 'BATCH-FA-002' }, update: {},
     create: { batchNo: 'BATCH-FA-002', method: 'FIRE_ASSAY', operatorId: seniorUser.id, replicateCount: 3,
       furnaceNo: 'F1', status: 'PENDING' },
   });
+  await prisma.sample.update({ where: { id: createdSamples[2].id }, data: { batchId: batch2.id, status: 'BATCHED' } });
 
-  // ============= 7. 检测(前 2 个样品各建火试金,完整 6 步) =============
-  console.info('[seed] tests + fire-assay details...');
+  // 7. 检测
+  console.log('[seed] tests + fire-assay details...');
   for (let i = 0; i < 2; i++) {
     const s = createdSamples[i];
     const existing = await prisma.test.findFirst({ where: { sampleId: s.id, method: 'FIRE_ASSAY' } });
     if (existing) continue;
-    const purity = parseFloat(s.purity);
-    const sampleWeight = 1.0230;
-    const qcRecovery = 99.95;
-    // prill = sampleWeight * purity / 100 * 100 / qcRecovery
-    const prill = (sampleWeight * purity / 100 * 100) / qcRecovery;
-    await prisma.test.create({
+    const t = await prisma.test.create({
       data: {
         sampleId: s.id, batchId: batch1.id, method: 'FIRE_ASSAY', operatorId: seniorUser.id,
         status: 'COMPLETED', startedAt: daysAgo(3), completedAt: daysAgo(2),
-        purityPct: new Prisma.Decimal(s.purity), uncertainty: new Prisma.Decimal('0.0200'),
-        qcPassed: true,
-        fireAssay: { create: {
-          sampleWeightG: new Prisma.Decimal(sampleWeight.toFixed(4)),
-          leadButtonWeightG: new Prisma.Decimal('3.0150'),
-          furnaceTempC: 1050, cupellationMin: 45, partingMin: 30, annealingMin: 30,
-          partingAcid: '1:2',
-          prillWeightG: new Prisma.Decimal(prill.toFixed(4)),
-          qcRecoveryPct: new Prisma.Decimal(qcRecovery.toFixed(2)),
-        } },
+        purityPct: new (prisma as any).$extends ? s.purity as any : (s.purity as any),
+        uncertainty: '0.0200' as any, qcPassed: true,
+        fireAssay: { create: { sampleWeightG: '1.0000' as any } },
       } as any,
     });
+    const purity = parseFloat(s.purity);
+    const sampleWeight = 1.0230;
+    const qcRecovery = 100.0;
+    const prill = (sampleWeight * purity / 100 * 100) / qcRecovery;
+    await (prisma as any).fireAssayDetail.update({
+      where: { testId: t.id },
+      data: { prillWeightG: prill.toFixed(4) as any },
+    });
   }
 
-  // ============= 8. QC 测量 =============
-  console.info('[seed] QC measurements...');
+  // 8. QC
+  console.log('[seed] QC measurements...');
   const tests = await prisma.test.findMany({ where: { method: 'FIRE_ASSAY' } });
   for (const t of tests) {
-    const existing = await prisma.qcMeasurement.findFirst({ where: { testId: t.id } });
+    const existing = await (prisma as any).qcMeasurement.findFirst({ where: { testId: t.id } });
     if (existing) continue;
-    await prisma.qcMeasurement.create({
-      data: { testId: t.id, qcType: 'PARALLEL', element: 'Au', measured: '99.95', expected: '99.98', sd: '0.05', passed: true },
+    await (prisma as any).qcMeasurement.create({
+      data: { testId: t.id, qcType: 'PARALLEL', element: 'Au', measured: '99.95' as any, expected: '99.98' as any, sd: '0.05' as any },
     });
   }
 
-  // ============= 9. 报告(给首个样品推到 ISSUED 演示全流程) =============
-  console.info('[seed] report...');
-  const sample1 = createdSamples[0];
-  const reportNo = `RPT-${sample1.no}`;
-  let report = await prisma.report.findUnique({ where: { reportNo } });
+  // 9. 报告
+  console.log('[seed] report...');
+  const s1 = createdSamples[0];
+  const reportNo = `RPT-${s1.no}`;
+  let report = await (prisma as any).report.findUnique({ where: { reportNo } });
   if (!report) {
-    report = await prisma.report.create({
-      data: { reportNo, sampleId: sample1.id, status: 'ISSUED',
+    report = await (prisma as any).report.create({
+      data: { reportNo, sampleId: s1.id, status: 'ISSUED',
         pdfSha256: 'a'.repeat(64),
-        summary: `样品编号: ${sample1.no}\n客户名称: 上海黄金交易所\n样品类型: 金锭\n接收重量: 1.0230 g\n纯度结果: 99.98%`,
-        createdById: seniorUser.id, issuedAt: daysAgo(1) } as any,
+        summary: `样品编号: ${s1.no}
+客户名称: 上海黄金交易所
+样品类型: 金锭
+接收重量: 1.0230 g
+纯度结果: 99.98%`,
+        createdById: seniorUser.id, issuedAt: daysAgo(1) },
     });
-    await prisma.reportStage.createMany({
+    await (prisma as any).reportStage.createMany({
       data: [
         { reportId: report.id, stage: 'DRAFT', userId: seniorUser.id, comments: '报告创建' },
         { reportId: report.id, stage: 'INTERNAL_REVIEW', userId: seniorUser.id, comments: '提交校核' },
         { reportId: report.id, stage: 'FINAL_REVIEW', userId: seniorUser.id, comments: '校核通过' },
         { reportId: report.id, stage: 'APPROVED', userId: qmUser.id, comments: '审核批准' },
         { reportId: report.id, stage: 'ISSUED', userId: qmUser.id, comments: '签发' },
-      ],
+      ] as any,
     });
   }
 
-  // ============= 10. 设备维护 + 期间核查 =============
-  console.info('[seed] maintenance + periodic check...');
+  // 10. 设备维护 + 期间核查
+  console.log('[seed] maintenance + periodic check...');
   const furnace = await prisma.equipment.findUnique({ where: { equipmentNo: 'EQ-FA-001' } });
   if (furnace) {
-    await prisma.maintenance.upsert({
+    await (prisma as any).maintenance.upsert({
       where: { id: '00000000-0000-0000-0000-000000000001' },
       update: {},
       create: { id: '00000000-0000-0000-0000-000000000001', equipmentId: furnace.id,
@@ -241,12 +246,12 @@ async function main() {
     });
     await prisma.periodicCheck.create({
       data: { equipmentId: furnace.id, checkDate: daysAgo(7),
-        performedBy: seniorUser.id, passed: true, zScore: new Prisma.Decimal('0.42'),
+        performedBy: seniorUser.id, passed: true, zScore: '0.42' as any,
         remarks: '温度校准 Z-score 0.42(<2 阈值),无异常' },
     });
   }
 
-  console.info('[seed] done.');
+  console.log('[seed] done.');
 }
 
 main()
