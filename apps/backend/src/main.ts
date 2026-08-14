@@ -27,6 +27,8 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { AuditEventType } from './common/audit/audit-event.enum';
+import { SecurityAuditService } from './common/audit/security-audit.service';
 import { AuditContextInterceptor } from './common/audit/audit-context.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -139,6 +141,20 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   await app.listen(port);
+
+  // Phase 1 Task 2.1: 系统启动审计事件(SYSTEM:START)
+  try {
+    const securityAudit = app.get(SecurityAuditService);
+    await securityAudit.system(AuditEventType.SYSTEM_START, {
+      port,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      version: process.env.APP_VERSION || '1.0.0',
+    });
+  } catch (e) {
+    // 审计写入失败不阻断启动
+    console.warn('系统启动审计写入失败(不阻断):', (e as Error).message);
+  }
+
   // eslint-disable-next-line no-console
   console.info(`🚀 敦煌金质检 LIMS 后端启动成功`);
   // eslint-disable-next-line no-console

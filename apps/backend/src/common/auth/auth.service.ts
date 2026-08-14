@@ -3,15 +3,21 @@
 // 详见 ADR-0009
 // =====================================================
 
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
+
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
+import { SecurityAuditService } from '../audit/security-audit.service';
+import { AuditEventType } from '../audit/audit-event.enum';
+import { LoginDto, LoginResponse } from './dto/auth.dto';
 import { PasswordService } from './password.service';
 import { TotpService } from './totp.service';
-import { User } from '@prisma/client';
-import { LoginDto, LoginResponse } from './dto/auth.dto';
+
 
 export interface JwtAccessTokenPayload {
   sub: string;
@@ -29,6 +35,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly passwordService: PasswordService,
     private readonly totpService: TotpService,
+    private readonly securityAudit: SecurityAuditService,
   ) {}
 
   /**
@@ -44,6 +51,14 @@ export class AuthService {
     });
 
     if (!user || user.status !== 'ACTIVE' || user.deletedAt) {
+      // Phase 1 Task 2.1: 记录登录失败审计(不泄露用户名是否存在)
+      await this.securityAudit.record({
+        event: AuditEventType.LOGIN_FAILED,
+        domain: 'auth',
+        username: dto.username,
+        detail: { reason: 'user_not_found_or_inactive', ip },
+        ip,
+      });
       throw new UnauthorizedException('用户名或密码错误');
     }
 
@@ -51,6 +66,15 @@ export class AuthService {
     const passwordOk = await this.passwordService.verify(user.passwordHash, dto.password);
     if (!passwordOk) {
       this.logger.warn(`登录失败: ${dto.username} from ${ip}`);
+      // Phase 1 Task 2.1: 记录登录失败审计
+      await this.securityAudit.record({
+        event: AuditEventType.LOGIN_FAILED,
+        domain: 'auth',
+        userId: user.id,
+        username: user.username,
+        detail: { reason: 'wrong_password', ip },
+        ip,
+      });
       throw new UnauthorizedException('用户名或密码错误');
     }
 
@@ -69,6 +93,15 @@ export class AuthService {
         ? await this.totpService.verifyBackupCode(user.id, dto.totpCode)
         : await this.totpService.verify(user.id, dto.totpCode);
       if (!mfaOk) {
+        // Phase 1 Task 2.1: MFA 失败审计
+        await this.securityAudit.record({
+          event: AuditEventType.LOGIN_FAILED,
+          domain: 'auth',
+          userId: user.id,
+          username: user.username,
+          detail: { reason: 'mfa_failed', ip },
+          ip,
+        });
         throw new UnauthorizedException('MFA 验证失败');
       }
     }
@@ -80,7 +113,19 @@ export class AuthService {
     });
 
     // 5. 颁发 token
-    return this.issueTokens(user, ip, userAgent);
+    const result = await this.issueTokens(user, ip, userAgent);
+
+    // Phase 1 Task 2.1: 登录成功审计(在 issueTokens 之后,确保 session 已创建)
+    await this.securityAudit.record({
+      event: AuditEventType.LOGIN_SUCCESS,
+      domain: 'auth',
+      userId: user.id,
+      username: user.username,
+      detail: { ip, userAgent },
+      ip,
+    });
+
+    return result;
   }
 
   /**
