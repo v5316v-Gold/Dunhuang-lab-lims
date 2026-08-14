@@ -11,7 +11,7 @@ import {
   FileDoneOutlined,
   ToolOutlined,
   TeamOutlined,
-  ExperimentLabOutlined,
+  ExperimentOutlined as ExperimentLabOutlined,
   AuditOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -31,6 +31,7 @@ const menuItems = [
   { key: '/equipment', icon: <ToolOutlined />, label: <Link to="/equipment">设备管理</Link> },
   { key: '/personnel', icon: <TeamOutlined />, label: <Link to="/personnel">人员管理</Link> },
   { key: '/reagents', icon: <ExperimentLabOutlined />, label: <Link to="/reagents">试剂库存</Link> },
+  { key: '/qc', icon: <ExperimentOutlined />, label: <Link to="/qc">QC 监控</Link> },
   { key: '/audit-logs', icon: <AuditOutlined />, label: <Link to="/audit-logs">审计日志</Link> },
 ];
 
@@ -55,7 +56,7 @@ export function MainLayout() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#fff',
+            color: 'var(--text-primary)',
             fontSize: 16,
             fontWeight: 600,
             background: 'rgba(255,255,255,0.05)',
@@ -69,7 +70,7 @@ export function MainLayout() {
       <Layout>
         <Header
           style={{
-            background: '#fff',
+            background: 'var(--bg-card)',
             padding: '0 24px',
             display: 'flex',
             justifyContent: 'space-between',
@@ -98,7 +99,7 @@ export function MainLayout() {
           </Dropdown>
         </Header>
 
-        <Content style={{ margin: 16, padding: 24, background: '#fff', borderRadius: 8 }}>
+        <Content style={{ margin: 16, padding: 24, background: 'var(--bg-card)', borderRadius: 8 }}>
           <Outlet />
         </Content>
       </Layout>

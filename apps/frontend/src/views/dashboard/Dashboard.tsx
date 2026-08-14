@@ -41,7 +41,7 @@ export default function DashboardPage() {
               title="今日样品"
               value={data?.todaySamples ?? 0}
               prefix={<ExperimentOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: 'var(--gold)' }}
             />
           </Card>
         </Col>
