@@ -30,8 +30,15 @@ import { AppModule } from './app.module';
 import { AuditContextInterceptor } from './common/audit/audit-context.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { assertEnv } from './config/env.schema';
 
 async function bootstrap() {
+  // Phase 1 Task 2.3: 启动前环境变量校验(缺失/占位符/生产强度)
+  // 校验失败即退出,避免"静默用默认值"导致生产事故
+  if (!assertEnv()) {
+    process.exit(1);
+  }
+
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
     cors: {
