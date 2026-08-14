@@ -1,0 +1,32 @@
+# =====================================================
+# Prometheus 抓取配置 — Phase 1 Task 2.4
+# 架构映射: L8 监控体系(BR-O 监控)
+# 状态: 待 staging 验证(Prometheus + Grafana 部署后)
+# 注意: backend /health/deep 为运维端点,metrics 端点 Phase 1 后续接入
+# =====================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'lims-backend'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['lims-backend.lims.svc.cluster.local:80']
+        labels:
+          app: dunhuang-lims
+          tier: backend
+
+  - job_name: 'lims-postgres'
+    static_configs:
+      - targets: ['lims-postgres-exporter.lims.svc.cluster.local:9187']
+        labels:
+          app: dunhuang-lims
+          tier: database
+
+  - job_name: 'lims-redis'
+    static_configs:
+      - targets: ['lims-redis-exporter.lims.svc.cluster.local:9121']
+        labels:
+          app: dunhuang-lims
+          tier: cache

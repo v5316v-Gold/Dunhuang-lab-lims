@@ -1,0 +1,115 @@
+# =====================================================
+# LIMS PostgreSQL StatefulSet + Redis Deployment — Phase 1 Task 2.4
+# 架构映射: L6 存储与备份(BR-INF-03 生产主备)
+# 状态: 待 staging 环境验证(kind/k3d)
+# 注意: 生产建议 PostgreSQL Operator/主备架构,本文件为单实例基线
+# =====================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lims-postgres
+  namespace: lims
+  labels:
+    app: lims-postgres
+spec:
+  serviceName: lims-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lims-postgres
+  template:
+    metadata:
+      labels:
+        app: lims-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: timescale/timescaledb:latest-pg16
+          ports:
+            - containerPort: 5432
+              name: pg
+          env:
+            - name: POSTGRES_DB
+              value: "dunhuang_lims"
+            - name: POSTGRES_USER
+              value: "dunhuang"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lims-env
+                  key: PG_PASSWORD
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lims-postgres
+  namespace: lims
+spec:
+  selector:
+    app: lims-postgres
+  ports:
+    - port: 5432
+      targetPort: pg
+  clusterIP: None  # headless,供 StatefulSet 使用
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lims-redis
+  namespace: lims
+  labels:
+    app: lims-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lims-redis
+  template:
+    metadata:
+      labels:
+        app: lims-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lims-redis
+  namespace: lims
+spec:
+  selector:
+    app: lims-redis
+  ports:
+    - port: 6379
+      targetPort: redis

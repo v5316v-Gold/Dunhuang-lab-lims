@@ -1,0 +1,24 @@
+# =====================================================
+# LIMS Kubernetes 命名空间与资源配额 — Phase 1 Task 2.4
+# 架构映射: L6 部署拓扑 + ADR-0008 (kind/k3d 演进)
+# 状态: 待 staging 环境验证(kind/k3d)
+# =====================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lims
+  labels:
+    app: dunhuang-lims
+    tier: production
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: lims-quota
+  namespace: lims
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi

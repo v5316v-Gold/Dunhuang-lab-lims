@@ -1,0 +1,86 @@
+# =====================================================
+# LIMS 前端 Deployment + Ingress — Phase 1 Task 2.4
+# 状态: 待 staging 环境验证(kind/k3d)
+# =====================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lims-frontend
+  namespace: lims
+  labels:
+    app: lims-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lims-frontend
+  template:
+    metadata:
+      labels:
+        app: lims-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: registry.local/dunhuang-lims-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lims-frontend
+  namespace: lims
+spec:
+  selector:
+    app: lims-frontend
+  ports:
+    - port: 80
+      targetPort: http
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lims-ingress
+  namespace: lims
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - lims.example.com
+      secretName: lims-tls
+  rules:
+    - host: lims.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: lims-backend
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lims-frontend
+                port:
+                  name: http

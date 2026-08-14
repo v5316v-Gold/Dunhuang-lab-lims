@@ -1,0 +1,78 @@
+# =====================================================
+# LIMS 后端 Deployment + Service — Phase 1 Task 2.4
+# 架构映射: L6 部署拓扑(2 副本/健康检查/滚动发布)
+# 状态: 待 staging 环境验证(kind/k3d)
+# 依赖: 00-namespace.yaml, secret: lims-env(见 README)
+# =====================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lims-backend
+  namespace: lims
+  labels:
+    app: lims-backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: lims-backend
+  template:
+    metadata:
+      labels:
+        app: lims-backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: backend
+          image: registry.local/dunhuang-lims-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3030
+              name: http
+          envFrom:
+            - secretRef:
+                name: lims-env
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: APP_PORT
+              value: "3030"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lims-backend
+  namespace: lims
+spec:
+  selector:
+    app: lims-backend
+  ports:
+    - port: 80
+      targetPort: http
+      name: http
+  type: ClusterIP
