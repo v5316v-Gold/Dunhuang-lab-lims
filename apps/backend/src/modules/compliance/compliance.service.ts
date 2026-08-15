@@ -238,4 +238,63 @@ export class ComplianceService {
       checkedAt: new Date().toISOString(),
     };
   }
+  // ================== 临时授权(CNAS §7.2) ==================
+  async createTempAuth(dto: { granteeId: string; method: string; effectiveFrom: string; effectiveTo: string; reason?: string }, userId: string) {
+    const authNo = await this.nextNo('temporaryAuthorization', 'TA', 'authNo');
+    const r = await this.prisma.temporaryAuthorization.create({
+      data: {
+        authNo,
+        grantorId: userId,
+        granteeId: dto.granteeId,
+        method: dto.method,
+        effectiveFrom: new Date(dto.effectiveFrom),
+        effectiveTo: new Date(dto.effectiveTo),
+        reason: dto.reason,
+        status: 'ACTIVE',
+      },
+    });
+    await this.audit('TEMP_AUTH_GRANTED', { authNo: r.authNo, granteeId: dto.granteeId, method: dto.method });
+    return r;
+  }
+
+  async listTempAuths(activeOnly = true) {
+    const where: any = { deletedAt: null };
+    if (activeOnly) {
+      where.status = 'ACTIVE';
+      where.effectiveTo = { gte: new Date() };
+    }
+    const items = await this.prisma.temporaryAuthorization.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        grantor: { select: { name: true } },
+        grantee: { select: { name: true } },
+      },
+    });
+    return { items, total: items.length };
+  }
+
+  async revokeTempAuth(id: string, userId: string) {
+    const r = await this.prisma.temporaryAuthorization.update({
+      where: { id },
+      data: { status: 'REVOKED', revokedById: userId, revokedAt: new Date() },
+    });
+    await this.audit('TEMP_AUTH_REVOKED', { authNo: r.authNo });
+    return r;
+  }
+
+  /** 校验当前用户是否有某方法的临时授权(供 guard 使用) */
+  async hasTempAuth(userId: string, method: string): Promise<boolean> {
+    const now = new Date();
+    const found = await this.prisma.temporaryAuthorization.findFirst({
+      where: {
+        granteeId: userId,
+        status: 'ACTIVE',
+        method: { in: [method, 'ALL'] },
+        effectiveFrom: { lte: now },
+        effectiveTo: { gte: now },
+      },
+    });
+    return !!found;
+  }
 }

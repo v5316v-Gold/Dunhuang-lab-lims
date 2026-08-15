@@ -135,6 +135,10 @@ model User {
   blindCreated            BlindSample[]           @relation("BlindCreator")
   ptCreated               ProficiencyTest[]       @relation("PTCreator")
 
+  taGranted               TemporaryAuthorization[] @relation("TAGrantor")
+  taReceived              TemporaryAuthorization[] @relation("TAGrantee")
+  taRevoked               TemporaryAuthorization[] @relation("TARevoker")
+
   @@index([email])
   @@index([deptId])
   @@index([status, deletedAt])
@@ -672,7 +676,10 @@ model ElementResult {
   @@index([element])
   @@map("element_results")
   rmUsages          ReferenceMaterialUsage[]  @relation("ElementResultRMUsage")
+  calibrationR2       Decimal?  @map("calibration_r2") @db.Decimal(8, 6)  // 校准曲线 R²
+  calibrationCurveFileId String? @map("calibration_curve_file_id") @db.Uuid  // 曲线附件
 }
+
 
 
 // =====================================================
@@ -1761,5 +1768,36 @@ model ProficiencyTest {
   createdBy     User     @relation("PTCreator", fields: [createdById], references: [id])
   @@index([ptNo])
   @@map("proficiency_tests")
+}
+
+
+
+// ============================================================================
+// W+2-4 临时授权(CNAS §7.2 人员) — 检测员外出时代班
+// ============================================================================
+
+model TemporaryAuthorization {
+  id            String    @id @default(uuid()) @db.Uuid
+  authNo        String    @unique @db.VarChar(50)          // TA-2026-0001
+  grantorId     String    @map("grantor_id") @db.Uuid       // 授权人(主管)
+  granteeId     String    @map("grantee_id") @db.Uuid       // 被授权人(代班)
+  method        String    @db.VarChar(50)                   // FIRE_ASSAY / ICP_OES / ALL
+  effectiveFrom DateTime  @map("effective_from") @db.Timestamptz
+  effectiveTo   DateTime  @map("effective_to") @db.Timestamptz
+  reason        String?   @db.VarChar(200)                  // 代班原因
+  status        String    @default("ACTIVE") @db.VarChar(20) // ACTIVE/EXPIRED/REVOKED
+  revokedById   String?   @map("revoked_by_id") @db.Uuid
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  grantor       User      @relation("TAGrantor", fields: [grantorId], references: [id])
+  grantee       User      @relation("TAGrantee", fields: [granteeId], references: [id])
+  revokedBy     User?     @relation("TARevoker", fields: [revokedById], references: [id])
+
+  @@index([authNo])
+  @@index([granteeId])
+  @@index([effectiveFrom, effectiveTo])
+  @@map("temporary_authorizations")
 }
 

@@ -17,6 +17,19 @@ import { ComplianceService } from './compliance.service';
 export class ComplianceController {
   constructor(private readonly svc: ComplianceService) {}
 
+  // ---- 临时授权 ----
+  @Post('temp-auth')
+  @ApiOperation({ summary: '创建临时授权(代班)' })
+  createTA(@Body() body: any, @CurrentUser() u: User) { return this.svc.createTempAuth(body, u.id); }
+
+  @Get('temp-auth')
+  @ApiOperation({ summary: '临时授权列表(默认仅活跃)' })
+  listTA(@Query('all') all?: string) { return this.svc.listTempAuths(all !== 'true'); }
+
+  @Post('temp-auth/:id/revoke')
+  @ApiOperation({ summary: '撤销临时授权' })
+  revokeTA(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.revokeTempAuth(id, u.id); }
+
   @Get('summary')
   @ApiOperation({ summary: 'CMA 合规摘要(内审/管评/监督/盲样/PT)' })
   summary() { return this.svc.summary(); }

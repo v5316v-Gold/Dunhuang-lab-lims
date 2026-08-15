@@ -20,6 +20,8 @@ export interface ElementResultInput {
   lod?: string;
   loq?: string;
   uncertainty?: string;
+  calibrationR2?: string;         // W+2-3 校准曲线 R²
+  calibrationCurveFileId?: string; // W+2-3 曲线附件
 }
 
 @Injectable()
@@ -52,6 +54,8 @@ export class IcpService {
         wavelengthNm: r.wavelengthNm,
         intensity: r.intensity,
         lod: r.lod,
+        calibrationR2: r.calibrationR2,
+        calibrationCurveFileId: r.calibrationCurveFileId,
         loq: r.loq,
         uncertainty: r.uncertainty,
       })),
