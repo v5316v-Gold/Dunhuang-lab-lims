@@ -98,17 +98,24 @@ describe('W7 报告 PDF 完整闭环', () => {
       const t = await prisma.test.create({
         data: { sampleId: sample.id, method: 'FIRE_ASSAY', status: 'COMPLETED', operatorId: adminId, purityPct: 99.99, uncertainty: 0.02 },
       });
+      // ⚠️ W+7-2 fix: 不能直接插 placeholder sha256。
+      // 正确:通过 transition 走完整签发流程生成真实 pdfSha256
       const report = await prisma.report.create({
         data: {
           reportNo: `RPT-W7-${Date.now()}`,
           sampleId: sample.id,
-          status: 'APPROVED',
+          status: 'DRAFT',
           summary: 'Au 纯度 99.99% ± 0.02% (k=2)',
-          pdfSha256: 'placeholder-sha256',
-          issuedAt: new Date(),
         },
       });
-      // 签发 → PDF 应被生成
+      // 走完整签发:DRAFT → SUBMIT → REVIEW_PASS → APPROVE → ISSUE
+      for (const action of ['SUBMIT', 'REVIEW_PASS', 'APPROVE', 'ISSUE']) {
+        await request(app.getHttpServer())
+          .post(`/reports/${report.id}/transition`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ action });
+      }
+      // 签发后下载 PDF
       const res = await request(app.getHttpServer())
         .get(`/reports/${report.id}/pdf`)
         .set('Authorization', `Bearer ${adminToken}`);
