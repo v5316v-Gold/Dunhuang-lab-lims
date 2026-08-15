@@ -5,14 +5,15 @@
 
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { User } from '@prisma/client';
 import { Request } from 'express';
+
 import { AuthService } from './auth.service';
-import { TotpService } from './totp.service';
-import { PasswordService } from './password.service';
+import { CurrentUser } from './decorators/current-user.decorator';
 import { ChangePasswordDto, LoginDto, LoginResponse, RefreshTokenDto, TotpVerifyDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
-import { User } from '@prisma/client';
+import { PasswordService } from './password.service';
+import { TotpService } from './totp.service';
 
 @ApiTags('auth')
 @Controller('auth')

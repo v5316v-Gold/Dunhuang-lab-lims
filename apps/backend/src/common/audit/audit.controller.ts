@@ -5,9 +5,12 @@
 
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { AuditService, AuditLogFilter } from './audit.service';
-import { RequireRole } from '../auth/decorators/require-role.decorator';
 import { UserRole } from '@prisma/client';
+
+import { RequireRole } from '../auth/decorators/require-role.decorator';
+
+import { AuditService } from './audit.service';
+import { AuditLogFilterDto } from './dto/audit-log-filter.dto';
 
 @ApiTags('audit-logs')
 @ApiBearerAuth('access-token')
@@ -22,7 +25,7 @@ export class AuditController {
   @Get()
   @RequireRole(UserRole.ADMIN, UserRole.LAB_DIRECTOR, UserRole.QUALITY_MANAGER)
   @ApiOperation({ summary: '查询审计日志' })
-  findAll(@Query() filter: AuditLogFilter) {
+  findAll(@Query() filter: AuditLogFilterDto) {
     return this.auditService.findAll(filter);
   }
 

@@ -3,10 +3,12 @@
 // =====================================================
 
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { CreateUserDto, UpdateUserDto, UserFilterDto } from './dto/user.dto';
-import { PasswordService } from '../../common/auth/password.service';
 import { Prisma, User, UserRole } from '@prisma/client';
+
+import { PasswordService } from '../../common/auth/password.service';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
+import { CreateUserDto, UpdateUserDto, UserFilterDto } from './dto/user.dto';
 
 @Injectable()
 export class UsersService {

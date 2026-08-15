@@ -4,9 +4,11 @@
 // =====================================================
 
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { WestgardService } from './westgard.service';
 import { QcType } from '@prisma/client';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
+import { WestgardService } from './westgard.service';
 
 @Injectable()
 export class QcService {

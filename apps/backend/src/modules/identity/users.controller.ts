@@ -15,13 +15,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserFilterDto } from './dto/user.dto';
+import { User, UserRole } from '@prisma/client';
+
+import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
-import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
-import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
-import { User, UserRole } from '@prisma/client';
+
+import { CreateUserDto, UpdateUserDto, UserFilterDto } from './dto/user.dto';
+import { UsersService } from './users.service';
+
 
 @ApiTags('users')
 @ApiBearerAuth('access-token')

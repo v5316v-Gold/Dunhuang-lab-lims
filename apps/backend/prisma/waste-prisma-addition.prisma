@@ -1,0 +1,92 @@
+// =====================================================
+// W1 废料管理 - Schema 增量
+// 新增 3 enum + 2 model + 修改 FileAttachment 加 wasteRecordId 反向
+// =====================================================
+
+// 1) 新增 enum
+enum WasteType {
+  WASTE_LIQUID      // 含酸废液(HW34)
+  WASTE_SOLID       // 固体废渣
+  WASTE_GOLD_BEARING // 含金废渣(海绵金回收价值)
+  WASTE_REAGENT     // 过期试剂
+  CONTAMINATED_SAMPLE // 受污染样品
+  OTHER
+}
+
+enum WasteHazardClass {
+  HW34    // 废酸(HCl/HNO3)
+  HW29    // 含汞
+  HW37    // 含氰化物
+  HW35    // 废矿物油
+  GENERIC_HAZARDOUS
+  NON_HAZARDOUS
+}
+
+enum WasteStatus {
+  STORED          // 暂存中
+  TRANSFERRED     // 已转移(联单)
+  INCINERATED     // 已焚烧
+  RECYCLED_GOLD   // 海绵金已回收
+  NEUTRALIZED     // 已中和
+  DISPOSED        // 已处置(其他)
+  REJECTED        // 拒收(危废企业资质不符)
+}
+
+// 2) 新增 model WasteRecord
+model WasteRecord {
+  id                    String           @id @default(uuid()) @db.Uuid
+  code                  String           @unique @map("code") @db.VarChar(30)   // WT-2025-001
+
+  // 类型与危险度
+  type                  WasteType
+  hazardClass           WasteHazardClass  @map("hazard_class")
+  hazardDesc            String?          @map("hazard_desc") @db.VarChar(500)
+
+  // 来源溯源
+  sourceType            String           @map("source_type") @db.VarChar(50)
+  sourceTestId          String?          @map("source_test_id") @db.Uuid
+  sourceSampleId        String?          @map("source_sample_id") @db.Uuid
+
+  // 数量(危废法必填)
+  weightKg              Decimal          @map("weight_kg") @db.Decimal(15, 6)
+  volumeL               Decimal?         @map("volume_l") @db.Decimal(15, 6)
+  containerCount        Int              @default(1) @map("container_count")
+  containerType         String?          @map("container_type") @db.VarChar(50)  // 25L 塑料桶/玻璃瓶/...
+
+  // 时间线
+  generatedAt           DateTime         @default(now()) @map("generated_at") @db.Timestamptz
+  storageLocation       String           @map("storage_location") @db.VarChar(200)
+  hazardManagerId       String?          @map("hazard_manager_id") @db.Uuid
+
+  // 转移处置
+  status                WasteStatus      @default(STORED)
+  transferredAt         DateTime?        @map("transferred_at") @db.Timestamptz
+  receiverName          String?          @map("receiver_name") @db.VarChar(200)
+  receiverLicenceNo     String?          @map("receiver_licence_no") @db.VarChar(100)   // 危废资质证号
+  transferManifestNo    String?          @map("transfer_manifest_no") @db.VarChar(100)
+  transferManifestFileId String?         @map("transfer_manifest_file_id") @db.Uuid
+
+  // 处置完成
+  disposalAt            DateTime?        @map("disposal_at") @db.Timestamptz
+  disposalMethod        String?          @map("disposal_method") @db.VarChar(200)
+  recoveredGoldWeightG  Decimal?         @map("recovered_gold_weight_g") @db.Decimal(15, 6)  // 海绵金回收
+
+  // 通用字段
+  remarks               String?          @db.Text
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  // 关联
+  hazardManager         User?            @relation("WasteHazardManager", fields: [hazardManagerId], references: [id])
+  sourceTest            Test?            @relation(fields: [sourceTestId], references: [id])
+  sourceSample          Sample?          @relation(fields: [sourceSampleId], references: [id])
+  transferManifestFile  FileAttachment?  @relation("WasteTransferManifest", fields: [transferManifestFileId], references: [id])
+
+  @@index([code])
+  @@index([type])
+  @@index([hazardClass])
+  @@index([status])
+  @@index([generatedAt(sort: Desc)])
+  @@index([hazardManagerId])
+  @@map("waste_records")
+}

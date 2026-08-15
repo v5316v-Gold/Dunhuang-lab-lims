@@ -3,8 +3,9 @@
 // =====================================================
 
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AssayMethod, TestStatus } from '@prisma/client';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 export interface TestFilterDto {
   method?: AssayMethod;

@@ -9,9 +9,10 @@
 // =====================================================
 
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Observable, tap, catchError, throwError } from 'rxjs';
 import { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
+import { Observable, tap, catchError, throwError } from 'rxjs';
+
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 @Injectable()

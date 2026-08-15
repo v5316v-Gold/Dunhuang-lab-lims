@@ -2,6 +2,8 @@
 // 用户管理 DTO
 // =====================================================
 
+import { ApiProperty } from '@nestjs/swagger';
+import { UserRole, UserStatus } from '@prisma/client';
 import {
   IsString,
   IsNotEmpty,
@@ -12,8 +14,6 @@ import {
   IsUUID,
   Matches,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { UserRole, UserStatus } from '@prisma/client';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'zhang.san', description: '用户名(唯一)' })

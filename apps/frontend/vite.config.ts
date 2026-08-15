@@ -66,9 +66,9 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      // 后端代理
+      // 后端代理(开发期:5173 → 3030 后端,/api 全部转发)
       '/api': {
-        target: process.env.VITE_API_BASE_URL || 'http://localhost:3000',
+        target: process.env.VITE_API_BASE_URL || 'http://127.0.0.1:3030',
         changeOrigin: true,
       },
     },

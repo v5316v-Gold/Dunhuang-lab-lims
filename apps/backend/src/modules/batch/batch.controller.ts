@@ -4,13 +4,22 @@
 
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { BatchService } from './batch.service';
-import { AddSamplesToBatchDto, BatchActionDto, CreateBatchDto } from './dto/batch.dto';
+import { User, UserRole } from '@prisma/client';
+
+import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
-import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
-import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
-import { User, UserRole } from '@prisma/client';
+
+import { BatchService } from './batch.service';
+import {
+  AddSamplesToBatchDto,
+  BatchActionDto,
+  BatchFilterDto,
+  CreateBatchDto,
+  ProcessParameterDto,
+} from './dto/batch.dto';
+
 
 @ApiTags('batches')
 @ApiBearerAuth('access-token')
@@ -28,7 +37,7 @@ export class BatchController {
 
   @Get()
   @ApiOperation({ summary: '查询批次列表' })
-  findAll(@Query() filter: { method?: string; status?: string; page?: number; pageSize?: number }) {
+  findAll(@Query() filter: BatchFilterDto) {
     return this.batchService.findAll(filter);
   }
 
@@ -45,10 +54,26 @@ export class BatchController {
     return this.batchService.addSamples(id, dto);
   }
 
+  @Get(':id/process-params')
+  @ApiOperation({
+    summary: '查询批次内所有样品的工艺参数(Phase 2 Day 3)',
+    description: '返回 batch.samples → test → fire_assay_detail 完整链路,用于工艺历史展示',
+  })
+  async getProcessParams(@Param('id', ParseUUIDPipe) id: string) {
+    return this.batchService.getProcessParams(id);
+  }
+
   @Post(':id/transition')
   @RequireRole(UserRole.ANALYST, UserRole.SENIOR_ANALYST, UserRole.ADMIN)
-  @ApiOperation({ summary: '推进批次状态(状态机)' })
-  transition(@Param('id', ParseUUIDPipe) id: string, @Body() dto: BatchActionDto) {
-    return this.batchService.transition(id, dto);
+  @ApiOperation({
+    summary: '推进批次状态(状态机) + 工艺参数(可选)',
+    description:
+      'Body: { action: "ADVANCE", process?: { 炉温/时长/... } }。火试金批次有 process 时入库到 fire_assay_details',
+  })
+  transition(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: BatchActionDto & { process?: ProcessParameterDto },
+  ) {
+    return this.batchService.transition(id, body, body.process);
   }
 }

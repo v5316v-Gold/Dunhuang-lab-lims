@@ -3,13 +3,16 @@
 // 详见 ADR-0009 §4
 // =====================================================
 
+import * as crypto from 'crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as speakeasy from 'speakeasy';
-import * as QRCode from 'qrcode';
-import * as crypto from 'crypto';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { User } from '@prisma/client';
+import * as QRCode from 'qrcode';
+import * as speakeasy from 'speakeasy';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
 
 export interface TotpEnableResult {
   secret: string; // Base32 格式

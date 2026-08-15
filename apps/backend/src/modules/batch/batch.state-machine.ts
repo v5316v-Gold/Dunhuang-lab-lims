@@ -3,8 +3,8 @@
 // 详见 ADR-0005(状态机 = XState + DB 字段冗余)
 // =====================================================
 
-import { createMachine } from 'xstate';
 import { BatchStatus } from '@prisma/client';
+import { createMachine } from 'xstate';
 
 /**
  * 火试金法批次状态机

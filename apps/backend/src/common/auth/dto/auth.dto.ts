@@ -2,8 +2,8 @@
 // 认证 DTO
 // =====================================================
 
-import { IsString, IsNotEmpty, MinLength, MaxLength, Matches, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, MinLength, MaxLength, Matches, IsOptional, IsBoolean } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({ example: 'zhang.san', description: '用户名' })

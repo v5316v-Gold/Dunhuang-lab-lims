@@ -4,11 +4,13 @@
 // =====================================================
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AssayMethod, BatchStatus, SampleBatch } from '@prisma/client';
-import { AddSamplesToBatchDto, BatchActionDto, CreateBatchDto } from './dto/batch.dto';
 import { createActor } from 'xstate';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
 import { fireAssayBatchMachine, icpBatchMachine } from './batch.state-machine';
+import { AddSamplesToBatchDto, BatchActionDto, CreateBatchDto, ProcessParameterDto } from './dto/batch.dto';
 
 type SupportedMethod = 'FIRE_ASSAY' | 'ICP_OES' | 'ICP_MS';
 
@@ -60,8 +62,13 @@ export class BatchService {
 
   /**
    * 状态机推进(XState 5 actor)
+   * @param process 工艺参数(可选,Phase 2 Day 3 录入并存入 fire_assay_details)
    */
-  async transition(batchId: string, action: BatchActionDto): Promise<SampleBatch> {
+  async transition(
+    batchId: string,
+    action: BatchActionDto,
+    process?: ProcessParameterDto,
+  ): Promise<SampleBatch> {
     const batch = await this.findOne(batchId);
     const machine = resolveMachine(batch.method);
     let nextState: string;
@@ -95,10 +102,117 @@ export class BatchService {
       updateData.completedAt = new Date();
     }
 
+    // 工艺参数入库(只有火试金 + 有工艺参数时才落 fire_assay_details)
+    if (
+      process &&
+      batch.method === 'FIRE_ASSAY' &&
+      Object.values(process).some((v) => v !== undefined && v !== null && v !== '')
+    ) {
+      // 事务:先更新 batch 状态,再为每个样品 upsert FireAssayDetail
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.sampleBatch.update({
+          where: { id: batchId },
+          data: updateData,
+        });
+
+        const detailData: any = {};
+        if (process.mixingTempC) detailData.furnaceTempC = parseFloat(process.mixingTempC);
+        if (process.mixingDurationMin) detailData.cupellationMin = parseFloat(process.mixingDurationMin);
+        if (process.furnaceTempC) detailData.furnaceTempC = parseFloat(process.furnaceTempC);
+        if (process.fusingDurationMin) detailData.cupellationMin = parseFloat(process.fusingDurationMin);
+        if (process.cupellationTempC) detailData.furnaceTempC = parseFloat(process.cupellationTempC);
+        if (process.cupellationDurationMin) detailData.cupellationMin = parseFloat(process.cupellationDurationMin);
+        if (process.partingAcid) detailData.partingAcid = process.partingAcid;
+        if (process.partingDurationMin) detailData.partingMin = parseFloat(process.partingDurationMin);
+        if (process.annealingTempC) detailData.furnaceTempC = parseFloat(process.annealingTempC);
+        if (process.annealingDurationMin) detailData.annealingMin = parseFloat(process.annealingDurationMin);
+
+        // 为批次每个样品 upsert 一条 FireAssayDetail(若已存在则只更新)
+        for (const sample of batch.samples) {
+          // 自动创建 test(若不存在),Phase 2 Day 3 允许 state machine 自动建 test
+          let test = await tx.test.findFirst({
+            where: { batchId, sampleId: sample.id, method: 'FIRE_ASSAY' },
+          });
+          if (!test) {
+            test = await tx.test.create({
+              data: {
+                sampleId: sample.id,
+                batchId,
+                method: 'FIRE_ASSAY',
+                status: 'PENDING',
+                operatorId: batch.operatorId,
+              },
+            });
+          }
+
+          // sampleWeightG 是必填,取样品 weightG 兜底
+          const baseCreateData = {
+            testId: test.id,
+            sampleWeightG: sample.weightG, // 必填
+            ...detailData,
+          };
+
+          await tx.fireAssayDetail.upsert({
+            where: { testId: test.id },
+            create: baseCreateData,
+            update: detailData,
+          });
+        }
+
+        return updated;
+      });
+    }
+
     return this.prisma.sampleBatch.update({
       where: { id: batchId },
       data: updateData,
     });
+  }
+
+  /**
+   * 查询批次工艺参数(批次内所有样品的 fire_assay_detail 集合)
+   * Phase 2 Day 3: 工艺历史展示
+   */
+  async getProcessParams(batchId: string) {
+    const batch = await this.findOne(batchId);
+
+    // 取所有样品的 test + fire_assay_detail
+    const sampleIds = batch.samples.map((s) => s.id);
+    if (sampleIds.length === 0) {
+      return { batchId, batchNo: batch.batchNo, params: [] };
+    }
+
+    const tests = await this.prisma.test.findMany({
+      where: {
+        batchId,
+        sampleId: { in: sampleIds },
+        method: 'FIRE_ASSAY',
+      },
+      include: {
+        fireAssay: true,
+        sample: { select: { id: true, sampleNo: true, customerName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      batchId,
+      batchNo: batch.batchNo,
+      currentStatus: batch.status,
+      params: tests
+        .filter((t) => t.fireAssay)
+        .map((t) => ({
+          testId: t.id,
+          sample: t.sample,
+          method: t.method,
+          furnaceTempC: t.fireAssay?.furnaceTempC?.toString() ?? null,
+          cupellationMin: t.fireAssay?.cupellationMin?.toString() ?? null,
+          partingMin: t.fireAssay?.partingMin?.toString() ?? null,
+          partingAcid: t.fireAssay?.partingAcid ?? null,
+          annealingMin: t.fireAssay?.annealingMin?.toString() ?? null,
+          recordedAt: t.fireAssay?.createdAt ?? t.createdAt,
+        })),
+    };
   }
 
   /**
@@ -117,6 +231,17 @@ export class BatchService {
             sampleType: true,
             weightG: true,
             status: true,
+            tests: {
+              where: { batchId: id, method: 'FIRE_ASSAY' },
+              select: {
+                id: true,
+                status: true,
+                purityPct: true,
+                uncertainty: true,
+                qcPassed: true,
+              },
+              orderBy: { createdAt: 'asc' },
+            },
           },
         },
       },

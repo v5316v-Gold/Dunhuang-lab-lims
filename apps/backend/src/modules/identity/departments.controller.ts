@@ -14,11 +14,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { DepartmentsService } from './departments.service';
+import { UserRole } from '@prisma/client';
+
+import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
-import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
-import { UserRole } from '@prisma/client';
+
+import { DepartmentsService } from './departments.service';
+
 
 @ApiTags('departments')
 @ApiBearerAuth('access-token')

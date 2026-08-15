@@ -3,8 +3,9 @@
 // =====================================================
 
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { Hazard, HazardSeverity, HazardStatus } from '@prisma/client';
+
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 @Injectable()
 export class EhsService {

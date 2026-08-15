@@ -5,6 +5,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
+
 import { LoggingInterceptor } from '../interceptors/logging.interceptor';
 
 @Global()

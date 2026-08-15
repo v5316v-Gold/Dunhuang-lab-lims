@@ -33,6 +33,18 @@ const statusColorMap: Record<SampleStatus, string> = {
   REJECTED: 'red',
 };
 
+const statusLabelMap: Record<SampleStatus, string> = {
+  RECEIVED: '已接收',
+  BATCHED: '已分批',
+  IN_TEST: '检测中',
+  TESTED: '已检测',
+  REPORT_DRAFT: '报告草稿',
+  REPORT_REVIEW: '报告审核',
+  REPORT_APPROVED: '报告已批',
+  ARCHIVED: '已归档',
+  REJECTED: '已拒收',
+};
+
 const sampleTypeLabel: Record<SampleType, string> = {
   GOLD_INGOT: '金锭',
   GOLD_POWDER: '金粉',
@@ -75,8 +87,8 @@ export default function SamplesListPage() {
     {
       title: '状态',
       dataIndex: 'status',
-      width: 100,
-      render: (s: SampleStatus) => <Tag color={statusColorMap[s]}>{s}</Tag>,
+      width: 110,
+      render: (s: SampleStatus) => <Tag color={statusColorMap[s]}>{statusLabelMap[s] ?? s}</Tag>,
     },
     {
       title: '接收时间',

@@ -6,34 +6,34 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { TerminusModule } from '@nestjs/terminus';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ClsModule } from 'nestjs-cls';
 
 // 基础设施层
-import { PrismaModule } from './infrastructure/prisma/prisma.module';
-import { RedisModule } from './infrastructure/redis/redis.module';
-import { MinioModule } from './infrastructure/minio/minio.module';
-import { QueueModule } from './infrastructure/queue/queue.module';
+import { AuditModule } from './common/audit/audit.module';
+import { AuthModule } from './common/auth/auth.module';
+import { LoggerModule } from './common/logger/logger.module';
 import { HealthModule } from './infrastructure/health/health.module';
+import { MinioModule } from './infrastructure/minio/minio.module';
+import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { QueueModule } from './infrastructure/queue/queue.module';
+import { RedisModule } from './infrastructure/redis/redis.module';
 
 // 公共模块
-import { AuthModule } from './common/auth/auth.module';
-import { AuditModule } from './common/audit/audit.module';
-import { LoggerModule } from './common/logger/logger.module';
 
 // 业务模块
-import { IdentityModule } from './modules/identity/identity.module';
-import { SampleModule } from './modules/sample/sample.module';
-import { BatchModule } from './modules/batch/batch.module';
-import { TestModule } from './modules/test/test.module';
-import { QcModule } from './modules/qc/qc.module';
-import { ReportModule } from './modules/report/report.module';
-import { EquipmentModule } from './modules/equipment/equipment.module';
-import { PersonnelModule } from './modules/personnel/personnel.module';
-import { ReagentModule } from './modules/reagent/reagent.module';
-import { EhsModule } from './modules/ehs/ehs.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { BatchModule } from './modules/batch/batch.module';
+import { EhsModule } from './modules/ehs/ehs.module';
+import { EquipmentModule } from './modules/equipment/equipment.module';
+import { IdentityModule } from './modules/identity/identity.module';
+import { PersonnelModule } from './modules/personnel/personnel.module';
+import { QcModule } from './modules/qc/qc.module';
+import { ReagentModule } from './modules/reagent/reagent.module';
+import { ReportModule } from './modules/report/report.module';
+import { SampleModule } from './modules/sample/sample.module';
+import { TestModule } from './modules/test/test.module';
 
 @Module({
   imports: [

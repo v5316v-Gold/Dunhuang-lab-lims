@@ -6,6 +6,7 @@
 // 附件规定:BigInt 输出推荐 string,Swagger DTO 同步
 // =====================================================
 
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsInt,
@@ -15,7 +16,6 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AuditLogFilterDto {
   @ApiPropertyOptional({ description: '按用户 ID 过滤(UUID)' })

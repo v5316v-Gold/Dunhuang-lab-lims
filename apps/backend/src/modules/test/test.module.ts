@@ -4,12 +4,13 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
-import { TestController } from './test.controller';
+
 import { FireAssayController } from './fire-assay.controller';
-import { IcpController } from './icp.controller';
-import { TestService } from './test.service';
 import { FireAssayService } from './fire-assay.service';
+import { IcpController } from './icp.controller';
 import { IcpService } from './icp.service';
+import { TestController } from './test.controller';
+import { TestService } from './test.service';
 
 @Module({
   controllers: [TestController, FireAssayController, IcpController],

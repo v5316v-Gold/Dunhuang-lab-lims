@@ -4,11 +4,14 @@
 
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { EhsService } from './ehs.service';
+import { User } from '@prisma/client';
+
+import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
-import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
-import { User } from '@prisma/client';
+
+import { EhsService } from './ehs.service';
+
 
 @ApiTags('ehs')
 @ApiBearerAuth('access-token')

@@ -3,7 +3,7 @@
 // =====================================================
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface AuthUser {
   id: string;
@@ -35,7 +35,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'dunhuang-lims-auth',
-      storage: localStorage,
+      // 显式 createJSONStorage(默认其实也是,但显式确保 JSON 序列化)
+      storage: createJSONStorage(() => localStorage),
+      // 只持久化 token + user,不持久化 functions
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        user: state.user,
+      }),
     },
   ),
 );

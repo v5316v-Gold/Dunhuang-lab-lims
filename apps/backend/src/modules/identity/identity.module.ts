@@ -3,11 +3,14 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
-import { UsersController } from './users.controller';
-import { UsersService } from './users.service';
+
+import { AuthModule } from '../../common/auth/auth.module';
+
 import { DepartmentsController } from './departments.controller';
 import { DepartmentsService } from './departments.service';
-import { AuthModule } from '../../common/auth/auth.module';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+
 
 @Module({
   imports: [AuthModule],

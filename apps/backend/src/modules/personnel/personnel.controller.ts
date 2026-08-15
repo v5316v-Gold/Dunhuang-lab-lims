@@ -4,12 +4,15 @@
 
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PersonnelService } from './personnel.service';
+import { User, UserRole } from '@prisma/client';
+
+import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
-import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
-import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
-import { User, UserRole } from '@prisma/client';
+
+import { PersonnelService } from './personnel.service';
+
 
 @ApiTags('personnel')
 @ApiBearerAuth('access-token')

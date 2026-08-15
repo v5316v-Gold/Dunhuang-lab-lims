@@ -4,11 +4,13 @@
 // =====================================================
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { PassportStrategy } from '@nestjs/passport';
 import { User } from '@prisma/client';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+
+import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+
 
 export interface JwtPayload {
   sub: string; // userId
