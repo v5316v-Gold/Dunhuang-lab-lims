@@ -13,6 +13,7 @@ import { EquipmentList } from '../views/equipment/EquipmentList';
 import { PersonnelList } from '../views/personnel/PersonnelList';
 import { ReagentsList } from '../views/reagent/ReagentsList';
 import { GasList } from '../views/gas/GasList';
+import { WasteList } from '../views/waste/WasteList';
 import { SampleDetail } from '../views/sample/SampleDetail';
 import { RequireAuth } from './RequireAuth';
 
@@ -65,6 +66,7 @@ export function AppRouter() {
           <Route path="personnel" element={<PersonnelList />} />
           <Route path="reagents" element={<ReagentsList />} />
           <Route path="gas" element={<GasList />} />
+          <Route path="waste" element={<WasteList />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
         </Route>
 

@@ -13,6 +13,7 @@ import {
   TeamOutlined,
   ExperimentOutlined as ExperimentLabOutlined,
   CloudOutlined,
+  GoldOutlined,
   AuditOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -33,6 +34,7 @@ const menuItems = [
   { key: '/personnel', icon: <TeamOutlined />, label: <Link to="/personnel">人员管理</Link> },
   { key: '/reagents', icon: <ExperimentLabOutlined />, label: <Link to="/reagents">试剂库存</Link> },
   { key: '/gas', icon: <CloudOutlined />, label: <Link to="/gas">气体管理</Link> },
+  { key: '/waste', icon: <GoldOutlined />, label: <Link to="/waste">危废管理</Link> },
   { key: '/qc', icon: <ExperimentOutlined />, label: <Link to="/qc">QC 监控</Link> },
   { key: '/audit-logs', icon: <AuditOutlined />, label: <Link to="/audit-logs">审计日志</Link> },
 ];
