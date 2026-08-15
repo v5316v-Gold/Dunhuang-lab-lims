@@ -1,3 +1,4 @@
+import { StateMachineService } from '../../common/state-machine/state-machine.service';
 // =====================================================
 // 检测通用服务 - 列表 + 多条件过滤
 // =====================================================
@@ -20,7 +21,10 @@ export interface TestFilterDto {
 
 @Injectable()
 export class TestService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+  private readonly prisma: PrismaService,
+    private readonly stateMachine: StateMachineService,
+  ) {}
 
   async findAll(filter: TestFilterDto) {
     const { page = 1, pageSize = 20, ...where } = filter;

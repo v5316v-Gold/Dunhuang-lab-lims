@@ -1,3 +1,4 @@
+import { StateMachineService } from '../../common/state-machine/state-machine.service';
 // =====================================================
 // W1 废料管理 - Service
 // 架构映射: L2 危废合规(CNAS §7.10 不符合工作)
@@ -40,10 +41,11 @@ export class WasteService {
   private readonly logger = new Logger(WasteService.name);
 
   constructor(
-      private readonly prisma: PrismaService,
+  private readonly prisma: PrismaService,
       private readonly securityAudit: SecurityAuditService,
       private readonly realtime: RealtimeBus,
-    ) {}
+    private readonly stateMachine: StateMachineService,
+  ) {}
 
   /** 生成唯一编号(WT-YYYYMMDD-NNNN) */
   private async nextCode(): Promise<string> {

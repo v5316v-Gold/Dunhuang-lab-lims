@@ -114,6 +114,14 @@ model User {
   containerResponsible  Container[]       @relation("ContainerResponsible")
   containerUsed         ContainerUsage[]  @relation("ContainerUsageUser")
   samplingRecords       SamplingRecord[]   @relation("SamplingRecordUser")
+  uncertaintyCalculated  UncertaintyReport[]  @relation("UncertaintyCalculator")
+  uncertaintyReviewed    UncertaintyReport[]  @relation("UncertaintyReviewer")
+  uncertaintyPublished   UncertaintyReport[]  @relation("UncertaintyPublisher")
+  rmUsages                ReferenceMaterialUsage[]  @relation("RMUsageUser")
+  ncReported              NonConformance[]  @relation("NCReporter")
+  ncAssigned              NonConformance[]  @relation("NCAssignee")
+  ncInvestigated          NonConformance[]  @relation("NCInvestigator")
+  ncClosed                NonConformance[]  @relation("NCCloser")
   barsInspected         PreciousMetalBar[] @relation("PreciousMetalBarInspector")
   personnel         Personnel?
 
@@ -334,7 +342,9 @@ model Equipment {
   @@index([equipmentNo])
   @@index([type, status])
   @@map("equipment")
+  nonConformances NonConformance[]  @relation("NCEquipment")
 }
+
 
 model Calibration {
   id              String    @id @default(uuid()) @db.Uuid
@@ -500,7 +510,9 @@ model Sample {
   @@index([receivedAt(sort: Desc)])
   @@index([customerName])
   @@map("samples")
+  nonConformances NonConformance[]  @relation("NCSample")
 }
+
 
 enum AssayMethod {
   FIRE_ASSAY
@@ -597,12 +609,16 @@ model Test {
   qcMeasurements   QcMeasurement[]
   gasUsages        GasUsage[]             @relation("GasUsageTest")
   containerUsages  ContainerUsage[]       @relation("ContainerUsageTest")
+  uncertaintyReport UncertaintyReport?       @relation("TestUncertainty")
+  rmUsages             ReferenceMaterialUsage[] @relation("TestRMUsage")
 
   @@index([sampleId])
   @@index([method, status])
   @@index([operatorId])
   @@map("tests")
+  nonConformances NonConformance[]  @relation("NCTest")
 }
+
 
 // 火试金专用字段(一对一)
 model FireAssayDetail {
@@ -643,7 +659,9 @@ model ElementResult {
   @@index([testId])
   @@index([element])
   @@map("element_results")
+  rmUsages          ReferenceMaterialUsage[]  @relation("ElementResultRMUsage")
 }
+
 
 // =====================================================
 // 域 7: qc - QC + 6σ + Westgard
@@ -667,9 +685,20 @@ model ReferenceMaterial {
   certificateFileId String? @map("certificate_file_id") @db.Uuid
   receivedDate    DateTime? @map("received_date") @db.Date
   expiryDate      DateTime? @map("expiry_date") @db.Date
+  // P0-B 期间核查
+  nextVerificationDate DateTime? @map("next_verification_date") @db.Date
+  verificationMethod   String?  @map("verification_method") @db.VarChar(50)  // 比对法/加标回收
+  storageLocation     String?  @map("storage_location") @db.VarChar(100) // 干燥器/冰箱
+  storageTemp         String?  @map("storage_temp") @db.VarChar(50)      // 20±2°C / 4°C
+  isCrm               Boolean  @default(false) @map("is_crm")              // 有证标准物质(CRM) vs 工作标准
+  standardUncertainty Decimal? @map("standard_u") @db.Decimal(15, 9)     // 证书 U(k=2)
+  sha256Certificate  String?  @map("sha256_cert") @db.Char(64)           // 证书 PDF SHA256(防伪)
+  status             String   @default("ACTIVE") @db.VarChar(20)          // ACTIVE/EXPIRED/RETIRED
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   qcMeasurements  QcMeasurement[]
+  uncertaintyReports UncertaintyReport[]  @relation("UncertaintyReference")
+  rmUsages            ReferenceMaterialUsage[]  @relation("RMUsage")
 
   @@index([code])
   @@index([element])
@@ -699,7 +728,11 @@ model QcMeasurement {
   @@index([referenceId])
   @@index([element, measuredAt(sort: Desc)])
   @@map("qc_measurements")
+  rmUsages          ReferenceMaterialUsage[]  @relation("QcRMUsage")
+  nonConformances NonConformance[]  @relation("NCQcMeasurement")
 }
+
+
 
 // =====================================================
 // 域 8: report - 报告/审核/签名
@@ -755,7 +788,10 @@ model ReportStage {
   @@index([reportId])
   @@index([createdAt(sort: Desc)])
   @@map("report_stages")
+  signedAt   DateTime? @map("signed_at") @db.Timestamptz
+  signComment String?  @map("sign_comment") @db.Text
 }
+
 
 model ReportSignature {
   id                String   @id @default(uuid()) @db.Uuid
@@ -939,6 +975,8 @@ model FileAttachment {
 
   uploadedBy    User?        @relation("FileAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
   equipment     Equipment?   @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  uncertaintyCalculationFiles UncertaintyReport[]  @relation("UncertaintyCalculationFile")
+  rmUsageCertificates        ReferenceMaterialUsage[]  @relation("RMUsageCertificate")
 
   @@index([category])
   @@index([sha256])
@@ -1365,5 +1403,231 @@ model PreciousMetalBar {
   @@index([qualityGrade])
   @@index([status])
   @@map("precious_metal_bars")
+}
+
+
+
+// ============================================================================
+// W3-A P0 硬化:测量不确定度(MU)评定模块(CNAS §7.8)
+// 严格按 GUM JCGM 100:2008 5 类分量
+// ============================================================================
+
+enum UncertaintyReportStatus {
+  DRAFT     @map("draft")        // 起草中
+  REVIEWED  @map("reviewed")     // 校核完成
+  PUBLISHED @map("published")    // 已发布(Test.uncertainty 同步)
+  VOIDED    @map("voided")       // 作废
+
+  @@map("uncertainty_report_status")
+}
+
+model UncertaintyReport {
+  id                String      @id @default(uuid()) @db.Uuid
+  reportNo          String      @unique @db.VarChar(50)               // U-2026-0001
+  testId            String      @unique @map("test_id") @db.Uuid
+  status            UncertaintyReportStatus @default(DRAFT)
+
+  // 主结果(从 Test 同步)
+  measuredValue     Decimal     @map("measured_value") @db.Decimal(15, 6)   // 测得值(纯度/浓度)
+  combinedU         Decimal     @map("combined_u") @db.Decimal(15, 9)       // 合成标准不确定度
+  expandedU         Decimal     @map("expanded_u") @db.Decimal(15, 9)       // 扩展不确定度 U = k × u_c
+  coverageFactor Decimal     @default(2.0) @map("coverage_factor") @db.Decimal(4, 2) // k=2
+  coverageProb      Decimal     @default(95.00) @map("coverage_prob") @db.Decimal(5, 2)  // 95%
+
+  // 5 类 GUM 分量(单位:与 measuredValue 一致)
+  ucTypeA           Decimal?    @map("uc_type_a") @db.Decimal(15, 9)        // 统计(平行样)
+  ucTypeBStd        Decimal?    @map("uc_type_b_std") @db.Decimal(15, 9)     // 标准物质
+  ucTypeBEquip      Decimal?    @map("uc_type_b_equip") @db.Decimal(15, 9)   // 仪器校准
+  ucTypeBVol        Decimal?    @map("uc_type_b_vol") @db.Decimal(15, 9)     // 容量
+  ucTypeBEnv        Decimal?    @map("uc_type_b_env") @db.Decimal(15, 9)     // 环境
+  ucTypeBOther      Decimal?    @map("uc_type_b_other") @db.Decimal(15, 9)   // 其他
+
+  // 平行样原始数据(JSONB:数组 [{run:1, value:99.98}, ...])
+  parallelRuns      Json?       @map("parallel_runs")
+
+  // 计算方法 / 公式引用
+  method            String      @default("GUM_JCGM_100") @db.VarChar(50)    // GUM / 北师大公式
+  methodDescription String?     @map("method_description") @db.Text
+
+  // 溯源引用
+  referenceMaterialId String?   @map("reference_material_id") @db.Uuid     // 主标准物质
+  equipmentIds     String[]    @map("equipment_ids") @db.Uuid               // 涉及仪器
+  calibrationIds    String[]    @map("calibration_ids") @db.Uuid             // 校准证书
+
+  // 计算附件(GUM Workbench / Excel 输出)
+  calculationFileId String?     @map("calculation_file_id") @db.Uuid
+
+  // 过程审计
+  calculatedById    String      @map("calculated_by_id") @db.Uuid             // 计算人(分析员)
+  calculatedAt      DateTime    @default(now()) @map("calculated_at") @db.Timestamptz
+  reviewedById      String?     @map("reviewed_by_id") @db.Uuid               // 校核人(高级分析员)
+  reviewedAt        DateTime?   @map("reviewed_at") @db.Timestamptz
+  publishedById     String?     @map("published_by_id") @db.Uuid              // 批准人(QA Manager)
+  publishedAt       DateTime?   @map("published_at") @db.Timestamptz
+
+  // 公式审计(冻结后不可改)
+  formulaSnapshot   String?     @map("formula_snapshot") @db.Text           // 完整计算公式(发布时)
+
+  remarks           String?     @db.Text
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?   @map("deleted_at") @db.Timestamptz
+
+  test              Test        @relation("TestUncertainty", fields: [testId], references: [id], onDelete: Restrict)
+  referenceMaterial ReferenceMaterial? @relation("UncertaintyReference", fields: [referenceMaterialId], references: [id])
+  calculatedBy      User        @relation("UncertaintyCalculator", fields: [calculatedById], references: [id])
+  reviewedBy        User?       @relation("UncertaintyReviewer", fields: [reviewedById], references: [id])
+  publishedBy       User?       @relation("UncertaintyPublisher", fields: [publishedById], references: [id])
+  calculationFile   FileAttachment? @relation("UncertaintyCalculationFile", fields: [calculationFileId], references: [id])
+
+  @@index([reportNo])
+  @@index([testId])
+  @@index([status])
+  @@index([calculatedAt(sort: Desc)])
+  @@map("uncertainty_reports")
+  rmUsages          ReferenceMaterialUsage[]  @relation("UncertaintyReportRMUsage")
+}
+
+
+
+
+// ============================================================================
+// P0-B 标准物质使用台账(每条 ElementResult/QcMeasurement 用了哪个 RM)
+// CNAS §7.6 测量溯源: 标准物质证书可逐条溯源到具体检测
+// ============================================================================
+
+model ReferenceMaterialUsage {
+  id                String   @id @default(uuid()) @db.Uuid
+  usageNo           String   @unique @map("usage_no") @db.VarChar(50)  // RMU-2026-0001
+  referenceMaterialId String  @map("reference_material_id") @db.Uuid
+  lotNo             String   @map("lot_no") @db.VarChar(50)            // 批号:GBW02757-2024-A
+  // 关联业务
+  testId            String?  @map("test_id") @db.Uuid                  // 关联检测
+  qcMeasurementId   String?  @map("qc_measurement_id") @db.Uuid       // 关联质控
+  elementResultId   String?  @map("element_result_id") @db.Uuid         // 关联元素结果
+  uncertaintyReportId String? @map("uncertainty_report_id") @db.Uuid   // 关联不确定度(P0-A)
+  purpose           String   @db.VarChar(50)                            // CALIBRATION / QC_CHECK / VERIFICATION / CONFIRM
+  // 使用量
+  usedAmount        Decimal  @map("used_amount") @db.Decimal(15, 6)    // g / mL
+  remainingAmount   Decimal  @map("remaining_amount") @db.Decimal(15, 6) // 剩余量
+  // 记录人
+  usedById          String   @map("used_by_id") @db.Uuid                 // 使用人
+  usedAt            DateTime @default(now()) @map("used_at") @db.Timestamptz
+  // 履历
+  recoveryPct       Decimal? @map("recovery_pct") @db.Decimal(5, 2)     // 实际回收率(与标称比)
+  certificateFileId String?  @map("certificate_file_id") @db.Uuid       // 当时使用的证书附件
+  remarks           String?  @db.Text
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  referenceMaterial ReferenceMaterial @relation("RMUsage", fields: [referenceMaterialId], references: [id])
+  test              Test?             @relation("TestRMUsage", fields: [testId], references: [id])
+  qcMeasurement     QcMeasurement?    @relation("QcRMUsage", fields: [qcMeasurementId], references: [id])
+  elementResult     ElementResult?    @relation("ElementResultRMUsage", fields: [elementResultId], references: [id])
+  uncertaintyReport UncertaintyReport? @relation("UncertaintyReportRMUsage", fields: [uncertaintyReportId], references: [id])
+  usedBy            User              @relation("RMUsageUser", fields: [usedById], references: [id])
+  certificateFile   FileAttachment?   @relation("RMUsageCertificate", fields: [certificateFileId], references: [id])
+
+  @@index([usageNo])
+  @@index([referenceMaterialId])
+  @@index([testId])
+  @@index([qcMeasurementId])
+  @@index([elementResultId])
+  @@index([uncertaintyReportId])
+  @@index([usedAt(sort: Desc)])
+  @@map("reference_material_usages")
+}
+
+
+
+// ============================================================================
+// P0-C OOS / NonConformance(CNAS §7.10 不符合工作)
+// 自动从 QcMeasurement.Westgard 失败 / 不合格结果 触发
+// ============================================================================
+
+enum NonConformanceType {
+  OOS_QC_FAILED       @map("oos_qc_failed")        // OOS:QC 不合格
+  OOS_RESULT_FAILED   @map("oos_result_failed")    // OOS:结果不合格
+  EQUIPMENT_FAILURE   @map("equipment_failure")    // 设备异常
+  METHOD_DEVIATION    @map("method_deviation")     // 方法偏离
+  SAMPLE_INTEGRITY    @map("sample_integrity")     // 样品完整性
+  CLIENT_COMPLAINT    @map("client_complaint")     // 客户投诉
+  INTERNAL_AUDIT      @map("internal_audit")       // 内部审核发现
+  OTHER               @map("other")
+
+  @@map("non_conformance_type")
+}
+
+enum NonConformanceStatus {
+  OPEN        @map("open")        // 已登记
+  INVESTIGATING @map("investigating") // 调查中
+  CAPA_IN_PROGRESS @map("capa_in_progress") // 整改中
+  RESOLVED    @map("resolved")    // 已解决
+  CLOSED      @map("closed")      // 已关闭(归档)
+
+  @@map("non_conformance_status")
+}
+
+enum NonConformanceSeverity {
+  MINOR  @map("minor")    // 轻微
+  MAJOR  @map("major")    // 重大
+  CRITICAL @map("critical") // 严重
+
+  @@map("non_conformance_severity")
+}
+
+model NonConformance {
+  id                String      @id @default(uuid()) @db.Uuid
+  ncNo              String      @unique @db.VarChar(50)        // NC-2026-0001
+  type              NonConformanceType
+  severity          NonConformanceSeverity @default(MINOR)
+  status            NonConformanceStatus  @default(OPEN)
+
+  // 触发源(可空,任一即可)
+  qcMeasurementId   String?     @map("qc_measurement_id") @db.Uuid
+  testId            String?     @map("test_id") @db.Uuid
+  sampleId          String?     @map("sample_id") @db.Uuid
+  equipmentId       String?     @map("equipment_id") @db.Uuid
+
+  // 描述
+  title             String      @db.VarChar(200)
+  description       String      @db.Text
+  rootCause         String?     @map("root_cause") @db.Text       // 根本原因(调查中填)
+  immediateAction   String?     @map("immediate_action") @db.Text  // 立即措施
+
+  // 调查与关闭
+  reportedById      String      @map("reported_by_id") @db.Uuid    // 上报人
+  reportedAt        DateTime    @default(now()) @map("reported_at") @db.Timestamptz
+  assignedToId      String?     @map("assigned_to_id") @db.Uuid   // 调查负责人
+  investigatedById  String?     @map("investigated_by_id") @db.Uuid
+  investigatedAt    DateTime?   @map("investigated_at") @db.Timestamptz
+  closedById        String?     @map("closed_by_id") @db.Uuid
+  closedAt          DateTime?   @map("closed_at") @db.Timestamptz
+  closeRemarks      String?     @map("close_remarks") @db.Text     // 关闭说明
+
+  // CAPA(纠正/预防措施)
+  correctiveAction  String?     @map("corrective_action") @db.Text
+  preventiveAction  String?     @map("preventive_action") @db.Text
+  effectivenessVerification String? @map("effectiveness_verification") @db.Text // 有效性验证
+
+  // 审计
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?   @map("deleted_at") @db.Timestamptz
+
+  qcMeasurement     QcMeasurement? @relation("NCQcMeasurement", fields: [qcMeasurementId], references: [id])
+  test              Test?          @relation("NCTest", fields: [testId], references: [id])
+  sample            Sample?        @relation("NCSample", fields: [sampleId], references: [id])
+  equipment         Equipment?     @relation("NCEquipment", fields: [equipmentId], references: [id])
+  reportedBy        User           @relation("NCReporter", fields: [reportedById], references: [id])
+  assignedTo        User?          @relation("NCAssignee", fields: [assignedToId], references: [id])
+  investigatedBy    User?          @relation("NCInvestigator", fields: [investigatedById], references: [id])
+  closedBy          User?          @relation("NCCloser", fields: [closedById], references: [id])
+
+  @@index([ncNo])
+  @@index([type])
+  @@index([status])
+  @@index([severity])
+  @@index([reportedAt(sort: Desc)])
+  @@map("non_conformances")
 }
 

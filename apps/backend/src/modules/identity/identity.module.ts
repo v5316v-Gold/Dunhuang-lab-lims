@@ -3,6 +3,7 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 
 import { AuthModule } from '../../common/auth/auth.module';
 

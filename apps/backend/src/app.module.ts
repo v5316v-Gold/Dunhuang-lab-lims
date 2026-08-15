@@ -14,6 +14,7 @@ import { ClsModule } from 'nestjs-cls';
 import { AuditModule } from './common/audit/audit.module';
 import { AuthModule } from './common/auth/auth.module';
 import { LoggerModule } from './common/logger/logger.module';
+import { StateMachineModule } from './common/state-machine/state-machine.module';
 import { HealthModule } from './infrastructure/health/health.module';
 import { MinioModule } from './infrastructure/minio/minio.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
@@ -67,6 +68,7 @@ import { TestModule } from './modules/test/test.module';
     TerminusModule,
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     LoggerModule,
+    StateMachineModule,
     PrismaModule,
     RedisModule,
     MinioModule,

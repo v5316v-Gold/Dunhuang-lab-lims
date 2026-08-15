@@ -4,6 +4,7 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 
 import { FireAssayController } from './fire-assay.controller';
 import { FireAssayService } from './fire-assay.service';
@@ -11,10 +12,15 @@ import { IcpController } from './icp.controller';
 import { IcpService } from './icp.service';
 import { TestController } from './test.controller';
 import { TestService } from './test.service';
+import { UncertaintyController } from './uncertainty.controller';
+import { UncertaintyService } from './uncertainty.service';
+import { ReferenceMaterialController } from './reference-material.controller';
+import { ReferenceMaterialService } from './reference-material.service';
 
 @Module({
-  controllers: [TestController, FireAssayController, IcpController],
-  providers: [TestService, FireAssayService, IcpService],
-  exports: [TestService, FireAssayService, IcpService],
+  imports: [AuditModule],
+  controllers: [TestController, FireAssayController, IcpController, UncertaintyController, ReferenceMaterialController],
+  providers: [TestService, FireAssayService, IcpService, UncertaintyService, ReferenceMaterialService],
+  exports: [TestService, FireAssayService, IcpService, UncertaintyService, ReferenceMaterialService],
 })
 export class TestModule {}

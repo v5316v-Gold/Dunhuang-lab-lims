@@ -4,11 +4,13 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 
 import { BatchController } from './batch.controller';
 import { BatchService } from './batch.service';
 
 @Module({
+  imports: [AuditModule],
   controllers: [BatchController],
   providers: [BatchService],
   exports: [BatchService],

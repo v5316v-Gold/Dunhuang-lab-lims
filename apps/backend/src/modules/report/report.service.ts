@@ -1,3 +1,4 @@
+import { StateMachineService } from '../../common/state-machine/state-machine.service';
 // =====================================================
 // 报告服务
 // 详见 Phase 2 文档 §5.1
@@ -18,6 +19,7 @@ export class ReportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfService: ReportPdfService,
+    private readonly stateMachine: StateMachineService,
   ) {}
 
   /**
@@ -242,5 +244,27 @@ private async generateReportNo(): Promise<string> {
     }
 
     return `${prefix}${String(nextSeq).padStart(6, '0')}`;
+  }
+
+  /**
+   * P0-D 状态机守卫:报告签发
+   * APPROVED → ISSUED,不可逆
+   */
+  async issue(reportId: string, userId: string) {
+    const r = await this.prisma.report.findUnique({ where: { id: reportId } });
+    if (!r) throw new NotFoundException(`Report ${reportId} 不存在`);
+    // 状态机校验
+    this.stateMachine.assertTransition('Report', r.status, 'ISSUED');
+    // 签发时必须有 PDF
+    if (!r.pdfSha256) {
+      throw new BadRequestException('ISSUED 报告必须有 PDF(pdfSha256 必填)');
+    }
+    return this.prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: 'ISSUED',
+        issuedAt: new Date(),
+      },
+    });
   }
 }

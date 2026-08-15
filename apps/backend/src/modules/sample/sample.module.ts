@@ -4,6 +4,7 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 
 import { BatchModule } from '../batch/batch.module';
 

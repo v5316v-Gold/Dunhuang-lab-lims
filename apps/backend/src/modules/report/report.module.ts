@@ -4,6 +4,7 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 
 import { ReportController } from './report.controller';
 import { ReportPdfService } from './report-pdf.service';
@@ -11,6 +12,7 @@ import { ReportService } from './report.service';
 import { ReportSignatureService } from './report-signature.service';
 
 @Module({
+  imports: [AuditModule],
   controllers: [ReportController],
   providers: [ReportService, ReportSignatureService, ReportPdfService],
   exports: [ReportService, ReportSignatureService, ReportPdfService],

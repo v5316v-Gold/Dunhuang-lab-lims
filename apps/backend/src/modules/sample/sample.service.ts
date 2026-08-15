@@ -1,3 +1,4 @@
+import { StateMachineService } from '../../common/state-machine/state-machine.service';
 // =====================================================
 // 样品服务 - 接收 / 编号生成 / 批次关联
 // 详见 Phase 2 文档 §5.1
@@ -25,8 +26,9 @@ function allowedEventHint(status: string): string {
 @Injectable()
 export class SampleService {
   constructor(
-    private readonly prisma: PrismaService,
+  private readonly prisma: PrismaService,
     private readonly sampleNoGenerator: SampleNumberGenerator,
+    private readonly stateMachine: StateMachineService,
   ) {}
 
   /**
