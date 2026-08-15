@@ -66,20 +66,21 @@ async function main() {
   });
 
   // 2. 人员档案
-  const personnelData = [
-    { employeeNo: 'EMP-0001', userId: analystUser.id, name: '张三(分析员)', position: 'ANALYST' as const },
-    { employeeNo: 'EMP-0002', userId: seniorUser.id, name: '李四(高级分析员)', position: 'SENIOR_ANALYST' as const },
-    { employeeNo: 'EMP-0003', userId: qmUser.id, name: '王五(质量经理)', position: 'QUALITY_MANAGER' as const },
-  ];
-  for (const p of personnelData) {
-    await prisma.personnel.upsert({
-      where: { employeeNo: p.employeeNo }, update: { userId: p.userId },
-      create: {
-        employeeNo: p.employeeNo, userId: p.userId, name: p.name, position: p.position,
-        phone: '13800138000', email: 'demo@dunhuang.cn', status: 'ACTIVE',
-      } as any,
-    });
-  }
+const personnelData = [
+  { employeeNo: 'EMP-0001', userId: analystUser.id, name: '张三(分析员)' },
+  { employeeNo: 'EMP-0002', userId: seniorUser.id, name: '李四(高级分析员)' },
+  { employeeNo: 'EMP-0003', userId: qmUser.id, name: '王五(质量经理)' },
+];
+for (const p of personnelData) {
+  await prisma.personnel.upsert({
+    where: { employeeNo: p.employeeNo }, update: { userId: p.userId },
+    create: {
+      employeeNo: p.employeeNo, userId: p.userId, name: p.name,
+      title: p.employeeNo === 'EMP-0003' ? '高级工程师' : '助理工程师',
+      phone: '13800138000', email: 'demo@dunhuang.cn', status: 'ACTIVE',
+    } as any,
+  });
+}
   const senior = await prisma.personnel.findUnique({ where: { employeeNo: 'EMP-0002' } });
   if (senior) {
     await prisma.competency.upsert({
@@ -146,7 +147,7 @@ async function main() {
     const sample = await prisma.sample.upsert({
       where: { sampleNo }, update: {},
       create: { sampleNo, customerName: s.customer, customerRef: `CUST-${sampleNo}`,
-        sampleType: 'GOLD_INGOT', weightG: new (prisma as any).$extends ? '1.0230' as any : ('1.0230' as any),
+        sampleType: 'GOLD_INGOT', weightG: '1.0230' as any,
         status: s.status as any,
         receivedById: analystUser.id, receivedAt: daysAgo(7), remarks: `Phase 3 示例 ${sampleNo}` } as any,
     });
@@ -179,7 +180,7 @@ async function main() {
       data: {
         sampleId: s.id, batchId: batch1.id, method: 'FIRE_ASSAY', operatorId: seniorUser.id,
         status: 'COMPLETED', startedAt: daysAgo(3), completedAt: daysAgo(2),
-        purityPct: new (prisma as any).$extends ? s.purity as any : (s.purity as any),
+        purityPct: s.purity as any,
         uncertainty: '0.0200' as any, qcPassed: true,
         fireAssay: { create: { sampleWeightG: '1.0000' as any } },
       } as any,
@@ -201,7 +202,7 @@ async function main() {
     const existing = await (prisma as any).qcMeasurement.findFirst({ where: { testId: t.id } });
     if (existing) continue;
     await (prisma as any).qcMeasurement.create({
-      data: { testId: t.id, qcType: 'PARALLEL', element: 'Au', measured: '99.95' as any, expected: '99.98' as any, sd: '0.05' as any },
+      data: { testId: t.id, qcType: 'PARALLEL', element: 'Au', measured: '99.95' as any, expected: '99.98' as any, sd: '0.05' as any, passed: true },
     });
   }
 
@@ -232,8 +233,119 @@ async function main() {
     });
   }
 
-  // 10. 设备维护 + 期间核查
-  console.log('[seed] maintenance + periodic check...');
+  // 9.5 W1 危废管理种子数据(CNAS §7.10 不符合工作)
+console.log('[seed] W1 waste records...');
+const wasteSeeds = [
+  { code: 'WT-20260815-0001', type: 'WASTE_LIQUID', hazardClass: 'HW34', hazardDesc: '王水废液', sourceType: 'TEST', weightKg: '5.5000', volumeL: '5.0000', containerCount: 2, containerType: '25L 塑料桶', storageLocation: '危废暂存间 A-01', status: 'STORED' },
+  { code: 'WT-20260815-0002', type: 'WASTE_GOLD_BEARING', hazardClass: 'HW29', hazardDesc: '含黄金滤纸+坩埚残渣', sourceType: 'TEST', weightKg: '0.8500', containerCount: 1, containerType: '5L 玻璃瓶', storageLocation: '危废暂存间 A-02', status: 'STORED' },
+  { code: 'WT-20260815-0003', type: 'WASTE_SOLID', hazardClass: 'HW35', hazardDesc: '含银铅扣废渣', sourceType: 'TEST', weightKg: '1.2500', containerCount: 1, containerType: '10L 铁桶', storageLocation: '危废暂存间 A-03', status: 'TRANSFERRED' },
+  { code: 'WT-20260815-0004', type: 'WASTE_REAGENT', hazardClass: 'HW29', hazardDesc: '失效碘化钾溶液', sourceType: 'TEST', weightKg: '0.5000', volumeL: '0.5000', containerCount: 1, containerType: '1L 棕色瓶', storageLocation: '危废暂存间 B-01', status: 'INCINERATED' },
+];
+for (const w of wasteSeeds) {
+  await prisma.wasteRecord.upsert({
+    where: { code: w.code }, update: {},
+    create: {
+      code: w.code,
+      type: w.type as any,
+      hazardClass: w.hazardClass as any,
+      hazardDesc: w.hazardDesc,
+      sourceType: w.sourceType,
+      weightKg: w.weightKg as any,
+      volumeL: w.volumeL as any,
+      containerCount: w.containerCount,
+      containerType: w.containerType,
+      storageLocation: w.storageLocation,
+      hazardManagerId: qmUser.id,
+      generatedAt: daysAgo(5),
+      status: w.status as any,
+      remarks: 'Phase W1 seed',
+      receiverName: w.status === 'TRANSFERRED' || w.status === 'INCINERATED' ? '甘肃金亿环保科技有限公司' : null,
+      receiverLicenceNo: w.status === 'TRANSFERRED' || w.status === 'INCINERATED' ? 'GS-HW-2024-0815' : null,
+      transferManifestNo: w.status === 'TRANSFERRED' || w.status === 'INCINERATED' ? `MAN-${w.code}` : null,
+      transferredAt: w.status === 'TRANSFERRED' || w.status === 'INCINERATED' ? daysAgo(2) : null,
+      disposalAt: w.status === 'INCINERATED' ? daysAgo(1) : null,
+      disposalMethod: w.status === 'INCINERATED' ? '高温焚烧(>1200°C)' : null,
+    } as any,
+  });
+}
+
+// 9.6 W2 气体管理种子数据(CNAS §7.5 + §6.4)
+console.log('[seed] W2 gases + purchases + usages...');
+const gasSeeds = [
+  { code: 'GAS-202608-0001', name: '高纯氩气 Ar 99.999%', type: 'ARGON', purity: '99.999%', unit: 'CYLINDER', currentStock: '18.0000', minStock: '5.0000', maxStock: '40.0000', storageLocation: '气瓶间 A-01', hazardLevel: '惰性' },
+  { code: 'GAS-202608-0002', name: '高纯氮气 N2 99.999%', type: 'NITROGEN', purity: '99.999%', unit: 'CYLINDER', currentStock: '25.0000', minStock: '8.0000', maxStock: '50.0000', storageLocation: '气瓶间 A-02', hazardLevel: '惰性' },
+  { code: 'GAS-202608-0003', name: '高纯氢气 H2 99.999%', type: 'HYDROGEN', purity: '99.999%', unit: 'CYLINDER', currentStock: '4.0000', minStock: '5.0000', maxStock: '20.0000', storageLocation: '气瓶间 B-01', hazardLevel: '易燃' },
+  { code: 'GAS-202608-0004', name: '高纯氦气 He 99.999%', type: 'HELIUM', purity: '99.999%', unit: 'CYLINDER', currentStock: '12.0000', minStock: '3.0000', maxStock: '25.0000', storageLocation: '气瓶间 A-03', hazardLevel: '惰性' },
+];
+const gasIds: Record<string, string> = {};
+for (const g of gasSeeds) {
+  const r = await prisma.gas.upsert({
+    where: { code: g.code }, update: { currentStock: g.currentStock as any },
+    create: {
+      code: g.code, name: g.name, type: g.type as any, purity: g.purity,
+      unit: g.unit as any, currentStock: g.currentStock as any,
+      minStock: g.minStock as any, maxStock: g.maxStock as any,
+      storageLocation: g.storageLocation, hazardLevel: g.hazardLevel,
+      responsibleUserId: qmUser.id, status: 'ACTIVE',
+      remarks: 'Phase W2 seed',
+    } as any,
+  });
+  gasIds[g.code] = r.id;
+}
+
+// 气体采购:已验收 + 待验收
+const purchaseSeeds = [
+  { purchaseNo: 'PO-20260815-0001', gasCode: 'GAS-202608-0001', supplier: '液化空气(中国)投资有限公司', quantity: '20.0000', unitPrice: '380.00', status: 'INSPECTED' as const, inspectedBy: qmUser.id, batchNo: 'LA-AR-20260815-A' },
+  { purchaseNo: 'PO-20260815-0002', gasCode: 'GAS-202608-0002', supplier: '林德(中国)投资有限公司', quantity: '30.0000', unitPrice: '120.00', status: 'INSPECTED' as const, inspectedBy: qmUser.id, batchNo: 'LIN-N2-20260815-A' },
+  { purchaseNo: 'PO-20260815-0003', gasCode: 'GAS-202608-0003', supplier: '液化空气(中国)投资有限公司', quantity: '10.0000', unitPrice: '1200.00', status: 'ORDERED' as const, batchNo: 'LA-H2-20260820-B' },
+];
+for (const p of purchaseSeeds) {
+  await prisma.gasPurchase.upsert({
+    where: { purchaseNo: p.purchaseNo }, update: {},
+    create: {
+      purchaseNo: p.purchaseNo,
+      gasId: gasIds[p.gasCode],
+      supplier: p.supplier,
+      quantity: p.quantity as any,
+      unit: 'CYLINDER' as any,
+      unitPrice: p.unitPrice as any,
+      totalAmount: (parseFloat(p.quantity) * parseFloat(p.unitPrice)).toFixed(2) as any,
+      orderDate: daysAgo(3),
+      expectedDate: daysFromNow(2),
+      receivedDate: p.status === 'INSPECTED' ? daysAgo(1) : null,
+      inspectedById: p.status === 'INSPECTED' ? p.inspectedBy : null,
+      status: p.status as any,
+      batchNo: p.batchNo,
+      remarks: 'Phase W2 seed',
+    } as any,
+  });
+}
+
+// 气体使用记录:最近 7 天,几条
+const usageSeeds = [
+  { usageNo: 'USAGE-20260815-0001', gasCode: 'GAS-202608-0001', quantity: '2.0000', usedBy: seniorUser.id, purpose: 'ICP-OES 载气', daysAgo: 1 },
+  { usageNo: 'USAGE-20260815-0002', gasCode: 'GAS-202608-0002', quantity: '1.0000', usedBy: seniorUser.id, purpose: '吹扫保护气', daysAgo: 2 },
+  { usageNo: 'USAGE-20260815-0003', gasCode: 'GAS-202608-0001', quantity: '1.5000', usedBy: analystUser.id, purpose: 'ICP-OES 载气', daysAgo: 3 },
+  { usageNo: 'USAGE-20260815-0004', gasCode: 'GAS-202608-0004', quantity: '0.5000', usedBy: analystUser.id, purpose: '气相色谱载气', daysAgo: 4 },
+];
+for (const u of usageSeeds) {
+  await prisma.gasUsage.upsert({
+    where: { usageNo: u.usageNo }, update: {},
+    create: {
+      usageNo: u.usageNo,
+      gasId: gasIds[u.gasCode],
+      usedById: u.usedBy,
+      quantity: u.quantity as any,
+      unit: 'CYLINDER' as any,
+      usedAt: daysAgo(u.daysAgo),
+      purpose: u.purpose,
+      remarks: 'Phase W2 seed',
+    } as any,
+  });
+}
+
+    // 10. 设备维护 + 期间核查
+    console.log('[seed] maintenance + periodic check...');
   const furnace = await prisma.equipment.findUnique({ where: { equipmentNo: 'EQ-FA-001' } });
   if (furnace) {
     await (prisma as any).maintenance.upsert({

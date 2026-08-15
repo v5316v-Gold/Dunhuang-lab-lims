@@ -68,6 +68,22 @@ export class GasController {
     return this.gasService.createPurchase(dto, user.id);
   }
 
+  @Get('purchase/list')
+  @ApiOperation({ summary: '采购记录列表' })
+  findAllPurchases(
+    @Query('gasId') gasId?: string,
+    @Query('status') status?: any,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.gasService.findAllPurchases({
+      gasId,
+      status,
+      page: page ? parseInt(page) : undefined,
+      pageSize: pageSize ? parseInt(pageSize) : undefined,
+    });
+  }
+
   @Post('purchase/:id/inspect')
   @ApiOperation({ summary: '气体采购验收(通过则入库)' })
   inspectPurchase(

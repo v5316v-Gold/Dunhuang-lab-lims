@@ -186,7 +186,32 @@ export class GasService {
 
   /** ============ GasPurchase 采购 ============ */
 
-  async createPurchase(dto: CreateGasPurchaseDto, userId: string) {
+  async findAllPurchases(params: {
+    gasId?: string;
+    status?: GasPurchaseStatus;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const { gasId, status, page = 1, pageSize = 20 } = params;
+    const where: any = { deletedAt: null };
+    if (gasId) where.gasId = gasId;
+    if (status) where.status = status;
+    const [items, total] = await Promise.all([
+      this.prisma.gasPurchase.findMany({
+        where,
+        orderBy: { orderDate: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          gas: { select: { id: true, code: true, name: true, type: true } },
+        },
+      }),
+      this.prisma.gasPurchase.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
+  }
+
+    async createPurchase(dto: CreateGasPurchaseDto, userId: string) {
     const purchaseNo = await this.nextPurchaseNo();
     const result = await this.prisma.gasPurchase.create({
       data: {
