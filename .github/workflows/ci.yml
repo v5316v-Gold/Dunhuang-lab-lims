@@ -125,8 +125,8 @@ jobs:
         run: pnpm build
 
   # ============== 4. Test (Unit) ==============
-  test-unit:
-    name: Unit Tests
+  test-e2e:
+    name: E2E Tests (with coverage)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -172,7 +172,8 @@ jobs:
           JWT_SECRET: test-secret-min-32-characters-for-ci-only
           JWT_REFRESH_SECRET: test-refresh-secret-min-32-characters
           NODE_ENV: test
-        # Phase 1: 覆盖率数据收集(硬门禁阈值在 Phase 2 单元测试建立后启用,见 CODE-EXECUTION-PLAN)
+        # Phase 1B+: 覆盖率硬门禁由 jest-e2e.json 的 coverageThreshold 控制(当前 50/40/45/50)
+        # 后续 P0 测试补全后逐步提升至 70/60/70/70
         run: cd apps/backend && node node_modules/jest/bin/jest.js --config test/jest-e2e.json --coverage --runInBand
 
       - name: Upload coverage report
