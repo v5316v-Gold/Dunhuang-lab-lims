@@ -9,11 +9,13 @@ import { EhsService } from './ehs.service';
 import { AuditModule } from '../../common/audit/audit.module';
 import { WasteController } from './waste.controller';
 import { WasteService } from './waste.service';
+import { GasController } from './gas.controller';
+import { GasService } from './gas.service';
 
 @Module({
   imports: [AuditModule],
-  controllers: [EhsController, WasteController],
-  providers: [EhsService, WasteService],
-  exports: [EhsService, WasteService],
+  controllers: [EhsController, WasteController, GasController],
+  providers: [EhsService, WasteService, GasService],
+  exports: [EhsService, WasteService, GasService],
 })
 export class EhsModule {}

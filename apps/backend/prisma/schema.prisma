@@ -108,6 +108,9 @@ model User {
   createdReports    Report[]               @relation("ReportCreator")
   signedSignatures  ReportSignature[]
   uploadedFiles     FileAttachment[]       @relation("FileAttachmentUploader")
+  gasResponsible    Gas[]                  @relation("GasResponsible")
+  gasInspected      GasPurchase[]          @relation("GasPurchaseInspector")
+  gasUsed           GasUsage[]             @relation("GasUsageUsedBy")
   personnel         Personnel?
 
   @@index([username])
@@ -482,6 +485,7 @@ model Sample {
   method           Method?      @relation(fields: [methodId], references: [id])
   tests            Test[]
   reports          Report[]
+  gasUsages        GasUsage[]             @relation("GasUsageSample")
 
   @@index([sampleNo])
   @@index([batchId])
@@ -584,6 +588,7 @@ model Test {
   fireAssay        FireAssayDetail?
   elementResults   ElementResult[]
   qcMeasurements   QcMeasurement[]
+  gasUsages        GasUsage[]             @relation("GasUsageTest")
 
   @@index([sampleId])
   @@index([method, status])
@@ -969,5 +974,136 @@ model WasteRecord {
   @@index([generatedAt(sort: Desc)])
   @@index([hazardManagerId])
   @@map("waste_records")
+}
+
+
+
+// ============================================================================
+// W2: 气体管理(Gas + GasPurchase + GasUsage) - CNAS §7.5 + §6.4
+// ============================================================================
+
+enum GasType {
+  ARGON @map("argon")
+  NITROGEN @map("nitrogen")
+  OXYGEN @map("oxygen")
+  HYDROGEN @map("hydrogen")
+  HELIUM @map("helium")
+  ACETYLENE @map("acetylene")
+  COMPRESSED_AIR @map("compressed_air")
+
+  @@map("gas_type")
+}
+
+enum GasUnit {
+  CYLINDER @map("cylinder")    // 瓶
+  M3 @map("m3")                // 立方米
+  LITER @map("liter")          // 升
+  KG @map("kg")                // 公斤
+
+  @@map("gas_unit")
+}
+
+enum GasPurchaseStatus {
+  ORDERED @map("ordered")           // 已下单
+  SHIPPED @map("shipped")           // 在途
+  RECEIVED @map("received")         // 已到货
+  INSPECTED @map("inspected")       // 已验收
+  REJECTED @map("rejected")         // 拒收
+  RETURNED @map("returned")         // 退货
+
+  @@map("gas_purchase_status")
+}
+
+model Gas {
+  id                String       @id @default(uuid()) @db.Uuid
+  code              String       @unique @db.VarChar(50)        // 气体编号 GAS-2026-001
+  name              String       @db.VarChar(100)               // 名称:高纯氩气
+  type              GasType
+  purity            String?      @db.VarChar(20)                // 纯度规格:99.999%
+  unit              GasUnit      @default(CYLINDER)
+  currentStock      Decimal      @default(0) @map("current_stock") @db.Decimal(15, 4)
+  minStock          Decimal      @default(0) @map("min_stock") @db.Decimal(15, 4)
+  maxStock          Decimal?     @map("max_stock") @db.Decimal(15, 4)
+  storageLocation   String?      @map("storage_location") @db.VarChar(100)
+  hazardLevel       String?      @map("hazard_level") @db.VarChar(50)   // 普通/易燃/有毒
+  msdsFileId        String?      @map("msds_file_id") @db.Uuid         // MSDS 说明书附件
+  inspectionCertFileId String?   @map("inspection_cert_file_id") @db.Uuid  // 检验证书附件
+  responsibleUserId String?      @map("responsible_user_id") @db.Uuid   // 责任人
+  status            String       @default("ACTIVE") @db.VarChar(20)   // ACTIVE / INACTIVE / RETIRED
+  remarks           String?      @db.Text
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
+
+  responsible       User?        @relation("GasResponsible", fields: [responsibleUserId], references: [id])
+  purchases         GasPurchase[] @relation("GasPurchaseGas")
+  usages            GasUsage[]  @relation("GasUsageGas")
+
+  @@index([code])
+  @@index([type])
+  @@index([status])
+  @@index([currentStock])
+  @@map("gases")
+}
+
+model GasPurchase {
+  id                String            @id @default(uuid()) @db.Uuid
+  purchaseNo        String            @unique @map("purchase_no") @db.VarChar(50)  // PO-2026-001
+  gasId             String            @map("gas_id") @db.Uuid
+  supplier          String            @db.VarChar(200)                              // 供应商
+  quantity          Decimal           @db.Decimal(15, 4)
+  unit              GasUnit
+  unitPrice         Decimal?          @map("unit_price") @db.Decimal(15, 2)         // 单价
+  totalAmount       Decimal?          @map("total_amount") @db.Decimal(15, 2)
+  orderDate         DateTime          @map("order_date") @db.Timestamptz
+  expectedDate      DateTime?         @map("expected_date") @db.Timestamptz
+  receivedDate      DateTime?         @map("received_date") @db.Timestamptz
+  inspectedById     String?           @map("inspected_by_id") @db.Uuid              // 验收人
+  status            GasPurchaseStatus @default(ORDERED)
+  batchNo           String?           @map("batch_no") @db.VarChar(100)             // 批次号
+  certificateFileId String?           @map("certificate_file_id") @db.Uuid          // 合格证
+  remarks           String?           @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?         @map("deleted_at") @db.Timestamptz
+
+  gas               Gas               @relation("GasPurchaseGas", fields: [gasId], references: [id], onDelete: Restrict)
+  inspectedBy       User?             @relation("GasPurchaseInspector", fields: [inspectedById], references: [id])
+  usages            GasUsage[]        @relation("GasUsagePurchase")
+
+  @@index([purchaseNo])
+  @@index([gasId])
+  @@index([status])
+  @@index([orderDate(sort: Desc)])
+  @@map("gas_purchases")
+}
+
+model GasUsage {
+  id                String       @id @default(uuid()) @db.Uuid
+  usageNo           String       @unique @map("usage_no") @db.VarChar(50)  // U-2026-001
+  gasId             String       @map("gas_id") @db.Uuid
+  purchaseId        String?      @map("purchase_id") @db.Uuid              // 来源批次
+  testId            String?      @map("test_id") @db.Uuid                  // 关联检测
+  usedById          String       @map("used_by_id") @db.Uuid               // 使用人
+  quantity          Decimal      @db.Decimal(15, 4)
+  unit              GasUnit
+  usedAt            DateTime     @map("used_at") @db.Timestamptz
+  purpose           String?      @db.VarChar(200)                          // 用途:ICP 载气 / 火焰熔融
+  sampleId          String?      @map("sample_id") @db.Uuid                // 关联样品(可选)
+  remarks           String?      @db.Text
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
+
+  gas               Gas          @relation("GasUsageGas", fields: [gasId], references: [id], onDelete: Restrict)
+  purchase          GasPurchase? @relation("GasUsagePurchase", fields: [purchaseId], references: [id])
+  usedBy            User         @relation("GasUsageUsedBy", fields: [usedById], references: [id])
+  test              Test?        @relation("GasUsageTest", fields: [testId], references: [id])
+  sample            Sample?      @relation("GasUsageSample", fields: [sampleId], references: [id])
+
+  @@index([usageNo])
+  @@index([gasId])
+  @@index([usedById])
+  @@index([usedAt(sort: Desc)])
+  @@map("gas_usages")
 }
 
