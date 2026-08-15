@@ -1,9 +1,9 @@
 # URS — User Requirements Specification (用户需求规格)
 
 > **项目**: 敦煌金质检 LIMS
-> **版本**: v1.0 | 2026-08-14
+> **版本**: v2.0(定稿) | 2026-08-15
 > **编制**: LIMS-Architect-01
-> **状态**: 草案(Phase 5 CNAS 预审)
+> **状态**: 定稿(Phase 1C 完成,CNAS 现场评审前)
 > **对应**: VMP §1(范围)、FMEA 风险输入
 
 ---
