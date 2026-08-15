@@ -10,6 +10,7 @@ import { Prisma, ContainerType, ContainerMaterial, ContainerStatus } from '@pris
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SecurityAuditService } from '../../common/audit/security-audit.service';
 import { AuditEventType } from '../../common/audit/audit-event.enum';
+import { RealtimeBus } from '../realtime/realtime.bus';
 
 export interface CreateContainerDto {
   name: string;
@@ -60,6 +61,7 @@ export class ContainerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly securityAudit: SecurityAuditService,
+    private readonly realtime: RealtimeBus,
   ) {}
 
   /** 生成唯一容器编号(CT-YYYYMM-NNNN) */
@@ -242,14 +244,24 @@ export class ContainerService {
     });
 
     await this.securityAudit.system(AuditEventType.SETTINGS_CHANGED, {
-      event: 'CONTAINER_BORROWED',
-      usageNo,
-      containerId: dto.containerId,
-      purpose: dto.purpose,
-    });
+          event: 'CONTAINER_BORROWED',
+          usageNo,
+          containerId: dto.containerId,
+          purpose: dto.purpose,
+        });
 
-    return result;
-  }
+        this.realtime.publish({
+          type: 'CONTAINER_MAINTENANCE',
+          title: '容器已领用',
+          message: `${container.code} ${container.name} 已被领用(${dto.purpose ?? '未填用途'})`,
+          resource: 'container',
+          resourceId: dto.containerId,
+          level: 'info',
+          meta: { code: container.code, name: container.name, purpose: dto.purpose },
+        });
+
+        return result;
+      }
 
   async returnBack(usageId: string, dto: ReturnContainerDto, userId: string) {
     const usage = await this.prisma.containerUsage.findUnique({ where: { id: usageId } });

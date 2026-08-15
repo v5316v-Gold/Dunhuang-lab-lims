@@ -10,6 +10,7 @@ import { Prisma, WasteType, WasteHazardClass, WasteStatus } from '@prisma/client
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SecurityAuditService } from '../../common/audit/security-audit.service';
 import { AuditEventType } from '../../common/audit/audit-event.enum';
+import { RealtimeBus } from '../realtime/realtime.bus';
 
 export interface CreateWasteDto {
   type: WasteType;
@@ -39,9 +40,10 @@ export class WasteService {
   private readonly logger = new Logger(WasteService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly securityAudit: SecurityAuditService,
-  ) {}
+      private readonly prisma: PrismaService,
+      private readonly securityAudit: SecurityAuditService,
+      private readonly realtime: RealtimeBus,
+    ) {}
 
   /** 生成唯一编号(WT-YYYYMMDD-NNNN) */
   private async nextCode(): Promise<string> {
@@ -149,11 +151,22 @@ export class WasteService {
       } as any,
     } as any);
     await this.securityAudit.system(AuditEventType.SETTINGS_CHANGED, {
-      event: 'WASTE_TRANSFERRED',
-      code: r.code, receiver: dto.receiverName, weightKg: String(r.weightKg),
-    });
-    return result;
-  }
+          event: 'WASTE_TRANSFERRED',
+          code: r.code, receiver: dto.receiverName, weightKg: String(r.weightKg),
+        });
+
+        this.realtime.publish({
+          type: 'WASTE_TRANSFERRED',
+          title: '危废已转移',
+          message: `${r.code} 转移到 ${dto.receiverName}`,
+          resource: 'waste',
+          resourceId: r.id,
+          level: 'info',
+          meta: { code: r.code, receiver: dto.receiverName, weightKg: String(r.weightKg) },
+        });
+
+        return result;
+      }
 
   /** 危废处置确认(按类型分支:焚烧/海绵金回收/中和/填埋) */
   async dispose(id: string, params: { method: string; recoveredGoldWeightG?: string | number }) {
@@ -176,10 +189,22 @@ export class WasteService {
       } as any,
     } as any);
     await this.securityAudit.system(AuditEventType.SETTINGS_CHANGED, {
-      event: 'WASTE_DISPOSED', code: r.code, status: newStatus, recoveredG: String(params.recoveredGoldWeightG ?? ''),
-    });
-    return result;
-  }
+          event: 'WASTE_DISPOSED',
+          code: r.code, status: newStatus, recoveredG: String(params.recoveredGoldWeightG ?? ''),
+        });
+
+        this.realtime.publish({
+          type: 'WASTE_DISPOSED',
+          title: '危废已处置',
+          message: `${r.code} → ${newStatus} (${params.method})`,
+          resource: 'waste',
+          resourceId: r.id,
+          level: newStatus === 'INCINERATED' ? 'warning' : 'success',
+          meta: { code: r.code, status: newStatus, method: params.method },
+        });
+
+        return result;
+      }
 
   /** 危废合规摘要(CNAS 评审用) */
   async summary() {

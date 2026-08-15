@@ -10,6 +10,7 @@ import { Prisma, SamplingMethod, SamplingLocation, SampleForm, MetalType, BarQua
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SecurityAuditService } from '../../common/audit/security-audit.service';
 import { AuditEventType } from '../../common/audit/audit-event.enum';
+import { RealtimeBus } from '../realtime/realtime.bus';
 
 export interface CreateSamplingRecordDto {
   sampleId?: string;
@@ -55,6 +56,7 @@ export class PreciousMetalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly securityAudit: SecurityAuditService,
+    private readonly realtime: RealtimeBus,
   ) {}
 
   /** 生成唯一取样单号(SR-YYYYMMDD-NNNN) */
@@ -213,16 +215,26 @@ export class PreciousMetalService {
     });
 
     await this.securityAudit.system(AuditEventType.SETTINGS_CHANGED, {
-      event: 'PRECIOUS_METAL_BAR_CREATED',
-      barCode: result.barCode,
-      metalType: result.metalType,
-      qualityGrade: result.qualityGrade,
-      weightG: weight.toString(),
-      purityPct: purity.toString(),
-    });
+          event: 'PRECIOUS_METAL_BAR_CREATED',
+          barCode: result.barCode,
+          metalType: result.metalType,
+          qualityGrade: result.qualityGrade,
+          weightG: weight.toString(),
+          purityPct: purity.toString(),
+        });
 
-    return result;
-  }
+        this.realtime.publish({
+          type: 'BAR_CERTIFIED',
+          title: '贵金属条码出证',
+          message: `${result.barCode} 出证成功(${result.qualityGrade} ${weight.toFixed(4)}g ${purity.toFixed(2)}%)`,
+          resource: 'precious_metal_bar',
+          resourceId: result.id,
+          level: 'success',
+          meta: { barCode: result.barCode, qualityGrade: result.qualityGrade, weightG: weight.toString(), purityPct: purity.toString() },
+        });
+
+        return result;
+      }
 
   /** 通过条码查询(扫码追溯场景) */
   async findBarByCode(barCode: string) {

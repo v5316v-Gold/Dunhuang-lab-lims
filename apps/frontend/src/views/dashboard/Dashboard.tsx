@@ -1,14 +1,12 @@
 // =====================================================
-// 仪表盘 - 业务指标
+// 仪表盘 - W5 增强版(含 BI 图表 + W1-W4 合规摘要)
 // =====================================================
 
-import { Row, Col, Card, Statistic, Spin } from 'antd';
+import { Row, Col, Card, Statistic, Spin, Progress, Tag, Empty } from 'antd';
 import {
-  ExperimentOutlined,
-  FileSearchOutlined,
-  FileDoneOutlined,
-  AlertOutlined,
-  TeamOutlined,
+  ExperimentOutlined, FileSearchOutlined, FileDoneOutlined,
+  AlertOutlined, TeamOutlined, GoldOutlined, CloudOutlined,
+  ContainerOutlined, QrcodeOutlined, RiseOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../data/api';
@@ -22,57 +20,113 @@ interface DashboardData {
   timestamp: string;
 }
 
+interface WasteSummary {
+  total: number;
+  totalKg: string;
+  storedKg: string;
+  transferredKg: string;
+  byStatus: Record<string, number>;
+  byClass: Record<string, number>;
+}
+
+interface GasSummary {
+  totalGases: number;
+  activeGases: number;
+  lowStockCount: number;
+  totalPurchases: number;
+  pendingInspections: number;
+  totalUsagesThisMonth: number;
+}
+
+interface ContainerSummary {
+  totalContainers: number;
+  inUseContainers: number;
+  activeUsages: number;
+  needsCalibrationCount: number;
+  byType: Array<{ type: string; count: number }>;
+}
+
+interface PreciousMetalSummary {
+  totalSampling: number;
+  totalBars: number;
+  byGrade: Array<{ grade: string; count: number; totalWeightG: string }>;
+  byMetal: Array<{ metal: string; count: number; totalWeightG: string }>;
+}
+
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['analytics', 'dashboard'],
     queryFn: async () => (await api.get<DashboardData>('/analytics/dashboard')).data,
-    refetchInterval: 30000, // 30 秒刷新
+    refetchInterval: 30000,
+  });
+
+  const waste = useQuery({
+    queryKey: ['waste', 'summary'],
+    queryFn: async () => (await api.get<WasteSummary>('/waste/summary')).data,
+    refetchInterval: 30000,
+  });
+
+  const gas = useQuery({
+    queryKey: ['gas', 'summary'],
+    queryFn: async () => (await api.get<GasSummary>('/gas/summary')).data,
+    refetchInterval: 30000,
+  });
+
+  const container = useQuery({
+    queryKey: ['container', 'summary'],
+    queryFn: async () => (await api.get<ContainerSummary>('/container/summary')).data,
+    refetchInterval: 30000,
+  });
+
+  const precious = useQuery({
+    queryKey: ['precious', 'summary'],
+    queryFn: async () => (await api.get<PreciousMetalSummary>('/precious-metal/summary')).data,
+    refetchInterval: 30000,
   });
 
   if (isLoading) return <Spin size="large" />;
 
+  // W1 合规率:已处置 / 总数
+  const wasteTotal = waste.data?.total ?? 0;
+  const wasteDisposed = (waste.data?.byStatus?.DISPOSED ?? 0)
+    + (waste.data?.byStatus?.INCINERATED ?? 0)
+    + (waste.data?.byStatus?.RECYCLED_GOLD ?? 0)
+    + (waste.data?.byStatus?.NEUTRALIZED ?? 0);
+  const wasteComplianceRate = wasteTotal > 0 ? Math.round(wasteDisposed / wasteTotal * 100) : 0;
+
+  // W2 库存合规率:活跃 - 低库存 / 活跃
+  const gasTotal = gas.data?.totalGases ?? 0;
+  const gasLowCount = gas.data?.lowStockCount ?? 0;
+  const gasHealthy = gasTotal - gasLowCount;
+  const gasHealthRate = gasTotal > 0 ? Math.round(gasHealthy / gasTotal * 100) : 0;
+
+  // W3 容器使用率:IN_USE / 总数
+  const containerTotal = container.data?.totalContainers ?? 0;
+  const containerUsageRate = containerTotal > 0
+    ? Math.round(((container.data?.inUseContainers ?? 0) / containerTotal) * 100)
+    : 0;
+
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>仪表盘</h2>
+      <h2 style={{ marginTop: 0 }}>
+        仪表盘 <RiseOutlined style={{ color: 'var(--gold, #D4AF37)', marginLeft: 8 }} />
+      </h2>
+
+      {/* 主 KPI 行 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic
-              title="今日样品"
-              value={data?.todaySamples ?? 0}
-              prefix={<ExperimentOutlined />}
-              valueStyle={{ color: 'var(--gold)' }}
-            />
+            <Statistic title="今日样品" value={data?.todaySamples ?? 0} prefix={<ExperimentOutlined />} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic
-              title="检测中"
-              value={data?.inTest ?? 0}
-              prefix={<FileSearchOutlined />}
-              valueStyle={{ color: '#faad14' }}
-            />
+            <Statistic title="检测中" value={data?.inTest ?? 0} prefix={<FileSearchOutlined />} valueStyle={{ color: '#4A9A7A' }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic
-              title="待审核报告"
-              value={data?.pendingReports ?? 0}
-              prefix={<FileDoneOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="库存预警"
-              value={data?.lowStockAlerts ?? 0}
-              prefix={<AlertOutlined />}
-              valueStyle={{ color: data?.lowStockAlerts ? '#ff4d4f' : '#52c41a' }}
-            />
+            <Statistic title="待审核报告" value={data?.pendingReports ?? 0} prefix={<FileDoneOutlined />} valueStyle={{ color: '#D4AF37' }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
@@ -82,10 +136,148 @@ export default function DashboardPage() {
         </Col>
       </Row>
 
-      <Card style={{ marginTop: 16 }} title="系统状态">
-        <p>最后更新: {data?.timestamp}</p>
-        <p style={{ color: '#52c41a', margin: 0 }}>● 所有服务运行正常</p>
-      </Card>
+      <h3 style={{ marginTop: 24, color: '#D4AF37' }}>W1-W4 合规模块</h3>
+      <Row gutter={[16, 16]}>
+        {/* W1 危废合规率 */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card title={<span><GoldOutlined /> 危废合规 (W1)</span>} extra={<Tag color="gold">CNAS §7.10</Tag>}>
+            <Progress
+              type="circle"
+              percent={wasteComplianceRate}
+              format={(p) => `${p}%`}
+              strokeColor={wasteComplianceRate >= 80 ? '#4A9A7A' : wasteComplianceRate >= 60 ? '#D4AF37' : '#B85450'}
+            />
+            <div style={{ marginTop: 12, fontSize: 13 }}>
+              <div>总条目: <b>{wasteTotal}</b></div>
+              <div>已合规处置: <b style={{ color: '#4A9A7A' }}>{wasteDisposed}</b></div>
+              <div>暂存中: <b>{waste.data?.byStatus?.STORED ?? 0}</b></div>
+              <div>总重: <b>{waste.data?.totalKg ?? '0'} kg</b></div>
+            </div>
+          </Card>
+        </Col>
+
+        {/* W2 气体库存健康率 */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card title={<span><CloudOutlined /> 气体库存健康 (W2)</span>} extra={<Tag color="gold">CNAS §7.5+§6.4</Tag>}>
+            <Progress
+              type="circle"
+              percent={gasHealthRate}
+              format={(p) => `${p}%`}
+              strokeColor={gasHealthRate >= 80 ? '#4A9A7A' : '#D4AF37'}
+            />
+            <div style={{ marginTop: 12, fontSize: 13 }}>
+              <div>总数: <b>{gasTotal}</b></div>
+              <div>健康: <b style={{ color: '#4A9A7A' }}>{gasHealthy}</b></div>
+              <div style={{ color: '#B85450' }}>低库存预警: <b>{gasLowCount}</b></div>
+              <div>本月使用: <b>{gas.data?.totalUsagesThisMonth ?? 0}</b></div>
+            </div>
+          </Card>
+        </Col>
+
+        {/* W3 容器使用率 */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card title={<span><ContainerOutlined /> 容器使用 (W3)</span>} extra={<Tag color="gold">CNAS §7.5+§6.5</Tag>}>
+            <Progress
+              type="circle"
+              percent={containerUsageRate}
+              format={(p) => `${p}%`}
+              strokeColor="#D4AF37"
+            />
+            <div style={{ marginTop: 12, fontSize: 13 }}>
+              <div>总数: <b>{containerTotal}</b></div>
+              <div>使用中: <b style={{ color: '#4A9A7A' }}>{container.data?.inUseContainers ?? 0}</b></div>
+              <div style={{ color: '#B85450' }}>未归还: <b>{container.data?.activeUsages ?? 0}</b></div>
+              <div>需校准: <b>{container.data?.needsCalibrationCount ?? 0}</b></div>
+            </div>
+          </Card>
+        </Col>
+
+        {/* W4 贵金属 */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card title={<span><QrcodeOutlined /> 贵金属 (W4)</span>} extra={<Tag color="gold">CNAS §7.5+§7.8</Tag>}>
+            <Statistic
+              title="条码总数"
+              value={precious.data?.totalBars ?? 0}
+              prefix={<QrcodeOutlined />}
+              valueStyle={{ color: '#D4AF37', fontSize: 28 }}
+            />
+            <div style={{ marginTop: 12, fontSize: 13 }}>
+              <div>取样记录: <b>{precious.data?.totalSampling ?? 0}</b></div>
+              {precious.data?.byGrade?.[0] && (
+                <div>
+                  主要成色: <Tag color="gold">{precious.data.byGrade[0].grade}</Tag>
+                  <span style={{ fontSize: 12, color: '#888' }}>
+                    {precious.data.byGrade[0].count} 条 · {precious.data.byGrade[0].totalWeightG} g
+                  </span>
+                </div>
+              )}
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 容器类型分布 + 危废状态分布 */}
+      <h3 style={{ marginTop: 24, color: '#D4AF37' }}>业务分布</h3>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <Card title="危废状态分布 (W1)">
+            {waste.data && Object.keys(waste.data.byStatus).length > 0 ? (
+              <div>
+                {Object.entries(waste.data.byStatus).map(([status, count]) => {
+                  const pct = wasteTotal > 0 ? Math.round((count / wasteTotal) * 100) : 0;
+                  const colorMap: Record<string, string> = {
+                    STORED: '#888',
+                    TRANSFERRED: '#5A7AB8',
+                    INCINERATED: '#B85450',
+                    RECYCLED_GOLD: '#D4AF37',
+                    NEUTRALIZED: '#4A9A7A',
+                    DISPOSED: '#4A9A7A',
+                    REJECTED: '#B85450',
+                  };
+                  return (
+                    <div key={status} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>{status}</span>
+                        <span><b>{count}</b> ({pct}%)</span>
+                      </div>
+                      <Progress percent={pct} strokeColor={colorMap[status] ?? '#D4AF37'} showInfo={false} />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty />
+            )}
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={12}>
+          <Card title="容器类型分布 (W3)">
+            {container.data?.byType && container.data.byType.length > 0 ? (
+              <div>
+                {container.data.byType.map((b) => {
+                  const pct = containerTotal > 0 ? Math.round((b.count / containerTotal) * 100) : 0;
+                  return (
+                    <div key={b.type} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>{b.type}</span>
+                        <span><b>{b.count}</b> ({pct}%)</span>
+                      </div>
+                      <Progress percent={pct} strokeColor="#D4AF37" showInfo={false} />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty />
+            )}
+          </Card>
+        </Col>
+      </Row>
+
+      <div style={{ marginTop: 24, textAlign: 'right', color: 'var(--text-secondary, #888)', fontSize: 12 }}>
+        最后更新: {new Date().toLocaleString('zh-CN')} · 数据每 30s 自动刷新 · W5 实时事件中心 ⬈
+      </div>
     </div>
   );
 }

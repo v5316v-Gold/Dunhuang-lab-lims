@@ -10,6 +10,7 @@ import { Prisma, GasType, GasUnit, GasPurchaseStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SecurityAuditService } from '../../common/audit/security-audit.service';
 import { AuditEventType } from '../../common/audit/audit-event.enum';
+import { RealtimeBus } from '../realtime/realtime.bus';
 
 export interface CreateGasDto {
   code?: string;
@@ -61,6 +62,7 @@ export class GasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly securityAudit: SecurityAuditService,
+    private readonly realtime: RealtimeBus,
   ) {}
 
   /** 生成唯一气体编号(GAS-YYYYMM-NNNN) */
@@ -327,15 +329,30 @@ export class GasService {
     });
 
     await this.securityAudit.system(AuditEventType.SETTINGS_CHANGED, {
-      event: 'GAS_USAGE_RECORDED',
-      usageNo,
-      gasId: dto.gasId,
-      quantity: String(dto.quantity),
-      purpose: dto.purpose,
-    });
+          event: 'GAS_USAGE_RECORDED',
+          usageNo,
+          gasId: dto.gasId,
+          quantity: String(dto.quantity),
+          purpose: dto.purpose,
+        });
 
-    return result;
-  }
+        // 低库存告警(<=10% 最大库存)
+        const afterGas = await this.prisma.gas.findUnique({ where: { id: dto.gasId } });
+        if (afterGas && afterGas.maxStock
+            && new Prisma.Decimal(afterGas.currentStock).lte(new Prisma.Decimal(afterGas.maxStock).mul(0.1))) {
+          this.realtime.publish({
+            type: 'GAS_LOW_STOCK',
+            title: '气体库存预警',
+            message: `${afterGas.code} ${afterGas.name} 库存仅剩 ${afterGas.currentStock} ${afterGas.unit}`,
+            resource: 'gas',
+            resourceId: afterGas.id,
+            level: 'warning',
+            meta: { code: afterGas.code, name: afterGas.name, currentStock: String(afterGas.currentStock), minStock: String(afterGas.minStock) },
+          });
+        }
+
+        return result;
+      }
 
   async findAllUsages(params: {
     gasId?: string;

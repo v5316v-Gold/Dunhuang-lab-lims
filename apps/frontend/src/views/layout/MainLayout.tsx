@@ -2,7 +2,7 @@
 // 主布局 - 侧边栏 + Header + Outlet
 // =====================================================
 
-import { Layout, Menu, Avatar, Dropdown, Space, Typography } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Space, Typography, Button } from 'antd';
 import {
   DashboardOutlined,
   ExperimentOutlined,
@@ -16,12 +16,15 @@ import {
   GoldOutlined,
   ContainerOutlined,
   QrcodeOutlined,
+  ScanOutlined,
   AuditOutlined,
   UserOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
+import { RealtimeCenter } from '../../components/RealtimeCenter';
+import { useI18n } from '../../i18n/I18nProvider';
 
 const { Sider, Header, Content } = Layout;
 const { Text } = Typography;
@@ -39,6 +42,7 @@ const menuItems = [
   { key: '/waste', icon: <GoldOutlined />, label: <Link to="/waste">危废管理</Link> },
   { key: '/container', icon: <ContainerOutlined />, label: <Link to="/container">容器管理</Link> },
   { key: '/precious-metal', icon: <QrcodeOutlined />, label: <Link to="/precious-metal">贵金属业务</Link> },
+  { key: '/scan', icon: <ScanOutlined />, label: <Link to="/scan">扫码追溯</Link> },
   { key: '/qc', icon: <ExperimentOutlined />, label: <Link to="/qc">QC 监控</Link> },
   { key: '/audit-logs', icon: <AuditOutlined />, label: <Link to="/audit-logs">审计日志</Link> },
 ];
@@ -89,6 +93,15 @@ export function MainLayout() {
           <Text strong style={{ fontSize: 18 }}>
             {menuItems.find((m) => m.key === selectedKey)?.label?.props?.children ?? '敦煌金质检 LIMS'}
           </Text>
+          <RealtimeCenter />
+          <Button
+            type="text"
+            size="small"
+            onClick={() => useI18n().setLang(useI18n().lang === 'zh' ? 'en' : 'zh')}
+            style={{ color: '#D4AF37', fontWeight: 600 }}
+          >
+            {useI18n().lang === 'zh' ? 'EN' : '中文'}
+          </Button>
           <Dropdown
             menu={{
               items: userMenuItems,
