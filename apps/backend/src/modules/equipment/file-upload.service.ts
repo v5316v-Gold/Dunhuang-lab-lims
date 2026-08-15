@@ -87,9 +87,15 @@ export class FileUploadService {
     return f;
   }
 
+  /** 读取文件内容(从 MinIO) */
+  async readFileBuffer(storagePath: string, category: string): Promise<Buffer> {
+    return this.minio.download(category as any, storagePath);
+  }
+
   /** 按 sha256 查(防伪验证:证书哈希比对) */
   async verifyBySha256(sha256: string) {
-    const f = await this.prisma.fileAttachment.findUnique({ where: { sha256 } });
+    // ⚠️ fix: sha256 是 @@index 非 @unique,findUnique 会抛,改 findFirst
+    const f = await this.prisma.fileAttachment.findFirst({ where: { sha256 } });
     return { valid: !!f, file: f };
   }
 }

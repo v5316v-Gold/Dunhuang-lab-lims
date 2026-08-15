@@ -77,6 +77,23 @@ export class ReportService {
       // Phase 2 填充(F2): 签发时自动生成 PDF 并绑定 SHA256
       let pdfSha256: string | undefined;
       if (event === 'ISSUE') {
+        // W+4-1: 深化 PDF(纯度 + 不确定度 + 签字链 + 水印)
+        // 收集当前签字链(reportStage + signatures)
+        // ReportStage 无 user 关系(仅 userId),先取 stages 再并行查 user
+        const stages = await tx.reportStage.findMany({
+          where: { reportId },
+          orderBy: { createdAt: 'asc' },
+        });
+        const userIds = [...new Set(stages.map((st: any) => st.userId))];
+        const users = userIds.length > 0
+          ? await tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+          : [];
+        const nameMap = new Map(users.map((u: any) => [u.id, u.name ?? 'unknown']));
+        const signatures: any[] = stages.map((st: any) => ({
+          stage: st.stage,
+          userName: nameMap.get(st.userId) ?? 'unknown',
+          signedAt: st.signedAt ?? st.createdAt,
+        }));
         const pdf = this.pdfService.generate({
           reportNo: report.reportNo,
           sampleNo: report.sample?.sampleNo ?? '',
@@ -84,6 +101,14 @@ export class ReportService {
           sampleType: report.sample?.sampleType ?? '',
           summary: report.summary ?? '',
           issuedAt: new Date(),
+          // purity 来自 sample.tests[0](检测结果)
+          purityPct: report.sample?.tests?.[0]?.purityPct != null
+            ? String(report.sample.tests[0].purityPct) : null,
+          uncertainty: report.sample?.tests?.[0]?.uncertainty != null
+            ? String(report.sample.tests[0].uncertainty) : null,
+          unit: report.sample?.tests?.[0]?.unit ?? '%',
+          signatures,
+          watermark: report.reportNo,
         });
         pdfSha256 = pdf.sha256;
       }

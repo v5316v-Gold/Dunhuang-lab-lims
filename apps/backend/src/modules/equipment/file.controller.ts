@@ -50,6 +50,17 @@ export class FileController {
     return this.fileService.verifyBySha256(sha256);
   }
 
+  @Get('download/:id')
+  @ApiOperation({ summary: 'W+4-2: 下载/查看文件(校准证书 PDF)' })
+  async download(@Param('id') id: string, @Res() res: any) {
+    const file = await this.fileService.getFileById(id);
+    const buffer = await this.fileService.readFileBuffer(file.storagePath, file.category as any);
+    res.setHeader('Content-Type', file.mimeType ?? 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
+    res.setHeader('X-File-SHA256', file.sha256);
+    res.send(buffer);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '文件详情' })
   findOne(@Param('id') id: string) {

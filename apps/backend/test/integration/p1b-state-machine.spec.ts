@@ -50,8 +50,8 @@ describe('P1B StateMachine 5 entities', () => {
       expect(() => sm.assertTransition('Sample', 'IN_TEST', 'BATCHED')).not.toThrow();
     });
 
-    it('TESTED → REPORTED allowed', () => {
-      expect(() => sm.assertTransition('Sample', 'TESTED', 'REPORTED')).not.toThrow();
+    it('TESTED → REPORT_DRAFT allowed (报告流程)', () => {
+      expect(() => sm.assertTransition('Sample', 'TESTED', 'REPORT_DRAFT')).not.toThrow();
     });
 
     it('TESTED → ARCHIVED allowed (direct archive)', () => {
@@ -62,8 +62,8 @@ describe('P1B StateMachine 5 entities', () => {
       expect(() => sm.assertTransition('Sample', 'TESTED', 'BATCHED')).toThrow();
     });
 
-    it('REPORTED → ARCHIVED allowed', () => {
-      expect(() => sm.assertTransition('Sample', 'REPORTED', 'ARCHIVED')).not.toThrow();
+    it('REPORT_APPROVED → ARCHIVED allowed (留样)', () => {
+      expect(() => sm.assertTransition('Sample', 'REPORT_APPROVED', 'ARCHIVED')).not.toThrow();
     });
 
     it('ARCHIVED → DISPOSED allowed', () => {
@@ -349,12 +349,13 @@ describe('P1B StateMachine 5 entities', () => {
   });
 
   describe('state coverage', () => {
-    it('Sample has all 9 states', () => {
+    it('Sample has all 11 states (真实 enum)', () => {
       const states = sm.getStates('Sample');
-      expect(states.length).toBe(9);
+      expect(states.length).toBe(11);
       expect(states).toEqual(expect.arrayContaining([
         'RECEIVED', 'REJECTED', 'BATCHED', 'IN_TEST', 'TESTED',
-        'REPORTED', 'ARCHIVED', 'DISPOSED', 'VOIDED',
+        'REPORT_DRAFT', 'REPORT_REVIEW', 'REPORT_APPROVED',
+        'ARCHIVED', 'DISPOSED', 'VOIDED',
       ]));
     });
 

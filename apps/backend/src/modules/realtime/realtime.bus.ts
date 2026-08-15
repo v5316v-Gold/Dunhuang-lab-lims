@@ -14,7 +14,8 @@ export type RealtimeEventType =
   | 'TEST_COMPLETED'         // 检测完成
   | 'REPORT_ISSUED'          // 报告签发
   | 'BAR_CERTIFIED'          // 贵金属条码出证
-  | 'SAMPLING_RECORDED';     // 取样登记
+  | 'SAMPLING_RECORDED'
+  | 'SAMPLE_RETENTION_EXPIRING';  // W+4-3 留样到期     // 取样登记
 
 export interface RealtimeEvent {
   id: string;

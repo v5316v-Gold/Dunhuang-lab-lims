@@ -177,8 +177,10 @@ describe('Phase 4 compliance hardening (signature/pdf/retention)', () => {
     expect(pdf.pdfBuffer.slice(0, 5).toString('latin1')).toBe('%PDF-');
     // SHA256 64hex
     expect(pdf.sha256).toMatch(/^[a-f0-9]{64}$/);
-    // 内容包含报告号(ASCII 化后)
-    expect(pdf.pdfBuffer.toString('latin1')).toContain('REPORT-P4-001');
+    // 内容包含报告号(W+4-1 起用 UTF-16 hex 编码,检查 hex 形式: 52 45 50 4F 52 54 = "REPORT")
+    const hex = pdf.pdfBuffer.toString('latin1');
+    expect(hex).toContain('FEFF');  // UTF-16BE BOM
+    expect(hex.toLowerCase()).toContain('5200450050004f00520054');  // "REPORT" hex
     // pages
     expect(pdf.pages).toBe(1);
 

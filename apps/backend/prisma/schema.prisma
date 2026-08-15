@@ -484,6 +484,7 @@ enum SampleStatus {
   REPORT_REVIEW
   REPORT_APPROVED
   ARCHIVED
+  DISPOSED   // W+4-3 留样销毁
   REJECTED
 }
 
