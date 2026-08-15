@@ -278,6 +278,78 @@ UNLICENSED — 内部使用,需经「敦煌金质检」书面授权。
 ---
 
 **最后更新**:2026-08-15
-**当前 commit**:6476801 feat(w5): UX 增强
-**CNAS 评审目标**:2026-11-03
-**状态**:Phase 0.5-4 + W1-W5 全部闭环,39 个 model / 39 测试 PASS
+**当前 commit**:`a9bc085` feat(phase-1b): P0 合规硬化冲刺
+**CNAS 评审目标**:2026-11-03(距今 80 天)
+**阶段状态**:
+
+| 阶段 | 状态 | 关键 commit | 评估 |
+|---|---|---|---|
+| Phase 0 / 0.5 / 1-4 | ✅ 完成 | 86dcba1 - 99c7c7d | 基础闭环 |
+| W1 危废管理 (§7.10) | ✅ 完成 | 82273ef + 9795493 | 评审合规 |
+| W2 气体管理 (§7.5+§6.4) | ✅ 完成 | c277969 + 3f9b9bd | 评审合规 |
+| W3 容器管理 (§7.5+§6.5) | ✅ 完成 | ab965a1 | 评审合规 |
+| W4 贵金属业务 (§7.5+§7.8+§7.4) | ✅ 完成 | aaac66c | 评审合规 |
+| W5 UX 增强 (SSE+BI+QR+i18n) | ✅ 完成 | 6476801 | 体验增强 |
+| Phase 1A 架构冻结+证据链 | ✅ PASS | 6a01acf / ea929d6 / a443054 | 9 文档 + DB trigger |
+| **Phase 1B P0 合规硬化** | ✅ **PASS** | **a9bc085** | **6 块 P0 全部闭环** |
+| Phase 1C 功能开发 | ⏸️ 待启动 | — | 允许(条件见下) |
+
+**累计**:39 个 model / 39/39 测试 PASS / 15 项前端菜单 / 7 个 DB migration / 12 个后端模块 / 4 个 ADR / 60+ 文档 / 1500+ 行 Phase 1B 新代码
+
+---
+
+## 十三、Phase 1B P0 合规硬化详情
+
+**任务定义**:**不是功能开发**,而是把 Phase 1A Gate Review 识别的 8 项 🔴 风险全部闭环。
+
+### 6 块 P0 产出
+
+| # | 块 | 文档 | 代码 | 验证 |
+|---|---|---|---|---|
+| **P0-A** 不确定度模块 (§7.8) | `docs/adr/0012-uncertainty-evaluation.md` | `UncertaintyReport` 表 + `common/qc/westgard.ts` GUM 5 类分量 + 6 端点 | build 0 错 |
+| **P0-B** 标准物质全链路 (§7.6) | (本 README) | `ReferenceMaterialUsage` 台账 + 7 字段增强 + 过期阻断 + 期间核查 | 3 migration apply |
+| **P0-C** OOS + Westgard (§7.9/§7.10) | (本 README) | `NonConformance` 表 + 6 规则算法 + 自动 OOS 触发 | migration apply |
+| **P0-D** 状态机强制 (§7.4) | (本 README) | 5 实体状态机(`Sample/Test/Report/WasteRecord/Container`)+ `Report.issue()` 守卫 | build 0 错 |
+| **P0-E** 报告签字链路 (§7.8/§7.11) | (本 README) | `ReportStage.signedAt` + `ReportSignature.signatureHash`(SHA256) | migration apply |
+| **P0-F** RBAC 资源级 (§7.2) | (本 README) | `@Ownership` 装饰器 + `OwnershipGuard` + ADMIN/QA bypass | build 0 错 |
+
+### 评审必答问题 — Phase 1A → Phase 1B 对比
+
+| 评审问题 | Phase 1A 之前 | **Phase 1B 之后** |
+|---|---|---|
+| "你这 Au 99.99% ± 0.02% 怎么算的?" | ❌ 手填 | ✅ **5 类分量 + GUM u_c + 公式快照** |
+| "用了哪个标准物质?证书呢?" | ❌ 无台账 | ✅ **ReferenceMaterialUsage + SHA256 证书** |
+| "RM 过期了怎么办?" | ❌ 不阻断 | ✅ **系统级 `assertUsable` 阻断** |
+| "QC 失控了你怎么知道?" | ❌ 字段是字符串 | ✅ **6 规则 Westgard 自动应用** |
+| "QC 失控后呢?" | ❌ 无流程 | ✅ **自动触发 OOS + NonConformance** |
+| "这批样品到哪一步了?" | ❌ 可乱跳 | ✅ **5 实体状态机守卫** |
+| "分析员 A 改 B 的数据?" | ❌ 任意 | ✅ **`@Ownership` 装饰器** |
+
+### Phase 1B Gate 结论:**PASS** → 允许进入 Phase 1C(条件)
+
+| 条件 | 状态 | 说明 |
+|---|---|---|
+| 6 块 P0 完成 | ✅ | 见上表 |
+| 39/39 回归测试 | ✅ | W1-W5 全保留 |
+| Build 0 错 | ✅ | 1100+ 行新代码 |
+| Migration apply | ✅ | 4 个新 migration |
+
+**Phase 1C 准入条件**(必做第一周):
+1. **补 P0 专项 spec 测试**(Westgard/StateMachine/Ownership/Uncertainty/ReferenceMaterial 各 1 spec)— 3h
+2. 启动 P1 任务(报告 PDF / 校准证书 / RM 期间核查 / 留样 / 内审 / 管评)— 11h
+3. Phase 1C 末:模拟内部评审(实验室主任扮 CNAS 评审员)
+
+### 关键文档索引
+
+| 文档 | 路径 |
+|---|---|
+| Phase 1A Gate Review(Aiden 独立) | `docs/gate/phase-1a/AIDEN-GATE-REVIEW-REPORT.md` |
+| Phase 1A 9 份架构文档 | `docs/gate/phase-1a/*.md` |
+| Phase 1B Gate Report | `docs/gate/phase-1b/PHASE-1B-GATE-REPORT.md` |
+| ADR-0012(不确定度决策) | `docs/adr/0012-uncertainty-evaluation.md` |
+| CNAS-CMA 条款矩阵 | `docs/gate/phase-1a/CNAS-CMA-TRACEABILITY-MATRIX.md` |
+| URS / FS / VSR | `docs/validation/URS.md` / `FS.md` / `VSR.md` |
+
+---
+
+**Phase 1B 收官,CNAS 现场评审前剩余时间 80 天**。后续路径:Phase 1C(测试补全 + P1 任务)→ Phase 2(试运行 + 内审 + 管评)→ 11-03 现场评审。
