@@ -19,11 +19,14 @@ export class RealtimeController {
    * 每 15s 心跳保活
    */
   @Sse('events')
-  events(@Query('token') _token?: string): Observable<MessageEvent | { data: RealtimeEvent }> {
-    return merge(
-      this.bus.subscribe(),
-      interval(15000).pipe(map(() => ({ type: 'ping', data: { ts: Date.now() } }))),
+  events(@Query('token') _token?: string): Observable<MessageEvent | { data: RealtimeEvent } | { type: string; data: { ts: number } }> {
+    const eventStream$ = this.bus.subscribe().pipe(
+      map((evt) => ({ data: evt })),
     );
+    const pingStream$ = interval(15000).pipe(
+      map(() => ({ type: 'ping', data: { ts: Date.now() } })),
+    );
+    return merge(eventStream$, pingStream$);
   }
 
   /** 测试发布事件(开发/演示用) */

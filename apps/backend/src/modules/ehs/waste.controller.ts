@@ -51,7 +51,7 @@ export class WasteController {
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     try {
       return this.wasteService.findOne(id);
-    } catch (e) {
+    } catch (e: any) {
       console.error('[WasteController.findOne] ERROR:', e.message, e.code, e.meta);
       throw e;
     }

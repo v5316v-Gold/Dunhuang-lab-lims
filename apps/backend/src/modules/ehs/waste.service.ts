@@ -110,7 +110,7 @@ export class WasteService {
         (this.prisma as any).wasteRecord.count({ where }),
       ]);
       return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
-    } catch (e) {
+    } catch (e: any) {
       this.logger.error('findAll failed: ' + e.message);
       throw e;
     }
@@ -124,7 +124,7 @@ export class WasteService {
       });
       if (!r) throw new NotFoundException(`危废记录不存在: ${id}`);
       return r;
-    } catch (e) {
+    } catch (e: any) {
       this.logger.error('findOne failed for ' + id + ': ' + e.message);
       throw e;
     }
