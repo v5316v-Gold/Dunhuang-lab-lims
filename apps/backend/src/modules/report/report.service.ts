@@ -267,4 +267,30 @@ private async generateReportNo(): Promise<string> {
       },
     });
   }
+  /**
+   * W+1-8: 下载报告 PDF(重建 buffer,按 sha256 校验完整性)
+   */
+  async downloadPdf(reportId: string): Promise<{ buffer: Buffer; reportNo: string; sha256: string }> {
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      include: { sample: true },
+    });
+    if (!report) throw new NotFoundException(`Report ${reportId} 不存在`);
+    if (!report.pdfSha256) {
+      throw new BadRequestException('该报告尚未生成 PDF(需先签发)');
+    }
+    const pdf = this.pdfService.generate({
+      reportNo: report.reportNo,
+      sampleNo: report.sample?.sampleNo ?? '',
+      customerName: report.sample?.customerName ?? '',
+      sampleType: report.sample?.sampleType ?? '',
+      summary: report.summary ?? '',
+      issuedAt: report.issuedAt ?? new Date(),
+    });
+    // 完整性校验:重建的 sha256 必须等于库中记录
+    if (pdf.sha256 !== report.pdfSha256) {
+      throw new BadRequestException('PDF 完整性校验失败(sha256 不匹配)');
+    }
+    return { buffer: pdf.pdfBuffer, reportNo: report.reportNo, sha256: pdf.sha256 };
+  }
 }

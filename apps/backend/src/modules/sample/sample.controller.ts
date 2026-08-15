@@ -18,6 +18,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { Ownership } from '../../common/rbac/ownership.guard';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
@@ -47,6 +48,33 @@ export class SampleController {
     return this.sampleService.findAll(filter);
   }
 
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'W+1-10: 样品留样登记(→ARCHIVED + retentionUntil)' })
+  archive(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { location: string; months?: number },
+    @CurrentUser() user: User,
+  ) {
+    if (!body.location) throw new BadRequestException('留样位置必填');
+    return this.sampleService.archive(id, body.location, body.months ?? 6, user.id);
+  }
+
+  @Get('retention/expiring')
+  @ApiOperation({ summary: 'W+1-10: 即将到期留样列表' })
+  expiring(@Query('days') days?: string) {
+    return this.sampleService.expiringRetentions(days ? parseInt(days) : 7);
+  }
+
+  @Post(':id/dispose-retention')
+  @ApiOperation({ summary: 'W+1-10: 留样销毁(双人审批)' })
+  disposeRetention(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { approveById: string; method: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.sampleService.disposeRetention(id, body.approveById, body.method);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '查询样品详情(含检测/报告)' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -54,6 +82,7 @@ export class SampleController {
   }
 
   @Patch(':id')
+  @Ownership('sample', 'receivedById')
   @RequireRole(UserRole.SENIOR_ANALYST, UserRole.ADMIN)
   @ApiOperation({ summary: '更新样品' })
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateSampleDto) {
@@ -61,6 +90,7 @@ export class SampleController {
   }
 
   @Delete(':id')
+  @Ownership('sample', 'receivedById')
   @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
   @ApiOperation({ summary: '软删除样品' })
   remove(@Param('id', ParseUUIDPipe) id: string) {

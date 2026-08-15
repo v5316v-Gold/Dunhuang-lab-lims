@@ -218,5 +218,79 @@ export class SampleService {
       });
     });
   }
+  /**
+   * W+1-10: 样品留样登记(TESTED/REPORTED → ARCHIVED + retentionUntil)
+   */
+  async archive(sampleId: string, location: string, months = 6, userId?: string) {
+    const sample = await this.prisma.sample.findUnique({ where: { id: sampleId } });
+    if (!sample) throw new NotFoundException(`样品 ${sampleId} 不存在`);
+    // 状态机守卫(若注入)
+    if ((this as any).stateMachine) {
+      (this as any).stateMachine.assertTransition('Sample', sample.status, 'ARCHIVED');
+    }
+    const retentionUntil = new Date();
+    retentionUntil.setMonth(retentionUntil.getMonth() + months);
+    const result = await this.prisma.sample.update({
+      where: { id: sampleId },
+      data: {
+        status: 'ARCHIVED',
+        storageLocation: location,
+        archivedAt: new Date(),
+        retentionUntil,
+      },
+    });
+    // 审计
+    if ((this as any).securityAudit) {
+      await (this as any).securityAudit.system(
+        (this as any).AuditEventType?.SETTINGS_CHANGED ?? 'CONFIG:SETTINGS_CHANGED',
+        {
+          event: 'SAMPLE_ARCHIVED',
+          sampleNo: sample.sampleNo,
+          location,
+          retentionUntil: retentionUntil.toISOString(),
+          months,
+        },
+      );
+    }
+    return result;
+  }
 
+  /**
+   * W+1-10: 即将到期留样列表(7 天内)
+   */
+  async expiringRetentions(days = 7) {
+    const until = new Date();
+    until.setDate(until.getDate() + days);
+    const items = await this.prisma.sample.findMany({
+      where: {
+        status: 'ARCHIVED',
+        retentionUntil: { lte: until, gt: new Date() },
+      },
+      orderBy: { retentionUntil: 'asc' },
+      select: { id: true, sampleNo: true, customerName: true, retentionUntil: true, storageLocation: true },
+    });
+    return { items, count: items.length, days };
+  }
+
+  /**
+   * W+1-10: 留样销毁登记(双人审批: userId + approveBy)
+   */
+  async disposeRetention(sampleId: string, approveById: string, method: string) {
+    const sample = await this.prisma.sample.findUnique({ where: { id: sampleId } });
+    if (!sample) throw new NotFoundException(`样品 ${sampleId} 不存在`);
+    if (sample.status !== 'ARCHIVED') {
+      throw new BadRequestException(`仅 ARCHIVED 状态可销毁(当前 ${sample.status})`);
+    }
+    const result = await this.prisma.sample.update({
+      where: { id: sampleId },
+      data: { status: 'DISPOSED', disposedAt: new Date() },
+    });
+    if ((this as any).securityAudit) {
+      await (this as any).securityAudit.system(
+        'CONFIG:SETTINGS_CHANGED',
+        { event: 'SAMPLE_DISPOSED', sampleNo: sample.sampleNo, method, approvedBy: approveById },
+      );
+    }
+    return result;
+  }
 }

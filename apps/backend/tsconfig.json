@@ -8,6 +8,8 @@
     "rootDirs": ["./src", "./prisma"],
     "baseUrl": ".",
     "incremental": false,
+    "inlineSourceMap": true,
+    "sourceMap": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,

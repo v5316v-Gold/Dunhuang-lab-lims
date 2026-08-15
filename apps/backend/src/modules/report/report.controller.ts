@@ -2,7 +2,8 @@
 // 报告 API
 // =====================================================
 
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Res, Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole, ReportStatus } from '@prisma/client';
 
@@ -38,6 +39,16 @@ export class ReportController {
   @ApiOperation({ summary: '查询报告详情(含样品/检测/审核/签名)' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.reportService.findOne(id);
+  }
+
+  @Get(':id/pdf')
+  @ApiOperation({ summary: '下载报告 PDF(sha256 完整性校验)' })
+  async downloadPdf(@Param('id', new ParseUUIDPipe()) id: string, @Res() res: any) {
+    const { buffer, reportNo, sha256 } = await this.reportService.downloadPdf(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${reportNo}.pdf"`);
+    res.setHeader('X-PDF-SHA256', sha256);
+    res.send(buffer);
   }
 
   @Post(':id/transition')

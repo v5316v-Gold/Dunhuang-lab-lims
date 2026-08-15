@@ -486,6 +486,9 @@ model Sample {
   receivedAt       DateTime     @default(now()) @map("received_at") @db.Timestamptz
   receivedById     String?      @map("received_by_id") @db.Uuid
   storageLocation  String?      @map("storage_location") @db.VarChar(200)
+  retentionUntil   DateTime?    @map("retention_until") @db.Timestamptz  // W+1-10 留样到期日
+  archivedAt       DateTime?    @map("archived_at") @db.Timestamptz      // 留样登记时间
+  disposedAt       DateTime?    @map("disposed_at") @db.Timestamptz      // 销毁时间
   status           SampleStatus @default(RECEIVED)
   photoFileIds     String[]     @map("photo_file_ids") @db.Uuid
   remarks          String?      @db.Text
