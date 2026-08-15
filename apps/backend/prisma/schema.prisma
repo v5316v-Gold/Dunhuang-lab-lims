@@ -126,6 +126,15 @@ model User {
   personnel         Personnel?
 
   @@index([username])
+  internalAuditsCreated  InternalAudit[]        @relation("IACreator")
+  managementReviewsCreated ManagementReview[]     @relation("MRCreator")
+  supervisionsSupervised  SupervisionRecord[]     @relation("SupSupervisor")
+  supervisionsSupervisee  SupervisionRecord[]     @relation("SupSupervisee")
+  supervisionsCreated     SupervisionRecord[]     @relation("SupCreator")
+  blindAssigned           BlindSample[]           @relation("BlindAssignee")
+  blindCreated            BlindSample[]           @relation("BlindCreator")
+  ptCreated               ProficiencyTest[]       @relation("PTCreator")
+
   @@index([email])
   @@index([deptId])
   @@index([status, deletedAt])
@@ -1632,5 +1641,125 @@ model NonConformance {
   @@index([severity])
   @@index([reportedAt(sort: Desc)])
   @@map("non_conformances")
+}
+
+
+
+// ============================================================================
+// W+2 审批管理(CMA 必查): 内审 / 管评 / 监督 / 盲样考核 / 能力验证(PT)
+// ============================================================================
+
+// ---- 内部审核(CMA 必查) ----
+model InternalAudit {
+  id            String   @id @default(uuid()) @db.Uuid
+  auditNo       String   @unique @db.VarChar(50)        // IA-2026-0001
+  title         String   @db.VarChar(200)               // 审核主题
+  scope         String   @db.Text                       // 审核范围
+  auditDate     DateTime @map("audit_date") @db.Timestamptz
+  auditorIds    String[] @map("auditor_ids") @db.Uuid   // 内审员
+  findings      String?  @db.Text                       // 发现
+  ncCount       Int      @default(0) @map("nc_count")   // 不符合项数
+  status        String   @default("PLANNED") @db.VarChar(20) // PLANNED/IN_PROGRESS/CLOSED
+  reportFileId  String?  @map("report_file_id") @db.Uuid
+  createdById   String   @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  createdBy     User     @relation("IACreator", fields: [createdById], references: [id])
+  @@index([auditNo])
+  @@index([auditDate])
+  @@map("internal_audits")
+}
+
+// ---- 管理评审(CMA 必查) ----
+model ManagementReview {
+  id            String   @id @default(uuid()) @db.Uuid
+  reviewNo      String   @unique @db.VarChar(50)        // MR-2026-0001
+  title         String   @db.VarChar(200)               // 评审主题
+  periodFrom    DateTime @map("period_from") @db.Timestamptz
+  periodTo      DateTime @map("period_to") @db.Timestamptz
+  reviewDate    DateTime @map("review_date") @db.Timestamptz
+  attendees     String[] @db.Uuid                        // 参加人员
+  inputs        String?  @db.Text                        // 评审输入
+  outputs       String?  @db.Text                        // 评审输出/决议
+  decisions     String?  @db.Text                        // 决议事项
+  status        String   @default("PLANNED") @db.VarChar(20)
+  reportFileId  String?  @map("report_file_id") @db.Uuid
+  createdById   String   @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  createdBy     User     @relation("MRCreator", fields: [createdById], references: [id])
+  @@index([reviewNo])
+  @@index([reviewDate])
+  @@map("management_reviews")
+}
+
+// ---- 监督记录(CMA 必查) ----
+model SupervisionRecord {
+  id            String   @id @default(uuid()) @db.Uuid
+  supNo         String   @unique @db.VarChar(50)        // SUP-2026-0001
+  supervisorId  String   @map("supervisor_id") @db.Uuid  // 监督员
+  superviseeId  String   @map("supervisee_id") @db.Uuid  // 被监督人
+  supDate       DateTime @map("sup_date") @db.Timestamptz
+  content       String   @db.Text                       // 监督内容
+  result        String   @default("PASS") @db.VarChar(20) // PASS/CONCERN/FAIL
+  correctiveAction String? @map("corrective_action") @db.Text
+  createdById   String   @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  supervisor    User     @relation("SupSupervisor", fields: [supervisorId], references: [id])
+  supervisee    User     @relation("SupSupervisee", fields: [superviseeId], references: [id])
+  createdBy     User     @relation("SupCreator", fields: [createdById], references: [id])
+  @@index([supNo])
+  @@index([supDate])
+  @@map("supervision_records")
+}
+
+// ---- 盲样考核(CMA 必查) ----
+model BlindSample {
+  id            String   @id @default(uuid()) @db.Uuid
+  blindNo       String   @unique @db.VarChar(50)        // BL-2026-0001
+  sampleCode    String   @map("sample_code") @db.VarChar(100) // 盲样编号
+  assignedToId  String   @map("assigned_to_id") @db.Uuid      // 被考核人
+  trueValue     Decimal  @map("true_value") @db.Decimal(15, 6)  // 真值
+  measuredValue Decimal? @map("measured_value") @db.Decimal(15, 6) // 测得值
+  deviationPct  Decimal? @map("deviation_pct") @db.Decimal(8, 4)  // 相对偏差
+  passed        Boolean?                                         // 考核结果
+  assessDate    DateTime? @map("assess_date") @db.Timestamptz
+  remarks       String?  @db.Text
+  createdById   String   @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  assignedTo    User     @relation("BlindAssignee", fields: [assignedToId], references: [id])
+  createdBy     User     @relation("BlindCreator", fields: [createdById], references: [id])
+  @@index([blindNo])
+  @@map("blind_samples")
+}
+
+// ---- 能力验证 PT(CMA 必查) ----
+model ProficiencyTest {
+  id            String   @id @default(uuid()) @db.Uuid
+  ptNo          String   @unique @db.VarChar(50)        // PT-2026-0001
+  organizer      String   @db.VarChar(200)               // 组织方(如 CNAS PT 计划)
+  item          String   @db.VarChar(100)                // 项目(如 Au 纯度)
+  method        String   @db.VarChar(100)
+  zScore        Decimal? @map("z_score") @db.Decimal(8, 4)
+  result        String?  @db.VarChar(50)                // SATISFACTORY/QUESTIONABLE/UNSATISFACTORY
+  startDate     DateTime @map("start_date") @db.Timestamptz
+  endDate       DateTime? @map("end_date") @db.Timestamptz
+  reportFileId  String?  @map("report_file_id") @db.Uuid
+  remarks       String?  @db.Text
+  createdById   String   @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  createdBy     User     @relation("PTCreator", fields: [createdById], references: [id])
+  @@index([ptNo])
+  @@map("proficiency_tests")
 }
 
