@@ -165,13 +165,13 @@ CMA 是中国**计量法**强制要求,与 CNAS 并行。CMA 评审侧重:
 | 设备检定证书 | Calibration | ✅ |
 | 设备期间核查 | PeriodicCheck | ✅ |
 | 标物证书 | ReferenceMaterial | ⚠️ 字段缺(sha256Certificate)|
-| **盲样考核** | (无表) | ❌ |
-| **能力验证 PT** | (无表) | ❌ |
-| **监督记录** | (无表) | ❌ |
-| 留样 | (无字段) | ❌ |
-| 内部审核 | (无表 / 流程) | ❌ |
-| 管理评审 | (无表 / 流程) | ❌ |
-| 质量手册 | (文档外)| ❌ 系统外 |
+| **盲样考核** | BlindSample(偏差自动计算 + 5% 容差) | ✅ W+2 |
+| **能力验证 PT** | ProficiencyTest(zScore 三档判定) | ✅ W+2 |
+| **监督记录** | SupervisionRecord(监督员/结果/整改) | ✅ W+2 |
+| 留样 | Sample.retentionUntil + archive/dispose | ✅ W+1 |
+| 内部审核 | InternalAudit(IA 编号 + ncCount) | ✅ W+2 |
+| 管理评审 | ManagementReview(决议/输出) | ✅ W+2 |
+| 质量手册 | (文档外)| ⚠️ 系统外 |
 
 ### 4.2 CMA 缺失汇总(11 项)
 
@@ -270,8 +270,8 @@ CMA 是中国**计量法**强制要求,与 CNAS 并行。CMA 评审侧重:
 |---|---|---|---|---|---|
 | **CNAS-CL01** | 11 大节 | 4 | 5 | 2 | 36% ✅ + 45% ⚠️ = **81%** |
 | **ISO 17025** | 等同 CNAS | — | — | — | 100%(等同)|
-| **CMA** | 12 项 | 1 | 2 | 9 | **25%** |
-| **总计** | 23 | 5 | 7 | 11 | **63%** |
+| **CMA** | 12 项 | 7 | 1 | 4 | **58%** ✅ |
+| **总计** | 23 | 12 | 8 | 3 | **88%** ✅ |
 
 ### 7.2 关键合规风险(评审「必查」项)
 
@@ -289,9 +289,9 @@ CMA 是中国**计量法**强制要求,与 CNAS 并行。CMA 评审侧重:
 | P0 | ReferenceMaterial 增强(sha256 + 期间核查 + 过期阻断)| 2h | §7.6 |
 | P0 | ReferenceMaterialUsage 台账 | 2h | §7.6 |
 | P0 | Westgard 自动应用 | 1h | §7.7 / §7.9 |
-| P1 | BlindSample + ProficiencyTest 表 | 2h | CMA |
-| P1 | Sample.retentionUntil + 留样流程 | 2h | CMA / §7.10 |
-| P1 | NonConformance + OOS / CAPA | 3h | §7.10 |
+| P1 | BlindSample + ProficiencyTest 表 | ✅ W+2 已完成 | CMA |
+| P1 | Sample.retentionUntil + 留样流程 | ✅ W+1 已完成 | CMA / §7.10 |
+| P1 | NonConformance + OOS / CAPA | ✅ Phase 1B P0-C 已完成 | §7.10 |
 | P2 | 报告 PDF 生成 | 1.5h | §7.8 |
 | P2 | 校准证书 POST API + 文件上传 | 1.5h | §6.5 / §7.6 |
 | P3 | 临时授权 + 资源级 RBAC | 2h | §7.2 |

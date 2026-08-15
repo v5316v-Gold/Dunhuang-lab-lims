@@ -138,38 +138,38 @@
 
 ### W+2-12 (周一-周三):P1 4 项
 
-- [ ] **W+2-1** 内审 / 管评表(CRUD + 状态机)
+- [x] **W+2-1** 内审 / 管评表(CRUD + 状态机)
   - 新表 `InternalAudit` / `ManagementReview`
   - 状态:DRAFT → IN_PROGRESS → CLOSED
   - API:CRUD + close
   - 估时:**3h**
 
-- [ ] **W+2-2** FireAssayDetail 关键参数(furnaceTempC, cupellationDurationMin, partingAcidRatio, finalAnnealingTempC)
+- [x] **W+2-2** FireAssayDetail 关键参数(furnaceTempC, cupellationDurationMin, partingAcidRatio, finalAnnealingTempC)
   - schema 增量 + 字段必填校验
   - service 改写
   - 估时:**1h**
 
-- [ ] **W+2-3** 校准曲线 R² 记录(Element.calibrationCurveId + CalibrationCurve 新表)
+- [x] **W+2-3** 校准曲线 R² 记录(Element.calibrationCurveId + CalibrationCurve 新表)
   - schema 增量
   - 估时:**1h**
 
-- [ ] **W+2-4** 临时授权机制
+- [x] **W+2-4** 临时授权机制
   - 新表 `UserTemporaryRole`(临时角色 + 过期时间)
   - service + guard
   - 估时:**2h**
 
 ### W+3-4 (周四-周五):P1 2 项 + 集成测试
 
-- [ ] **W+3-1** 监督记录(CMA 必查)
+- [x] **W+3-1** 监督记录(CMA 必查)
   - 新表 `SupervisionRecord`(监督员 / 监督日期 / 整改)
   - API + 触发器(每月自动生成)
   - 估时:**1h**
 
-- [ ] **W+3-2** 盲样考核 + PT 能力验证(CMA 必查)
+- [x] **W+3-2** 盲样考核 + PT 能力验证(CMA 必查)
   - 新表 `BlindSample` / `ProficiencyTest`
   - 估时:**2h**
 
-- [ ] **W+3-3** P1 全量集成测试
+- [x] **W+3-3** P1 全量集成测试
   - 跑全部 30+ spec
   - 覆盖率报告
   - 估时:**2h**
