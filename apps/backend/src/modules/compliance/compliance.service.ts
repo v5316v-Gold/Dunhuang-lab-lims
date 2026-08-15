@@ -240,6 +240,10 @@ export class ComplianceService {
   }
   // ================== 临时授权(CNAS §7.2) ==================
   async createTempAuth(dto: { granteeId: string; method: string; effectiveFrom: string; effectiveTo: string; reason?: string }, userId: string) {
+    // ⚠️ W+6-1 fix: 校验 effectiveTo > effectiveFrom
+    if (new Date(dto.effectiveTo).getTime() <= new Date(dto.effectiveFrom).getTime()) {
+      throw new BadRequestException('effectiveTo 必须晚于 effectiveFrom');
+    }
     const authNo = await this.nextNo('temporaryAuthorization', 'TA', 'authNo');
     const r = await this.prisma.temporaryAuthorization.create({
       data: {

@@ -18,6 +18,7 @@ import {
   QrcodeOutlined,
   ScanOutlined,
   AuditOutlined,
+  SafetyOutlined,
   UserOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
@@ -45,6 +46,7 @@ const menuItems = [
   { key: '/scan', icon: <ScanOutlined />, label: <Link to="/scan">扫码追溯</Link> },
   { key: '/qc', icon: <ExperimentOutlined />, label: <Link to="/qc">QC 监控</Link> },
   { key: '/audit-logs', icon: <AuditOutlined />, label: <Link to="/audit-logs">审计日志</Link> },
+  { key: '/compliance', icon: <SafetyOutlined />, label: <Link to="/compliance">合规管理</Link> },
 ];
 
 export function MainLayout() {
