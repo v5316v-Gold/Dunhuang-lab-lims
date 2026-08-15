@@ -113,6 +113,8 @@ model User {
   gasUsed           GasUsage[]             @relation("GasUsageUsedBy")
   containerResponsible  Container[]       @relation("ContainerResponsible")
   containerUsed         ContainerUsage[]  @relation("ContainerUsageUser")
+  samplingRecords       SamplingRecord[]   @relation("SamplingRecordUser")
+  barsInspected         PreciousMetalBar[] @relation("PreciousMetalBarInspector")
   personnel         Personnel?
 
   @@index([username])
@@ -489,6 +491,8 @@ model Sample {
   reports          Report[]
   gasUsages        GasUsage[]             @relation("GasUsageSample")
   containerUsages  ContainerUsage[]       @relation("ContainerUsageSample")
+  samplingRecord       SamplingRecord?      @relation("SampleSamplingRecord")
+  preciousMetalBar     PreciousMetalBar?    @relation("SamplePreciousMetalBar")
 
   @@index([sampleNo])
   @@index([batchId])
@@ -1218,5 +1222,148 @@ model ContainerUsage {
   @@index([borrowedAt(sort: Desc)])
   @@index([returnedAt])
   @@map("container_usages")
+}
+
+
+
+// ============================================================================
+// W4: 业务精化 - SamplingRecord(取样记录)+ PreciousMetalBar(贵金属条码)
+// CNAS §7.5 + §7.8(抽样)+ §7.4(记录)
+// ============================================================================
+
+enum SamplingMethod {
+  ON_SITE @map("on_site")                   // 现场取样
+  CUSTOMER_DELIVERED @map("customer_delivered") // 客户送样
+  EXPRESS @map("express")                   // 快递寄样
+  COURT_SEIZURE @map("court_seizure")       // 司法扣押
+  PRODUCTION_LINE @map("production_line")   // 生产线抽样
+  OTHER @map("other")
+
+  @@map("sampling_method")
+}
+
+enum SamplingLocation {
+  MINE @map("mine")               // 矿山
+  REFINERY @map("refinery")       // 精炼厂
+  BANK @map("bank")               // 银行金库
+  EXCHANGE @map("exchange")       // 交易所
+  WORKSHOP @map("workshop")       // 生产车间
+  CUSTOMER_OFFICE @map("customer_office") // 客户处
+  LAB @map("lab")                 // 实验室内
+  OTHER @map("other")
+
+  @@map("sampling_location")
+}
+
+enum SampleForm {
+  INGOT @map("ingot")             // 金锭
+  JEWELRY @map("jewelry")         // 首饰
+  POWDER @map("powder")           // 金粉
+  SOLUTION @map("solution")       // 金溶液
+  WIRE @map("wire")               // 金丝
+  LEAF @map("leaf")               // 金箔
+  SCRAP @map("scrap")             // 回收金料
+  ALLOY @map("alloy")             // 合金
+  OTHER @map("other")
+
+  @@map("sample_form")
+}
+
+enum MetalType {
+  AU @map("au")           // 金
+  AG @map("ag")           // 银
+  PT @map("pt")           // 铂
+  PD @map("pd")           // 钯
+  RH @map("rh")           // 铑
+  IR @map("ir")           // 铱
+  OS @map("os")           // 锇
+  RU @map("ru")           // 钌
+
+  @@map("metal_type")
+}
+
+enum BarQualityGrade {
+  AU9999 @map("au9999")         // 9999 足金
+  AU999 @map("au999")           // 999 千足金
+  AU995 @map("au995")           // 995 工业金
+  AU990 @map("au990")           // 990 足金
+  AU916 @map("au916")           // 916 22K
+  AU750 @map("au750")           // 750 18K
+  AU585 @map("au585")           // 585 14K
+  CUSTOM @map("custom")          // 其他定制
+
+  @@map("bar_quality_grade")
+}
+
+model SamplingRecord {
+  id                  String           @id @default(uuid()) @db.Uuid
+  recordNo            String           @unique @db.VarChar(50)               // 取样单号 SR-2026-0001
+  sampleId            String?          @unique @map("sample_id") @db.Uuid    // 关联样品(1-1 可选)
+  method              SamplingMethod
+  location            SamplingLocation
+  locationDetail      String?          @map("location_detail") @db.VarChar(200) // 详细地址
+  sampledAt           DateTime         @map("sampled_at") @db.Timestamptz      // 取样时间
+  sampledById         String           @map("sampled_by_id") @db.Uuid         // 取样人
+  customerRepName     String?          @map("customer_rep_name") @db.VarChar(50) // 客户代表姓名
+  customerRepIdNo     String?          @map("customer_rep_id_no") @db.VarChar(20) // 客户代表身份证号
+  witnessName         String?          @map("witness_name") @db.VarChar(50)   // 见证人姓名
+  witnessIdNo         String?          @map("witness_id_no") @db.VarChar(20)   // 见证人身份证号
+  sampleForm          SampleForm       @map("sample_form")                     // 样品形态
+  metalType           MetalType        @map("metal_type")                      // 金属种类
+  declaredWeightG     Decimal?         @map("declared_weight_g") @db.Decimal(15, 6) // 客户声明重量
+  declaredPurityPct   Decimal?         @map("declared_purity_pct") @db.Decimal(10, 6) // 客户声明纯度
+  packagingType       String?          @map("packaging_type") @db.VarChar(50) // 包装形式:密封袋/铅封
+  sealNo              String?          @map("seal_no") @db.VarChar(50)         // 封条编号
+  photoFileIds        String[]         @map("photo_file_ids") @db.Uuid          // 取样现场照片
+  chainOfCustody      String?          @map("chain_of_custody") @db.Text        // 监管链说明
+  remarks             String?          @db.Text
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt           DateTime?        @map("deleted_at") @db.Timestamptz
+
+  sample              Sample?          @relation("SampleSamplingRecord", fields: [sampleId], references: [id])
+  sampledBy           User             @relation("SamplingRecordUser", fields: [sampledById], references: [id])
+
+  @@index([recordNo])
+  @@index([sampleId])
+  @@index([sampledAt(sort: Desc)])
+  @@index([method])
+  @@map("sampling_records")
+}
+
+model PreciousMetalBar {
+  id                  String           @id @default(uuid()) @db.Uuid
+  barCode             String           @unique @db.VarChar(50) @map("bar_code") // 条码 BAR-AU-2026-0001
+  sampleId            String           @unique @map("sample_id") @db.Uuid         // 关联样品
+  reportId            String?          @map("report_id") @db.Uuid                 // 出具报告
+  metalType           MetalType        @map("metal_type")
+  qualityGrade        BarQualityGrade  @map("quality_grade")
+  weightG             Decimal          @map("weight_g") @db.Decimal(15, 6)        // 实测重量(g)
+  purityPct           Decimal          @map("purity_pct") @db.Decimal(10, 6)      // 实测纯度(%)
+  serialNo            String?          @map("serial_no") @db.VarChar(50)           // 厂家出厂序列号
+  shape               String?          @db.VarChar(50)                            // 形状:金锭/金条/金珠
+  dimensions          String?          @db.VarChar(100)                           // 尺寸:长×宽×高(mm)
+  manufacturer        String?          @db.VarChar(100)                           // 生产厂家
+  manufactureDate     DateTime?        @map("manufacture_date") @db.Timestamptz
+  inspectedById       String?          @map("inspected_by_id") @db.Uuid            // 检测员
+  inspectedAt         DateTime?        @map("inspected_at") @db.Timestamptz
+  certifiedAt         DateTime?        @map("certified_at") @db.Timestamptz        // 出证日期
+  qrCodeUrl           String?          @map("qr_code_url") @db.VarChar(500)        // 二维码 URL
+  custodyLocation     String?          @map("custody_location") @db.VarChar(200)   // 保管位置
+  status              String           @default("ACTIVE") @db.VarChar(20)         // ACTIVE / VOIDED / RECALLED
+  remarks             String?          @db.Text
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt           DateTime?        @map("deleted_at") @db.Timestamptz
+
+  sample              Sample           @relation("SamplePreciousMetalBar", fields: [sampleId], references: [id])
+  inspectedBy           User?          @relation("PreciousMetalBarInspector", fields: [inspectedById], references: [id])
+
+  @@index([barCode])
+  @@index([sampleId])
+  @@index([reportId])
+  @@index([qualityGrade])
+  @@index([status])
+  @@map("precious_metal_bars")
 }
 

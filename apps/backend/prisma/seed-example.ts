@@ -398,8 +398,62 @@ for (const u of usageSeeds) {
       });
     }
 
-      // 10. 设备维护 + 期间核查
-      console.log('[seed] maintenance + periodic check...');
+      // 9.8 W4 取样记录 + 贵金属条码种子
+      console.log('[seed] W4 sampling + precious metal bars...');
+      // 取一个真实样品
+      const seedSample = await prisma.sample.findFirst({ orderBy: { createdAt: 'asc' } });
+      if (seedSample) {
+        const sr = await prisma.samplingRecord.upsert({
+          where: { recordNo: 'SR-20260815-0001' }, update: {},
+          create: {
+            recordNo: 'SR-20260815-0001',
+            sampleId: seedSample.id,
+            method: 'ON_SITE',
+            location: 'BANK',
+            locationDetail: '中国工商银行金库 B-12',
+            sampledAt: daysAgo(7),
+            sampledById: seniorUser.id,
+            customerRepName: '李经理',
+            customerRepIdNo: '110101198501011234',
+            witnessName: '王会计',
+            witnessIdNo: '110101198502022345',
+            sampleForm: 'INGOT',
+            metalType: 'AU',
+            declaredWeightG: '1000.5000' as any,
+            declaredPurityPct: '99.99' as any,
+            packagingType: '铅封袋',
+            sealNo: 'SEAL-AU-2026-001',
+            chainOfCustody: '客户→取样人→实验室接样(全程双人)',
+            remarks: 'Phase W4 seed',
+          } as any,
+        });
+
+        await prisma.preciousMetalBar.upsert({
+          where: { barCode: 'BAR-AU-202608-0001' }, update: {},
+          create: {
+            barCode: 'BAR-AU-202608-0001',
+            sampleId: seedSample.id,
+            metalType: 'AU',
+            qualityGrade: 'AU9999',
+            weightG: '31.1050' as any,
+            purityPct: '99.99' as any,
+            serialNo: 'PB-AU-2026-001',
+            shape: '金锭',
+            dimensions: '40×25×8 mm',
+            manufacturer: '上海金交所',
+            manufactureDate: new Date('2026-07-01'),
+            inspectedById: seniorUser.id,
+            inspectedAt: new Date(),
+            certifiedAt: new Date(),
+            qrCodeUrl: 'https://lims.dunhuang.cn/qr/BAR-AU-202608-0001',
+            custodyLocation: '金库 P-01 第 3 层',
+            remarks: 'Phase W4 seed',
+          } as any,
+        });
+      }
+
+        // 10. 设备维护 + 期间核查
+        console.log('[seed] maintenance + periodic check...');
   const furnace = await prisma.equipment.findUnique({ where: { equipmentNo: 'EQ-FA-001' } });
   if (furnace) {
     await (prisma as any).maintenance.upsert({

@@ -26,6 +26,7 @@ import { RedisModule } from './infrastructure/redis/redis.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BatchModule } from './modules/batch/batch.module';
 import { EhsModule } from './modules/ehs/ehs.module';
+import { PreciousMetalModule } from './modules/precious-metal/precious-metal.module';
 import { EquipmentModule } from './modules/equipment/equipment.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { PersonnelModule } from './modules/personnel/personnel.module';
@@ -90,6 +91,7 @@ import { TestModule } from './modules/test/test.module';
     ReportModule,
     ReagentModule,
     EhsModule,
+    PreciousMetalModule,
     AnalyticsModule,
   ],
   providers: [

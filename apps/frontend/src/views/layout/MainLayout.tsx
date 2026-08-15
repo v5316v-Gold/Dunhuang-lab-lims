@@ -15,6 +15,7 @@ import {
   CloudOutlined,
   GoldOutlined,
   ContainerOutlined,
+  QrcodeOutlined,
   AuditOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -37,6 +38,7 @@ const menuItems = [
   { key: '/gas', icon: <CloudOutlined />, label: <Link to="/gas">气体管理</Link> },
   { key: '/waste', icon: <GoldOutlined />, label: <Link to="/waste">危废管理</Link> },
   { key: '/container', icon: <ContainerOutlined />, label: <Link to="/container">容器管理</Link> },
+  { key: '/precious-metal', icon: <QrcodeOutlined />, label: <Link to="/precious-metal">贵金属业务</Link> },
   { key: '/qc', icon: <ExperimentOutlined />, label: <Link to="/qc">QC 监控</Link> },
   { key: '/audit-logs', icon: <AuditOutlined />, label: <Link to="/audit-logs">审计日志</Link> },
 ];
