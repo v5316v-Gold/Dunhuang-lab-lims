@@ -111,6 +111,8 @@ model User {
   gasResponsible    Gas[]                  @relation("GasResponsible")
   gasInspected      GasPurchase[]          @relation("GasPurchaseInspector")
   gasUsed           GasUsage[]             @relation("GasUsageUsedBy")
+  containerResponsible  Container[]       @relation("ContainerResponsible")
+  containerUsed         ContainerUsage[]  @relation("ContainerUsageUser")
   personnel         Personnel?
 
   @@index([username])
@@ -486,6 +488,7 @@ model Sample {
   tests            Test[]
   reports          Report[]
   gasUsages        GasUsage[]             @relation("GasUsageSample")
+  containerUsages  ContainerUsage[]       @relation("ContainerUsageSample")
 
   @@index([sampleNo])
   @@index([batchId])
@@ -589,6 +592,7 @@ model Test {
   elementResults   ElementResult[]
   qcMeasurements   QcMeasurement[]
   gasUsages        GasUsage[]             @relation("GasUsageTest")
+  containerUsages  ContainerUsage[]       @relation("ContainerUsageTest")
 
   @@index([sampleId])
   @@index([method, status])
@@ -1105,5 +1109,114 @@ model GasUsage {
   @@index([usedById])
   @@index([usedAt(sort: Desc)])
   @@map("gas_usages")
+}
+
+
+
+// ============================================================================
+// W3: 容器管理(Container + ContainerUsage) - CNAS §7.5(设备与设施) + §6.5(设备)
+// ============================================================================
+
+enum ContainerType {
+  CRUCIBLE @map("crucible")               // 坩埚(火试金用)
+  VOLUMETRIC_FLASK @map("volumetric_flask") // 容量瓶
+  BURETTE @map("burette")                 // 滴定管
+  BEAKER @map("beaker")                   // 烧杯
+  TEST_TUBE @map("test_tube")             // 试管
+  CONICAL_FLASK @map("conical_flask")     // 锥形瓶
+  CYLINDER @map("cylinder")               // 量筒
+  PIPETTE @map("pipette")                 // 移液管
+  WEIGHING_BOTTLE @map("weighing_bottle") // 称量瓶
+  OTHER @map("other")
+
+  @@map("container_type")
+}
+
+enum ContainerMaterial {
+  PORCELAIN @map("porcelain")             // 瓷
+  PLATINUM @map("platinum")               // 铂
+  QUARTZ @map("quartz")                   // 石英
+  BOROSILICATE @map("borosilicate")       // 硼硅酸盐玻璃
+  PTFE @map("ptfe")                       // 聚四氟乙烯
+  STAINLESS_STEEL @map("stainless_steel") // 不锈钢
+  POLYETHYLENE @map("polyethylene")       // 聚乙烯
+  OTHER @map("other")
+
+  @@map("container_material")
+}
+
+enum ContainerStatus {
+  IN_STOCK @map("in_stock")               // 在库
+  IN_USE @map("in_use")                   // 使用中
+  CLEANING @map("cleaning")               // 清洗中
+  MAINTENANCE @map("maintenance")         // 维护中
+  RETIRED @map("retired")                 // 已退役
+  LOST @map("lost")                       // 丢失
+
+  @@map("container_status")
+}
+
+model Container {
+  id                String            @id @default(uuid()) @db.Uuid
+  code              String            @unique @db.VarChar(50)        // 容器编号 CT-2026-0001
+  name              String            @db.VarChar(100)               // 名称:30mL 瓷坩埚
+  type              ContainerType
+  material          ContainerMaterial
+  capacityMl        Decimal?          @map("capacity_ml") @db.Decimal(10, 2)  // 容量(mL)
+  toleranceMl       Decimal?          @map("tolerance_ml") @db.Decimal(10, 4) // 容量允差(A级±0.05等)
+  toleranceClass    String?           @map("tolerance_class") @db.VarChar(10)  // A级/B级
+  serialNo          String?           @map("serial_no") @db.VarChar(50)         // 厂家出厂编号
+  manufacturer      String?           @db.VarChar(100)                          // 厂家:唐山陶瓷/蜀牛玻璃
+  purchaseDate      DateTime?         @map("purchase_date") @db.Timestamptz
+  purchasePrice     Decimal?          @map("purchase_price") @db.Decimal(10, 2)
+  location          String?           @db.VarChar(100)                          // 存放位置:容器柜 B-03
+  status            ContainerStatus   @default(IN_STOCK)
+  responsibleUserId String?           @map("responsible_user_id") @db.Uuid      // 责任人
+  calibrationDate   DateTime?         @map("calibration_date") @db.Timestamptz   // 容量校准日期
+  nextCalDate       DateTime?         @map("next_cal_date") @db.Timestamptz     // 下次校准日期
+  retireDate        DateTime?         @map("retire_date") @db.Timestamptz
+  remarks           String?           @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?         @map("deleted_at") @db.Timestamptz
+
+  responsible       User?             @relation("ContainerResponsible", fields: [responsibleUserId], references: [id])
+  usages            ContainerUsage[]  @relation("ContainerUsageContainer")
+
+  @@index([code])
+  @@index([type])
+  @@index([material])
+  @@index([status])
+  @@index([nextCalDate])
+  @@map("containers")
+}
+
+model ContainerUsage {
+  id                String       @id @default(uuid()) @db.Uuid
+  usageNo           String       @unique @map("usage_no") @db.VarChar(50)  // USE-20260815-0001
+  containerId       String       @map("container_id") @db.Uuid
+  usedById          String       @map("used_by_id") @db.Uuid                // 使用人
+  testId            String?      @map("test_id") @db.Uuid                   // 关联检测
+  sampleId          String?      @map("sample_id") @db.Uuid                 // 关联样品
+  purpose           String?      @db.VarChar(200)                           // 用途:王水消解 / ICP定容
+  borrowedAt        DateTime     @default(now()) @map("borrowed_at") @db.Timestamptz
+  returnedAt        DateTime?    @map("returned_at") @db.Timestamptz        // null = 还在用
+  conditionBefore   String?      @map("condition_before") @db.VarChar(50)   // 借出状态:完好/有划痕
+  conditionAfter    String?      @map("condition_after") @db.VarChar(50)    // 归还状态:完好/破损
+  remarks           String?      @db.Text
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
+
+  container         Container    @relation("ContainerUsageContainer", fields: [containerId], references: [id], onDelete: Restrict)
+  usedBy            User         @relation("ContainerUsageUser", fields: [usedById], references: [id])
+  test              Test?        @relation("ContainerUsageTest", fields: [testId], references: [id])
+  sample            Sample?      @relation("ContainerUsageSample", fields: [sampleId], references: [id])
+
+  @@index([usageNo])
+  @@index([containerId])
+  @@index([usedById])
+  @@index([borrowedAt(sort: Desc)])
+  @@index([returnedAt])
+  @@map("container_usages")
 }
 

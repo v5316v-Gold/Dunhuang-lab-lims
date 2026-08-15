@@ -14,6 +14,7 @@ import { PersonnelList } from '../views/personnel/PersonnelList';
 import { ReagentsList } from '../views/reagent/ReagentsList';
 import { GasList } from '../views/gas/GasList';
 import { WasteList } from '../views/waste/WasteList';
+import { ContainerList } from '../views/container/ContainerList';
 import { SampleDetail } from '../views/sample/SampleDetail';
 import { RequireAuth } from './RequireAuth';
 
@@ -67,6 +68,7 @@ export function AppRouter() {
           <Route path="reagents" element={<ReagentsList />} />
           <Route path="gas" element={<GasList />} />
           <Route path="waste" element={<WasteList />} />
+          <Route path="container" element={<ContainerList />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
         </Route>
 

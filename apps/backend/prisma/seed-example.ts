@@ -344,8 +344,62 @@ for (const u of usageSeeds) {
   });
 }
 
-    // 10. 设备维护 + 期间核查
-    console.log('[seed] maintenance + periodic check...');
+    // 9.7 W3 容器管理种子数据(CNAS §7.5 + §6.5)
+    console.log('[seed] W3 containers + usages...');
+    const containerSeeds = [
+      { code: 'CT-202608-0001', name: '30mL 瓷坩埚', type: 'CRUCIBLE', material: 'PORCELAIN', capacityMl: '30.00', manufacturer: '唐山陶瓷集团', serialNo: 'TC-CR-001', location: '容器柜 B-01', status: 'IN_STOCK' as const },
+      { code: 'CT-202608-0002', name: '50mL 瓷坩埚', type: 'CRUCIBLE', material: 'PORCELAIN', capacityMl: '50.00', manufacturer: '唐山陶瓷集团', serialNo: 'TC-CR-002', location: '容器柜 B-01', status: 'IN_STOCK' as const },
+      { code: 'CT-202608-0003', name: '铂金坩埚 30mL', type: 'CRUCIBLE', material: 'PLATINUM', capacityMl: '30.00', toleranceMl: '0.0500', toleranceClass: 'A', manufacturer: '贵研铂业', serialNo: 'PT-CR-A001', location: '贵金属柜 P-01', status: 'IN_STOCK' as const },
+      { code: 'CT-202608-0004', name: '100mL 容量瓶 A级', type: 'VOLUMETRIC_FLASK', material: 'BOROSILICATE', capacityMl: '100.00', toleranceMl: '0.1000', toleranceClass: 'A', manufacturer: '蜀牛玻璃', serialNo: 'SN-VF-100A', location: '容量瓶柜 C-01', status: 'IN_STOCK' as const },
+      { code: 'CT-202608-0005', name: '250mL 容量瓶 A级', type: 'VOLUMETRIC_FLASK', material: 'BOROSILICATE', capacityMl: '250.00', toleranceMl: '0.1500', toleranceClass: 'A', manufacturer: '蜀牛玻璃', serialNo: 'SN-VF-250A', location: '容量瓶柜 C-01', status: 'IN_USE' as const },
+      { code: 'CT-202608-0006', name: '50mL 滴定管 A级', type: 'BURETTE', material: 'BOROSILICATE', capacityMl: '50.00', toleranceMl: '0.0500', toleranceClass: 'A', manufacturer: '蜀牛玻璃', serialNo: 'SN-BU-50A', location: '滴定管架 C-02', status: 'IN_STOCK' as const },
+      { code: 'CT-202608-0007', name: '500mL 烧杯', type: 'BEAKER', material: 'BOROSILICATE', capacityMl: '500.00', manufacturer: '蜀牛玻璃', serialNo: 'SN-BK-500', location: '烧杯架 D-01', status: 'IN_STOCK' as const },
+      { code: 'CT-202608-0008', name: '100mL PTFE 量筒', type: 'CYLINDER', material: 'PTFE', capacityMl: '100.00', manufacturer: '南京瑞尼克', serialNo: 'RN-CY-100', location: 'PTFE 柜 P-02', status: 'IN_STOCK' as const },
+    ];
+    const containerIds: Record<string, string> = {};
+    for (const c of containerSeeds) {
+      const r = await prisma.container.upsert({
+        where: { code: c.code }, update: {},
+        create: {
+          code: c.code, name: c.name, type: c.type as any, material: c.material as any,
+          capacityMl: c.capacityMl as any, toleranceMl: (c as any).toleranceMl as any,
+          toleranceClass: (c as any).toleranceClass, serialNo: c.serialNo, manufacturer: c.manufacturer,
+          location: c.location, status: c.status as any,
+          responsibleUserId: seniorUser.id,
+          calibrationDate: new Date('2026-01-15'),
+          nextCalDate: c.type === 'CRUCIBLE' ? null : new Date('2027-01-15'),
+          remarks: 'Phase W3 seed',
+        } as any,
+      });
+      containerIds[c.code] = r.id;
+    }
+
+    // 容器使用记录:1 条已归还 + 1 条未归还
+    const containerUsages = [
+      { usageNo: 'USE-20260815-0001', containerCode: 'CT-202608-0004', usedById: analystUser.id, purpose: 'ICP 定容', borrowedAgo: 3, conditionBefore: '完好', returnedAgo: 1, conditionAfter: '完好' },
+      { usageNo: 'USE-20260815-0002', containerCode: 'CT-202608-0005', usedById: seniorUser.id, purpose: '火试金溶液配制', borrowedAgo: 1, conditionBefore: '完好', returnedAgo: null, conditionAfter: null },
+    ];
+    for (const u of containerUsages) {
+      const borrowedAt = daysAgo(u.borrowedAgo);
+      const returnedAt = u.returnedAgo !== null ? daysAgo(u.returnedAgo) : null;
+      await prisma.containerUsage.upsert({
+        where: { usageNo: u.usageNo }, update: {},
+        create: {
+          usageNo: u.usageNo,
+          containerId: containerIds[u.containerCode],
+          usedById: u.usedById,
+          purpose: u.purpose,
+          borrowedAt,
+          returnedAt,
+          conditionBefore: u.conditionBefore,
+          conditionAfter: u.conditionAfter,
+          remarks: 'Phase W3 seed',
+        } as any,
+      });
+    }
+
+      // 10. 设备维护 + 期间核查
+      console.log('[seed] maintenance + periodic check...');
   const furnace = await prisma.equipment.findUnique({ where: { equipmentNo: 'EQ-FA-001' } });
   if (furnace) {
     await (prisma as any).maintenance.upsert({
