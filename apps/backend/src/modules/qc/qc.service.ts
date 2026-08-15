@@ -44,8 +44,9 @@ export class QcService {
     const absZ = Math.abs(zScore);
 
     // 2. 取最近 N 条同元素 QC(按时间顺序)
+    // ⚠️ fix: QcMeasurement 无 deletedAt 字段(仅 Test/Sample 等有软删除)
     const recent = await this.prisma.qcMeasurement.findMany({
-      where: { element: data.element, deletedAt: null },
+      where: { element: data.element },
       orderBy: { measuredAt: 'asc' },
       take: 12,  // 12-x 规则需要 12
       select: { id: true, zScore: true, measuredAt: true },
@@ -59,8 +60,12 @@ export class QcService {
     // 3. 应用 6 规则
     const wg: WestgardResult = applyWestgardRules(points);
 
-    // 4. 算回收率(如果有 expected)
-    const recoveryPct = data.expected ? calcRecoveryPct(measured, expected) : null;
+    // 4. 算回收率(如果有 expected 且非 0 — BLANK 样 expected=0 合法)
+    // ⚠️ fix: calcRecoveryPct 在 expected=0 会抛,BLANK 样不应调用
+    let recoveryPct: number | null = null;
+    if (data.expected && parseFloat(data.expected) !== 0) {
+      recoveryPct = calcRecoveryPct(measured, expected);
+    }
 
     // 5. 写 QcMeasurement
     const result = await this.prisma.qcMeasurement.create({
