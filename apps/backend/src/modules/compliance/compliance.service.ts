@@ -386,7 +386,7 @@ export class ComplianceService {
         where: { nextCalibrationAt: { lt: new Date() }, deletedAt: null },
       }),
       this.prisma.referenceMaterial.count({
-        where: { expiryDate: { lt: new Date() }, deletedAt: null },
+        where: { expiryDate: { lt: new Date() } },
       }),
       // 客户反馈 / 投诉(占位:简化为非审计日志外的统计)
       Promise.resolve(0),  // customer satisfaction 需另实现

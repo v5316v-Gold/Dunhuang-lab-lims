@@ -311,21 +311,21 @@ export class SopService {
   }> {
     const execution = await this.prisma.sopExecution.findUnique({
       where: { id: executionId },
-      include: { stepExecutions: { orderBy: { stepOrder: 'asc' } } },
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
     });
     if (!execution) throw new BadRequestException('执行记录不存在');
     if (execution.status !== 'COMPLETED') throw new BadRequestException('SOP 未完成');
 
     // 简化:从称重步骤拿金粒质量
-    const weighingStep = execution.stepExecutions.find((s) => s.stepCode === 'WEIGHING');
+    const weighingStep = execution.steps.find((s: any) => s.stepCode === 'WEIGHING');
     if (!weighingStep) throw new BadRequestException('缺少称重步骤');
 
-    const weighingParams = JSON.parse(weighingStep.paramsJson);
+    const weighingParams = JSON.parse(String(weighingStep.paramsJson));
     const prillMass = weighingParams.prill_mass_g as number;
 
     // 从配料步骤拿样品质量
-    const mixingStep = execution.stepExecutions.find((s) => s.stepCode === 'MIXING');
-    const sampleMass = JSON.parse(mixingStep!.paramsJson).sample_mass_g as number;
+    const mixingStep = execution.steps.find((s: any) => s.stepCode === 'MIXING');
+    const sampleMass = JSON.parse(String(mixingStep!.paramsJson)).sample_mass_g as number;
 
     // 简化:假设分金完全,金粒质量 = 样品中 Au 质量
     // Au 含量 = prill_mass / sample_mass × 100%

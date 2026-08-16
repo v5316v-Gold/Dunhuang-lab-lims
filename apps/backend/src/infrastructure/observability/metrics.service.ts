@@ -140,7 +140,6 @@ export class MetricsService implements OnModuleInit {
 
   onModuleInit() {
     this.logger.log('✅ Prometheus metrics 已初始化');
-    this.logger.log(`   Registry: ${this.registry.metrics().then ? 'async' : 'sync'}`);
     this.logger.log(`   业务指标: ${this.registry.getMetricsAsArray().length} 个`);
   }
 

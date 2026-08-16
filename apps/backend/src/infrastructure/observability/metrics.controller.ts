@@ -71,7 +71,7 @@ export class MetricsController {
     // Redis
     const redisStart = Date.now();
     try {
-      const pong = await this.redis.ping();
+      const pong = await this.redis.getClient().ping();
       checks.redis = {
         status: pong === 'PONG' ? 'up' : 'down',
         latencyMs: Date.now() - redisStart,

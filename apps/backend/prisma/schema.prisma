@@ -328,8 +328,9 @@ enum EquipmentType {
 enum EquipmentStatus {
   ACTIVE
   MAINTENANCE
-  RETIRED
+  QUARANTINED  // P2-1: 隔离(校准逾期 / 期间核查失败) — 不可用于检测
   BROKEN
+  RETIRED
 }
 
 model Equipment {

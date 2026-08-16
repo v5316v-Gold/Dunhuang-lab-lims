@@ -121,7 +121,14 @@ export class EquipmentService {
     remarks?: string;
   }) {
     const eq = await this.findOne(equipmentId);
-    const check = await this.prisma.periodicCheck.create({ data: { equipmentId, ...data } });
+    // P0-Fix-1: schema 加了 equipmentName 必填字段
+    const check = await this.prisma.periodicCheck.create({
+      data: {
+        equipmentId,
+        equipmentName: eq.name,
+        ...data,
+      },
+    });
     // P0-Fix-3: 期间核查结果审计
     await this.securityAudit.system(
       data.passed ? AuditEventType.PERIODIC_CHECK_PASSED : AuditEventType.PERIODIC_CHECK_FAILED,

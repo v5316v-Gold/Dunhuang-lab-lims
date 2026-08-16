@@ -168,7 +168,7 @@ export class ReportService {
       };
       const auditEvent = eventToAuditEvent[event];
       if (auditEvent) {
-        await this.securityAudit.system(auditEvent, {
+        await this.securityAudit.system(auditEvent as any, {
           reportId,
           event,
           fromStatus: report.status,

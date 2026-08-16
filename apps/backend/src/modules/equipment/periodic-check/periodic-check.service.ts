@@ -89,10 +89,7 @@ export class PeriodicCheckService {
           lt: tomorrow,
         },
       },
-      include: { dept: true },
     });
-
-    this.logger.log(`今日待核查设备:${dueEquipments.length} 台`);
 
     for (const eq of dueEquipments) {
       await this.createTask(eq.id, eq.name, eq.type as string);

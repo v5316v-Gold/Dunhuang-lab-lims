@@ -34,10 +34,11 @@ export class BusinessMetricsService {
   // ---------- Reports 待审核 ----------
   private async refreshReportsPendingReview(): Promise<void> {
     try {
+      // Report 表没有 deletedAt; 真实状态值用 enum 真实成员
+      // INTERNAL_REVIEW + FINAL_REVIEW 表示"待审核"
       const count = await this.prisma.report.count({
         where: {
-          status: { in: ['SUBMITTED', 'REVIEWED'] },
-          deletedAt: null,
+          status: { in: ['INTERNAL_REVIEW', 'FINAL_REVIEW'] },
         },
       });
       this.metrics.reportsPendingReview.set(count);
@@ -93,11 +94,11 @@ export class BusinessMetricsService {
   // ---------- 标准物质过期 ----------
   private async refreshReferenceMaterialExpired(): Promise<void> {
     try {
+      // ReferenceMaterial 没有 deletedAt 字段; 改用 status 排除
       const count = await this.prisma.referenceMaterial.count({
         where: {
           expiryDate: { lt: new Date() },
           status: { not: 'DISPOSED' },
-          deletedAt: null,
         },
       });
       this.metrics.referenceMaterialExpiredTotal.set(count);

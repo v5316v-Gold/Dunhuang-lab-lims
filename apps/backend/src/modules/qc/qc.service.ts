@@ -106,8 +106,8 @@ export class QcService {
         '10-x': AuditEventType.WESTGARD_VIOLATION_10X,
         '12-x': AuditEventType.WESTGARD_VIOLATION_10X,
       };
-      const event = ruleEventMap[wg.violatedRule] ?? AuditEventType.WESTGARD_VIOLATION_1_3S;
-      await this.securityAudit.system(event, {
+      const event: string = ruleEventMap[wg.violatedRule] ?? AuditEventType.WESTGARD_VIOLATION_1_3S;
+      await this.securityAudit.system(event as any, {
         rule: wg.violatedRule,
         element: data.element,
         zScore: zScore.toFixed(4),
