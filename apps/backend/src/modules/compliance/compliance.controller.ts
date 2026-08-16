@@ -1,15 +1,17 @@
 // =====================================================
 // W+2 审批管理 Controller(CMA 5 表 CRUD)
+// P2-6: 管评输入汇总 + 内审检查表 + NCR/CAPA 联动
 // =====================================================
 
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
 import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
-import { User } from '@prisma/client';
+import { User, UserRole } from '@prisma/client';
+import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { ComplianceService } from './compliance.service';
 
 @ApiTags('compliance')
@@ -99,4 +101,42 @@ export class ComplianceController {
   @Get('proficiency-test')
   @ApiOperation({ summary: '能力验证列表' })
   listPT() { return this.svc.listProficiencyTests(); }
+
+  // ---- P2-6: 内审检查表 + 管评输入 + NCR/CAPA ----
+  @Get('audit-checklist')
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '内审检查表(CNAS §4-§7 全条款 15 项)' })
+  auditChecklist() {
+    return this.svc.generateAuditChecklist();
+  }
+
+  @Get('management-review/inputs')
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '管评 12 项输入自动汇总(CNAS §8.9)' })
+  mrInputs(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    const fromDate = from ? new Date(from) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const toDate = to ? new Date(to) : new Date();
+    return this.svc.getManagementReviewInputs(fromDate, toDate);
+  }
+
+  @Patch('nonconformances/:id/capa')
+  @MfaProtected(MFA_SCENES.CAPA_APPROVE)
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR)
+  @ApiOperation({ summary: 'NCR → CAPA 联动(CNAS §7.10 — 评审必查)' })
+  linkCapa(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { capaAction: string; preventiveAction?: string; effectivenessVerification?: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.svc.linkNcToCapa({
+      ncId: id,
+      capaAction: body.capaAction,
+      preventiveAction: body.preventiveAction,
+      effectivenessVerification: body.effectivenessVerification,
+      operatorId: user.id,
+    });
+  }
 }

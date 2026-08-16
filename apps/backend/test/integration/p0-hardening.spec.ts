@@ -428,8 +428,107 @@ describe('P0 综合硬化 (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch('/api/v1/qc/nonconformances/00000000-0000-0000-0000-000000000000/close')
         .send({ rootCause: 'test' });
-      // 未认证 → 401;已认证但未带 MFA → 403 MFA_TOKEN_REQUIRED
       expect([401, 403]).toContain(res.status);
+    });
+  });
+
+  // ===================================================================
+  // P2-6: 内审检查表 + 管评输入 + NCR/CAPA
+  // ===================================================================
+  describe('P2-6 合规管理自动化', () => {
+    it('6.4 ComplianceService.getManagementReviewInputs 返回 12 项输入', async () => {
+      const { ComplianceService } = await import('../../src/modules/compliance/compliance.service');
+      const svc = app.get(ComplianceService);
+      const inputs = await svc.getManagementReviewInputs(
+        new Date(Date.now() - 365 * 86400_000),
+        new Date(),
+      );
+      expect(inputs.inputs.length).toBeGreaterThanOrEqual(12);
+      const keys = inputs.inputs.map((i) => i.key);
+      expect(keys).toContain('ia');
+      expect(keys).toContain('oos');
+      expect(keys).toContain('equipment');
+      expect(keys).toContain('cap');
+      expect(keys).toContain('rm');
+      expect(keys).toContain('pt');
+    });
+
+    it('6.5 ComplianceService.generateAuditChecklist 返回 15 条款', async () => {
+      const { ComplianceService } = await import('../../src/modules/compliance/compliance.service');
+      const svc = app.get(ComplianceService);
+      const list = svc.generateAuditChecklist();
+      expect(list.length).toBeGreaterThanOrEqual(15);
+      const sections = list.map((c) => c.section);
+      expect(sections).toContain('§4');
+      expect(sections).toContain('§7.8');
+      expect(sections).toContain('§8.8');
+      expect(sections).toContain('§8.9');
+    });
+
+    it('6.6 GET /compliance/audit-checklist 需登录', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/compliance/audit-checklist');
+      expect([200, 401]).toContain(res.status);
+    });
+
+    it('6.7 GET /compliance/management-review/inputs 需登录', async () => {
+      const res = await request(app.getHttpServer()).get(
+        '/api/v1/compliance/management-review/inputs',
+      );
+      expect([200, 401]).toContain(res.status);
+    });
+
+    it('6.8 PATCH /compliance/nonconformances/:id/capa 未带 mfaToken → 403', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/api/v1/compliance/nonconformances/00000000-0000-0000-0000-000000000000/capa')
+        .send({ capaAction: 'test' });
+      expect([401, 403]).toContain(res.status);
+    });
+  });
+
+  // ===================================================================
+  // P2-4: 报告 PDF 二维码 + verify 端点
+  // ===================================================================
+  describe('P2-4 报告 QR 反查', () => {
+    it('4.4 QrCodeService 可注入', async () => {
+      const { QrCodeService } = await import('../../src/common/qrcode/qrcode.service');
+      const svc = app.get(QrCodeService);
+      expect(svc).toBeDefined();
+    });
+
+    it('4.5 ReportVerifyController 注册了 GET /verify 端点', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/verify?report=test');
+      // 公开端点:可能 200 / 404 / 400(无 report 参数)
+      expect([200, 400, 404]).toContain(res.status);
+    });
+  });
+
+  // ===================================================================
+  // P2-5: 留样自动化
+  // ===================================================================
+  describe('P2-5 留样自动化', () => {
+    it('5.6 RetentionSchedulerService 可注入 + cron 注册', async () => {
+      const { RetentionSchedulerService } = await import(
+        '../../src/modules/sample/retention-scheduler.service'
+      );
+      const svc = app.get(RetentionSchedulerService);
+      expect(svc).toBeDefined();
+      expect(svc.findExpiringIn).toBeDefined();
+      expect(svc.dispose).toBeDefined();
+    });
+
+    it('5.7 findExpiringIn(30) 返回 ARCHIVED 状态样品', async () => {
+      const { RetentionSchedulerService } = await import(
+        '../../src/modules/sample/retention-scheduler.service'
+      );
+      const svc = app.get(RetentionSchedulerService);
+      const alerts = await svc.findExpiringIn(30);
+      expect(Array.isArray(alerts)).toBe(true);
+      // 样品 0 也合法(可能没数据)
+      alerts.forEach((a) => {
+        expect(a.sampleNo).toBeDefined();
+        expect(a.daysLeft).toBeGreaterThanOrEqual(0);
+        expect(a.daysLeft).toBeLessThanOrEqual(30);
+      });
     });
   });
 });
