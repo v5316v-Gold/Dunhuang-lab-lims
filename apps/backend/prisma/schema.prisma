@@ -139,6 +139,9 @@ model User {
   taReceived              TemporaryAuthorization[] @relation("TAGrantee")
   taRevoked               TemporaryAuthorization[] @relation("TARevoker")
 
+  sopExecutions           SopExecution[]        @relation("UserSopExecution")
+  sopStepExecutions       SopStepExecution[]    @relation("UserSopStepExecution")
+
   @@index([email])
   @@index([deptId])
   @@index([status, deletedAt])
@@ -332,6 +335,8 @@ enum EquipmentStatus {
 model Equipment {
   id              String         @id @default(uuid()) @db.Uuid
   equipmentNo     String         @unique @map("equipment_no") @db.VarChar(50)
+  // P0-Fix-1 新增:业务系统内 code(同等于 equipmentNo,但供 SOP / instrument / 微服务调用)
+  code            String?        @unique @map("code") @db.VarChar(50)
   name            String         @db.VarChar(100)
   type            EquipmentType
   model           String?        @db.VarChar(100)
@@ -343,6 +348,9 @@ model Equipment {
   status          EquipmentStatus @default(ACTIVE)
   accuracy        String?        @db.VarChar(50) // e.g. "0.001mg", "0.1ppm"
   range           String?        @db.VarChar(100)
+  // P0-Fix-1 新增:校准 / 期间核查到期(供 cron 扫描)
+  nextCalibrationAt DateTime?    @map("next_calibration_at") @db.Timestamptz
+  nextPeriodicCheckAt DateTime?  @map("next_periodic_check_at") @db.Timestamptz
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt       DateTime?      @map("deleted_at") @db.Timestamptz
@@ -353,7 +361,10 @@ model Equipment {
   files           FileAttachment[]
 
   @@index([equipmentNo])
+  @@index([code])
   @@index([type, status])
+  @@index([nextCalibrationAt])
+  @@index([nextPeriodicCheckAt])
   @@map("equipment")
   nonConformances NonConformance[]  @relation("NCEquipment")
 }
@@ -397,18 +408,34 @@ model Maintenance {
 model PeriodicCheck {
   id            String    @id @default(uuid()) @db.Uuid
   equipmentId   String    @map("equipment_id") @db.Uuid
+  // P0-Fix-1 新增:冗余字段,便于查询/审计
+  equipmentName String    @map("equipment_name") @db.VarChar(100)
   checkDate     DateTime  @map("check_date") @db.Date
+  // P0-Fix-1 新增:计划日期 vs 实际提交
+  scheduledDate DateTime? @map("scheduled_date") @db.Date
+  submittedAt   DateTime? @map("submitted_at") @db.Timestamptz
   performedBy   String    @map("performed_by") @db.Uuid
+  // P0-Fix-1 新增:执行人(可与 performedBy 不同,用于代签)
+  operatorId    String?   @map("operator_id") @db.Uuid
   result        String?   @db.Text
   zScore        Decimal?  @map("z_score") @db.Decimal(8, 4)
   passed        Boolean   @default(true)
   remarks       String?   @db.Text
+  // P0-Fix-1 新增:模板 + 检查项 + Westgard 违规(JSON)
+  template      String?   @map("template") @db.VarChar(50)
+  checksJson    Json?     @map("checks_json") @db.JsonB
+  resultsJson   Json?     @map("results_json") @db.JsonB
+  westgardViolations Json? @map("westgard_violations") @db.JsonB
+  // P0-Fix-1 新增:状态 PENDING / PASSED / FAILED / OVERDUE
+  status        String    @default("PENDING") @map("status") @db.VarChar(20)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@index([equipmentId])
   @@index([checkDate(sort: Desc)])
+  @@index([scheduledDate])
+  @@index([status])
   @@map("periodic_checks")
 }
 
@@ -520,6 +547,7 @@ model Sample {
   containerUsages  ContainerUsage[]       @relation("ContainerUsageSample")
   samplingRecord       SamplingRecord?      @relation("SampleSamplingRecord")
   preciousMetalBar     PreciousMetalBar?    @relation("SamplePreciousMetalBar")
+  sopExecutions        SopExecution[]       @relation("SampleSopExecution")
 
   @@index([sampleNo])
   @@index([batchId])
@@ -713,7 +741,10 @@ model ReferenceMaterial {
   isCrm               Boolean  @default(false) @map("is_crm")              // 有证标准物质(CRM) vs 工作标准
   standardUncertainty Decimal? @map("standard_u") @db.Decimal(15, 9)     // 证书 U(k=2)
   sha256Certificate  String?  @map("sha256_cert") @db.Char(64)           // 证书 PDF SHA256(防伪)
-  status             String   @default("ACTIVE") @db.VarChar(20)          // ACTIVE/EXPIRED/RETIRED
+  // P0-Fix-1 新增:剩余量(瓶装跟踪)
+  remainingGrams    Decimal? @map("remaining_g") @db.Decimal(15, 6)
+  // P0-Fix-1 扩展 status:ACTIVE / IN_USE / NEAR_EXPIRY / EXPIRED / DEPLETED / DISPOSED
+  status             String   @default("ACTIVE") @db.VarChar(20)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   qcMeasurements  QcMeasurement[]
@@ -722,6 +753,7 @@ model ReferenceMaterial {
 
   @@index([code])
   @@index([element])
+  @@index([status, expiryDate])
   @@map("reference_materials")
 }
 
@@ -1800,5 +1832,64 @@ model TemporaryAuthorization {
   @@index([granteeId])
   @@index([effectiveFrom, effectiveTo])
   @@map("temporary_authorizations")
+}
+
+// =====================================================
+// P0-Fix-1 新增:SOP 执行 / 步骤执行记录
+// 详见 apps/backend/src/modules/test/sop/sop.service.ts
+// =====================================================
+
+enum SopExecutionStatus {
+  IN_PROGRESS  @map("in_progress")
+  COMPLETED    @map("completed")
+  CANCELLED    @map("cancelled")
+  FAILED       @map("failed")
+
+  @@map("sop_execution_status")
+}
+
+model SopExecution {
+  id           String             @id @default(uuid()) @db.Uuid
+  sampleId     String             @map("sample_id") @db.Uuid
+  batchId      String             @map("batch_id") @db.Uuid
+  sopCode      String             @map("sop_code") @db.VarChar(50)        // FIRE-ASSAY-AU 等
+  sopVersion   String             @map("sop_version") @db.VarChar(20)
+  operatorId   String             @map("operator_id") @db.Uuid
+  currentStep  Int                @default(1) @map("current_step")
+  totalSteps   Int                @map("total_steps")
+  status       SopExecutionStatus @default(IN_PROGRESS)
+  startedAt    DateTime           @default(now()) @map("started_at") @db.Timestamptz
+  completedAt  DateTime?          @map("completed_at") @db.Timestamptz
+  cancelledAt  DateTime?          @map("cancelled_at") @db.Timestamptz
+  cancelReason String?            @map("cancel_reason") @db.Text
+
+  sample       Sample    @relation("SampleSopExecution", fields: [sampleId], references: [id])
+  operator     User      @relation("UserSopExecution", fields: [operatorId], references: [id])
+  steps        SopStepExecution[]
+
+  @@index([sampleId])
+  @@index([batchId])
+  @@index([operatorId])
+  @@index([sopCode])
+  @@index([status])
+  @@map("sop_executions")
+}
+
+model SopStepExecution {
+  id              String    @id @default(uuid()) @db.Uuid
+  sopExecutionId  String    @map("sop_execution_id") @db.Uuid
+  stepOrder       Int       @map("step_order")
+  stepCode        String    @map("step_code") @db.VarChar(50)   // MIXING / FUSING / CUPELLING / ...
+  stepName        String    @map("step_name") @db.VarChar(100)
+  paramsJson      Json      @map("params_json") @db.JsonB
+  operatorId      String    @map("operator_id") @db.Uuid
+  completedAt     DateTime  @default(now()) @map("completed_at") @db.Timestamptz
+
+  sopExecution    SopExecution @relation(fields: [sopExecutionId], references: [id], onDelete: Cascade)
+  operator        User         @relation("UserSopStepExecution", fields: [operatorId], references: [id])
+
+  @@index([sopExecutionId])
+  @@index([stepCode])
+  @@map("sop_step_executions")
 }
 

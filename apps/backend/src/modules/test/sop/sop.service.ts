@@ -14,7 +14,6 @@ import { Injectable, Logger, BadRequestException, ForbiddenException } from '@ne
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { AuditEventType } from '../../../common/audit/audit-event.enum';
 import { SecurityAuditService } from '../../../common/audit/security-audit.service';
-import { canPerformTesting } from '../../../common/state-machine/machines/personnel.machine';
 import { canBeUsed } from '../../../common/state-machine/machines/reference-material.machine';
 import { canUseForTesting } from '../../../common/state-machine/machines/equipment.machine';
 
@@ -39,6 +38,7 @@ export interface SopTemplate {
   name: string;
   standard: string;          // e.g. GB/T 9288-2023
   version: string;
+  method: string;            // 对应 Competency.method (FIRE_ASSAY / ICP_OES / ...)
   steps: SopStep[];
 }
 
@@ -48,6 +48,7 @@ const FIRE_ASSAY_AU_TEMPLATE: SopTemplate = {
   name: '火试金法测定金',
   standard: 'GB/T 9288-2023',
   version: 'v1.0',
+  method: 'FIRE_ASSAY',
   steps: [
     {
       order: 1,
@@ -131,9 +132,15 @@ const FIRE_ASSAY_AU_TEMPLATE: SopTemplate = {
 @Injectable()
 export class SopService {
   private readonly logger = new Logger(SopService.name);
-  private readonly templates = new Map<string, SopTemplate>([
+  // P0-Fix-1:从 private 改为 public,controller 才能列出模板
+  public readonly templates = new Map<string, SopTemplate>([
     [FIRE_ASSAY_AU_TEMPLATE.code, FIRE_ASSAY_AU_TEMPLATE],
   ]);
+
+  // P0-Fix-1:缓存模板 method 给 controller / Competency 校验使用
+  public readonly tpl = {
+    get: (code: string) => this.templates.get(code),
+  };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -158,11 +165,32 @@ export class SopService {
     const tpl = this.getTemplate(input.sopCode);
 
     // 1. 校验人员资质
+    // P0-Fix-1: Personnel.status 只有 ACTIVE/INACTIVE/RETIRED,
+    // 真正的"是否能做该方法"通过 Competency 表(level=JUNIOR/SENIOR/EXPERT + expiresAt)校验
     const personnel = await this.prisma.personnel.findUnique({
       where: { userId: input.operatorId },
+      include: {
+        competencies: {
+          where: {
+            expiresAt: { gt: new Date() },
+          },
+        },
+      },
     });
-    if (!personnel || !canPerformTesting(personnel.status as any)) {
-      throw new ForbiddenException(`操作员 ${input.operatorId} 未授权(AUTHORIZED 状态)执行检测`);
+    if (!personnel) {
+      throw new ForbiddenException(`操作员 userId=${input.operatorId} 不在 Personnel 表`);
+    }
+    if (personnel.status !== 'ACTIVE') {
+      throw new ForbiddenException(`操作员 ${personnel.name} 状态 ${personnel.status},不可执行检测`);
+    }
+
+    // 校验是否有 SOP 对应方法的 Competency
+    const sopMethod = this.tpl.get(input.sopCode)?.method ?? 'FIRE_ASSAY';
+    const hasComp = personnel.competencies.some((c) => c.method === sopMethod);
+    if (!hasComp) {
+      throw new ForbiddenException(
+        `操作员 ${personnel.name} 缺少方法 ${sopMethod} 的 Competency 资质(已过期或未授权)`,
+      );
     }
 
     // 2. 创建执行记录

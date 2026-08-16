@@ -33,7 +33,7 @@ export class InstrumentRegistryService {
     // 这里先返回 mock,后续接 Equipment 模型
     const equipment = await this.prisma.equipment.findFirst({
       where: {
-        serialNumber: serial,
+        serialNo: serial,
         deletedAt: null,
       },
     });
@@ -42,14 +42,17 @@ export class InstrumentRegistryService {
       return null;
     }
 
+    // P0-Fix-1:Equipment.code 已通过 migration 补齐,兜底用 equipmentNo
+    const equipmentCode = equipment.code ?? equipment.equipmentNo;
+
     const inst: RegisteredInstrument = {
       id: equipment.id,
-      code: equipment.code,
+      code: equipmentCode,
       name: equipment.name,
       type: equipment.type,
       certSerial: serial,
       // sharedSecret 应单独存储加密(暂时用设备编号占位,生产必须改)
-      sharedSecret: process.env[`INSTRUMENT_SECRET_${equipment.code}`] || equipment.code,
+      sharedSecret: process.env[`INSTRUMENT_SECRET_${equipmentCode}`] || equipmentCode,
       enabled: equipment.status === 'ACTIVE',
     };
 

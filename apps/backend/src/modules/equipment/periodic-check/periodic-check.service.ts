@@ -7,7 +7,9 @@
 //   - 自动生成 PeriodicCheckTask
 //   - 检测员扫码打开核查表单
 //   - 数据录入后自动套 Westgard 规则
-//   - 失败自动开 OOS + 设备 QUARANTINED + 告警 QA
+// P0-Fix-1 修复:PeriodicCheckTask 在 schema 中实际命名为 PeriodicCheck
+//   并扩展了 scheduledDate / submittedAt / operatorId / checksJson /
+//   resultsJson / westgardViolations / status / template 字段
 // =====================================================
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -16,7 +18,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { AuditEventType } from '../../../common/audit/audit-event.enum';
 import { SecurityAuditService } from '../../../common/audit/security-audit.service';
-import { applyWestgardRules } from '../../../common/qc/westgard';
+import { applyWestgardRules, type QcPoint } from '../../../common/qc/westgard';
 import { BusinessMetricsService } from '../../../infrastructure/observability/business-metrics.service';
 
 interface PeriodicCheckTemplate {
@@ -131,7 +133,7 @@ export class PeriodicCheckService {
     }
 
     // 检查今日是否已创建
-    const existing = await this.prisma.periodicCheckTask.findFirst({
+    const existing = await this.prisma.periodicCheck.findFirst({
       where: {
         equipmentId,
         scheduledDate: {
@@ -142,14 +144,16 @@ export class PeriodicCheckService {
     });
     if (existing) return;
 
-    await this.prisma.periodicCheckTask.create({
+    await this.prisma.periodicCheck.create({
       data: {
         equipmentId,
         equipmentName,
+        checkDate: new Date(),
         template: equipmentType,
         scheduledDate: new Date(),
         status: 'PENDING',
-        checksJson: JSON.stringify(template.checks),
+        checksJson: template.checks as any,
+        performedBy: (await this.getSystemUserId()), // 系统任务占位
       },
     });
 
@@ -170,14 +174,14 @@ export class PeriodicCheckService {
     failedChecks: string[];
     westgardViolations: string[];
   }> {
-    const task = await this.prisma.periodicCheckTask.findUnique({ where: { id: taskId } });
+    const task = await this.prisma.periodicCheck.findUnique({ where: { id: taskId } });
     if (!task) throw new Error('Task not found');
 
-    const checks = JSON.parse(task.checksJson) as PeriodicCheckTemplate['checks'];
+    const checks = (task.checksJson as unknown as PeriodicCheckTemplate['checks']) ?? [];
 
     // 1. 逐项校验范围
     const failedChecks: string[] = [];
-    const numericValues: number[] = [];
+    const qcPoints: QcPoint[] = [];
 
     for (const check of checks) {
       const value = results[check.name];
@@ -186,29 +190,38 @@ export class PeriodicCheckService {
         continue;
       }
       if (check.type === 'NUMERIC' && typeof value === 'number' && check.expectedRange) {
-        numericValues.push(value);
+        // P0-Fix-1: Westgard 需要 QcPoint[] (zScore + run)
+        // 此处期望范围作为"伪" z-score: 如果在范围内,zScore=0; 超出则 zScore>1
+        const mid = (check.expectedRange.min + check.expectedRange.max) / 2;
+        const range = check.expectedRange.max - check.expectedRange.min;
+        const sd = range / 6; // 近似 ±3SD = 范围
+        const z = sd > 0 ? (value - mid) / sd : 0;
+        qcPoints.push({ zScore: z, run: qcPoints.length + 1 });
         if (value < check.expectedRange.min || value > check.expectedRange.max) {
           failedChecks.push(`${check.name}: ${value}${check.unit || ''} 超出范围 [${check.expectedRange.min}, ${check.expectedRange.max}]`);
         }
       }
     }
 
-    // 2. 套 Westgard(对数值类检查)
+    // 2. 套 Westgard 规则(需要 ≥2 个点)
     const westgardViolations: string[] = [];
-    if (numericValues.length >= 2) {
-      const violations = applyWestgardRules(numericValues);
-      westgardViolations.push(...violations.map((v) => `${v.rule}: ${v.message}`));
+    if (qcPoints.length >= 2) {
+      const result = applyWestgardRules(qcPoints);
+      if (!result.passed && result.violatedRule) {
+        westgardViolations.push(`${result.violatedRule}: ${result.ruleDetail ?? ''}`);
+      }
     }
 
     const passed = failedChecks.length === 0 && westgardViolations.length === 0;
 
     // 3. 更新任务
-    await this.prisma.periodicCheckTask.update({
+    await this.prisma.periodicCheck.update({
       where: { id: taskId },
       data: {
         status: passed ? 'PASSED' : 'FAILED',
-        resultsJson: JSON.stringify(results),
-        westgardViolations: JSON.stringify(westgardViolations),
+        passed,
+        resultsJson: results as any,
+        westgardViolations: westgardViolations as any,
         submittedAt: new Date(),
         operatorId,
       },
@@ -243,9 +256,58 @@ export class PeriodicCheckService {
     );
 
     for (const v of westgardViolations) {
-      this.businessMetrics.incWestgardViolation(v.split(':')[0], task.equipmentType || 'UNKNOWN');
+      this.businessMetrics.incWestgardViolation(v.split(':')[0], task.template || 'UNKNOWN');
     }
 
     return { passed, failedChecks, westgardViolations };
+  }
+
+  /**
+   * P0-Fix-1:列出今日待核查任务(给 controller 用)
+   */
+  async listTodayTasks(): Promise<Array<{
+    id: string;
+    equipmentId: string;
+    equipmentName: string;
+    template: string | null;
+    status: string;
+    scheduledDate: Date | null;
+  }>> {
+    const startOfDay = new Date(new Date().setHours(0, 0, 0, 0));
+    const endOfDay = new Date(new Date().setHours(23, 59, 59, 999));
+    return this.prisma.periodicCheck.findMany({
+      where: {
+        scheduledDate: { gte: startOfDay, lte: endOfDay },
+        status: 'PENDING',
+      },
+      select: {
+        id: true,
+        equipmentId: true,
+        equipmentName: true,
+        template: true,
+        status: true,
+        scheduledDate: true,
+      },
+      orderBy: { scheduledDate: 'asc' },
+    });
+  }
+
+  /**
+   * P0-Fix-1:获取系统用户 ID(用于 cron 自动创建任务的 performedBy 占位)
+   * 真实场景应该用 SYSTEM 角色用户
+   */
+  private async getSystemUserId(): Promise<string> {
+    const system = await this.prisma.user.findFirst({
+      where: { username: 'system' },
+      select: { id: true },
+    });
+    if (system) return system.id;
+    // 兜底:用 admin(必须有 admin 用户)
+    const admin = await this.prisma.user.findFirst({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+    if (!admin) throw new Error('找不到系统用户或管理员用户');
+    return admin.id;
   }
 }

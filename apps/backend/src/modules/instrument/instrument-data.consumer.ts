@@ -39,10 +39,11 @@ export class InstrumentDataConsumer implements OnModuleInit {
     const consumerName = `backend-${process.pid}`;
     const streamKey = 'lims:instrument:data:stream';
     const group = 'lims-instrument-consumers';
+    const client = this.redis.getClient();
 
     // 创建消费组(若不存在)
     try {
-      await (this.redis as any).client.xgroup('CREATE', streamKey, group, '$', 'MKSTREAM');
+      await client.xgroup('CREATE', streamKey, group, '$', 'MKSTREAM');
     } catch (e: any) {
       if (!String(e.message).includes('BUSYGROUP')) {
         throw e;
@@ -51,19 +52,25 @@ export class InstrumentDataConsumer implements OnModuleInit {
 
     while (this.running) {
       try {
-        const results = await (this.redis as any).client.xreadgroup(
+        // ioredis xreadgroup 返回 [streamName, [[id, [field, value, ...]], ...]]
+        const results = (await client.xreadgroup(
           'GROUP', group, consumerName,
           'COUNT', 10,
           'BLOCK', 5000,
           'STREAMS', streamKey, '>',
-        );
+        )) as Array<[string, Array<[string, string[]]>]> | null;
 
         if (!results) continue;
 
-        for (const [, messages] of results as [string, [string, string[]][]][]) {
+        for (const [, messages] of results) {
           for (const [id, fields] of messages) {
-            await this.processMessage(id, fields);
-            await (this.redis as any).client.xack(streamKey, group, id);
+            try {
+              await this.processMessage(id, fields);
+              await client.xack(streamKey, group, id);
+            } catch (msgErr) {
+              this.logger.error(`消息 ${id} 处理失败(将保留在 PEL 中等待重试): ${(msgErr as Error).message}`);
+              // 不 ack,留给下一次循环或运维介入
+            }
           }
         }
       } catch (e) {

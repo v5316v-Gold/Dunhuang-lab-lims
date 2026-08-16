@@ -15,7 +15,6 @@
 // =====================================================
 
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
 
 import { InstrumentDataController } from './instrument-data.controller';
 import { InstrumentDataService } from './instrument-data.service';
@@ -23,7 +22,7 @@ import { InstrumentDataConsumer } from './instrument-data.consumer';
 import { InstrumentRegistryService } from './instrument-registry.service';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  // P0-Fix-1: ScheduleModule 已在 MetricsModule @Global 注册,这里不重复
   controllers: [InstrumentDataController],
   providers: [InstrumentDataService, InstrumentDataConsumer, InstrumentRegistryService],
   exports: [InstrumentDataService, InstrumentRegistryService],

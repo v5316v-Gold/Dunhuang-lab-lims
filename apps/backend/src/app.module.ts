@@ -41,6 +41,7 @@ import { ReagentModule } from './modules/reagent/reagent.module';
 import { ReportModule } from './modules/report/report.module';
 import { SampleModule } from './modules/sample/sample.module';
 import { TestModule } from './modules/test/test.module';
+import { SopModule } from './modules/test/sop/sop.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { TestModule } from './modules/test/test.module';
     SampleModule,
     BatchModule,
     TestModule,
+    SopModule,
     QcModule,
     ReportModule,
     ReagentModule,

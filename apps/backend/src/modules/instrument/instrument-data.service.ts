@@ -38,7 +38,8 @@ export class InstrumentDataService {
       payload: JSON.stringify(env.payload),
     };
 
-    const streamId = await (this.redis as any).client.xadd(
+    // ioredis xadd 签名:xadd(key, '*', field1, value1, field2, value2, ...)
+    const streamId = await this.redis.getClient().xadd(
       this.streamKey,
       'MAXLEN', '~', this.maxLen.toString(),
       '*',
@@ -46,7 +47,7 @@ export class InstrumentDataService {
     );
 
     this.logger.debug(`仪器 ${env.instrumentCode} 数据入队: ${streamId}`);
-    return streamId;
+    return streamId as string;
   }
 
   /**
