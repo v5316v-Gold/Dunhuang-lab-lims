@@ -1,16 +1,22 @@
 // =====================================================
 // 设备服务 - 设备/校准/维护/期间核查
 // 详见 ADR-0011 §4 / Phase 3 文档
+// P0-Fix-3:接入 SecurityAuditService,所有变更写审计
 // =====================================================
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Equipment, EquipmentType, EquipmentStatus } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SecurityAuditService } from '../../common/audit/security-audit.service';
+import { AuditEventType } from '../../common/audit/audit-event.enum';
 
 @Injectable()
 export class EquipmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityAudit: SecurityAuditService,
+  ) {}
 
   async create(data: {
     equipmentNo: string;
@@ -25,7 +31,15 @@ export class EquipmentService {
     accuracy?: string;
     range?: string;
   }): Promise<Equipment> {
-    return this.prisma.equipment.create({ data });
+    const eq = await this.prisma.equipment.create({ data });
+    // P0-Fix-3: 审计埋点
+    await this.securityAudit.system(AuditEventType.EQUIPMENT_REGISTERED, {
+      equipmentId: eq.id,
+      equipmentNo: eq.equipmentNo,
+      name: eq.name,
+      type: eq.type,
+    });
+    return eq;
   }
 
   async findAll(filter: { type?: EquipmentType; status?: EquipmentStatus; page?: number; pageSize?: number }) {
@@ -70,8 +84,21 @@ export class EquipmentService {
     result?: string;
     nextDueDate: Date;
   }) {
-    await this.findOne(equipmentId);
-    return this.prisma.calibration.create({ data: { equipmentId, ...data } });
+    const eq = await this.findOne(equipmentId);
+    const cal = await this.prisma.calibration.create({ data: { equipmentId, ...data } });
+    // P0-Fix-3: 校准结果审计
+    const passed = !data.result || /pass|合格|√|通过/i.test(data.result);
+    await this.securityAudit.system(
+      passed ? AuditEventType.CALIBRATION_PASSED : AuditEventType.CALIBRATION_FAILED,
+      {
+        equipmentId,
+        equipmentName: eq.name,
+        certificateNo: data.certificateNo,
+        calibrationOrg: data.calibrationOrg,
+        result: data.result,
+      },
+    );
+    return cal;
   }
 
   async addMaintenance(equipmentId: string, data: {
@@ -93,16 +120,34 @@ export class EquipmentService {
     passed: boolean;
     remarks?: string;
   }) {
-    await this.findOne(equipmentId);
-    return this.prisma.periodicCheck.create({ data: { equipmentId, ...data } });
+    const eq = await this.findOne(equipmentId);
+    const check = await this.prisma.periodicCheck.create({ data: { equipmentId, ...data } });
+    // P0-Fix-3: 期间核查结果审计
+    await this.securityAudit.system(
+      data.passed ? AuditEventType.PERIODIC_CHECK_PASSED : AuditEventType.PERIODIC_CHECK_FAILED,
+      {
+        equipmentId,
+        equipmentName: eq.name,
+        zScore: data.zScore,
+        remarks: data.remarks,
+      },
+    );
+    return check;
   }
 
   async retire(id: string) {
-    await this.findOne(id);
-    return this.prisma.equipment.update({
+    const eq = await this.findOne(id);
+    const retired = await this.prisma.equipment.update({
       where: { id },
       data: { status: 'RETIRED' },
     });
+    // P0-Fix-3: 设备报废审计
+    await this.securityAudit.system(AuditEventType.EQUIPMENT_RETIRED, {
+      equipmentId: id,
+      equipmentNo: eq.equipmentNo,
+      name: eq.name,
+    });
+    return retired;
   }
 
   /**

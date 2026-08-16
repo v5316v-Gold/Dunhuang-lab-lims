@@ -9,6 +9,8 @@ import { User, UserRole, ReportStatus } from '@prisma/client';
 
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 
@@ -56,8 +58,10 @@ export class ReportController {
     res.send(buffer);
   }
 
+  // P0-Fix-2: 状态机推进强制 MFA(覆盖 SUBMIT / REVIEW / APPROVE / ISSUE 等所有动作)
   @Post(':id/transition')
-  @ApiOperation({ summary: '推进报告状态(状态机)' })
+  @MfaProtected(MFA_SCENES.REPORT_ISSUE)
+  @ApiOperation({ summary: '推进报告状态(状态机,MFA 强制)' })
   transition(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { action: 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'ISSUE'; comments?: string },
@@ -66,9 +70,11 @@ export class ReportController {
     return this.reportService.transition(id, body.action, user.id, body.comments);
   }
 
+  // P0-Fix-2: 电子签名强制 MFA(21 CFR Part 11 §11.200 单独身份认证)
   @Post(':id/sign')
+  @MfaProtected(MFA_SCENES.REPORT_SIGN)
   @RequireRole(UserRole.LAB_DIRECTOR, UserRole.QUALITY_MANAGER, UserRole.SENIOR_ANALYST)
-  @ApiOperation({ summary: '电子签名(Phase 4 集成第三方 CA)' })
+  @ApiOperation({ summary: '电子签名(Phase 4 集成第三方 CA,MFA 强制)' })
   sign(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { signatureData: string; certificateSerial: string },

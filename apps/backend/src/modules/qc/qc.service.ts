@@ -85,15 +85,35 @@ export class QcService {
       },
     });
 
-    // 6. 审计
-    await this.securityAudit.system(AuditEventType.SETTINGS_CHANGED, {
-      event: 'QC_RECORDED',
+    // 6. 审计(P0-Fix-3:用正确的事件类型,不再用 SETTINGS_CHANGED)
+    await this.securityAudit.system(AuditEventType.QC_MEASUREMENT_RECORDED, {
       element: data.element,
       qcType: data.qcType,
       zScore: zScore.toFixed(4),
       passed: wg.passed,
-      rule: wg.violatedRule,
+      rule: wg.violatedRule ?? null,
+      measurementId: result.id,
+      testId: data.testId ?? null,
     });
+
+    // P0-Fix-3:Westgard 规则违反事件
+    if (!wg.passed && wg.violatedRule) {
+      const ruleEventMap: Record<string, string> = {
+        '1-3s': AuditEventType.WESTGARD_VIOLATION_1_3S,
+        '2-2s': AuditEventType.WESTGARD_VIOLATION_2_2S,
+        'R-4s': AuditEventType.WESTGARD_VIOLATION_R_4S,
+        '4-1s': AuditEventType.WESTGARD_VIOLATION_4_1S,
+        '10-x': AuditEventType.WESTGARD_VIOLATION_10X,
+        '12-x': AuditEventType.WESTGARD_VIOLATION_10X,
+      };
+      const event = ruleEventMap[wg.violatedRule] ?? AuditEventType.WESTGARD_VIOLATION_1_3S;
+      await this.securityAudit.system(event, {
+        rule: wg.violatedRule,
+        element: data.element,
+        zScore: zScore.toFixed(4),
+        measurementId: result.id,
+      });
+    }
 
     // 7. 触发 OOS(若规则失败)
     if (!wg.passed && data.testId) {
@@ -165,13 +185,16 @@ export class QcService {
       },
     });
 
-    await this.securityAudit.system(AuditEventType.SETTINGS_CHANGED, {
-      event: 'OOS_TRIGGERED',
+    // P0-Fix-3:用正确的事件类型 OOS:OPENED
+    await this.securityAudit.system(AuditEventType.OOS_OPENED, {
       ncNo,
+      ncId: nc.id,
       severity,
       violatedRule,
       zScore: zScore.toFixed(3),
       element,
+      testId,
+      sampleId: test.sampleId,
     });
 
     return nc;

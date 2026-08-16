@@ -8,6 +8,8 @@ import { User, UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 
@@ -53,8 +55,9 @@ export class PersonnelController {
   }
 
   @Post(':id/competencies')
+  @MfaProtected(MFA_SCENES.PERSONNEL_AUTHORIZED)
   @RequireRole(UserRole.LAB_DIRECTOR, UserRole.QUALITY_MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: '添加能力记录' })
+  @ApiOperation({ summary: '添加能力记录(授权检测方法,MFA 强制)' })
   addCompetency(@Param('id', ParseUUIDPipe) id: string, @Body() body: any, @CurrentUser() user: User) {
     return this.personnelService.addCompetency(id, { ...body, certifiedBy: user.id });
   }

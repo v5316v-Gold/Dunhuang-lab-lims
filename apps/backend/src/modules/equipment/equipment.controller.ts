@@ -8,6 +8,8 @@ import { User, UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 
@@ -67,8 +69,9 @@ export class EquipmentController {
   }
 
   @Post(':id/retire')
+  @MfaProtected(MFA_SCENES.EQUIPMENT_RETIRE)
   @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
-  @ApiOperation({ summary: '设备报废' })
+  @ApiOperation({ summary: '设备报废(MFA 强制)' })
   retire(@Param('id', ParseUUIDPipe) id: string) {
     return this.equipmentService.retire(id);
   }

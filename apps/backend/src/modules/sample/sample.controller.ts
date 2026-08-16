@@ -21,6 +21,8 @@ import { User, UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { Ownership } from '../../common/rbac/ownership.guard';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 
@@ -67,7 +69,8 @@ export class SampleController {
   }
 
   @Post(':id/dispose-retention')
-  @ApiOperation({ summary: 'W+1-10: 留样销毁(双人审批)' })
+  @MfaProtected(MFA_SCENES.SAMPLE_DISPOSAL)
+  @ApiOperation({ summary: 'W+1-10: 留样销毁(双人审批,MFA 强制)' })
   disposeRetention(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: { approveById: string; method: string },
@@ -91,9 +94,10 @@ export class SampleController {
   }
 
   @Delete(':id')
+  @MfaProtected(MFA_SCENES.SAMPLE_DELETE)
   @Ownership('sample', 'receivedById')
   @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
-  @ApiOperation({ summary: '软删除样品' })
+  @ApiOperation({ summary: '软删除样品(MFA 强制)' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.sampleService.softDelete(id);
   }

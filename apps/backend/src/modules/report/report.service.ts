@@ -9,6 +9,8 @@ import { Report, ReportStatus, UserRole } from '@prisma/client';
 
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SecurityAuditService } from '../../common/audit/security-audit.service';
+import { AuditEventType } from '../../common/audit/audit-event.enum';
 
 import { ReportEvent, transitionReport } from './report.state-machine';
 import { ReportPdfService } from './report-pdf.service';
@@ -20,6 +22,7 @@ export class ReportService {
     private readonly prisma: PrismaService,
     private readonly pdfService: ReportPdfService,
     private readonly stateMachine: StateMachineService,
+    private readonly securityAudit: SecurityAuditService,
   ) {}
 
   /**
@@ -152,16 +155,38 @@ export class ReportService {
       }
 
       return updated;
+    }).then(async (updated) => {
+      // P0-Fix-3: 报告状态推进审计
+      const eventToAuditEvent: Record<string, string> = {
+        SUBMIT: AuditEventType.REPORT_DRAFTED,
+        REVIEW_PASS: AuditEventType.REPORT_REVIEWED,
+        APPROVE: AuditEventType.REPORT_APPROVED,
+        ISSUE: AuditEventType.REPORT_ISSUED,
+        REVIEW_REJECT: AuditEventType.REPORT_REVIEWED,
+      };
+      const auditEvent = eventToAuditEvent[event];
+      if (auditEvent) {
+        await this.securityAudit.system(auditEvent, {
+          reportId,
+          event,
+          fromStatus: report.status,
+          toStatus: nextState,
+          operatorId: userId,
+          comments,
+        });
+      }
+      return updated;
     });
   }
 
   /**
    * 电子签名(Phase 4 集成第三方 CA)
+   * P0-Fix-3: 加审计埋点
    */
   async sign(reportId: string, userId: string, role: UserRole, signatureData: string, certificateSerial: string) {
     await this.findOne(reportId);
 
-    return this.prisma.reportSignature.create({
+    const sig = await this.prisma.reportSignature.create({
       data: {
         reportId,
         signerId: userId,
@@ -170,6 +195,17 @@ export class ReportService {
         certificateSerial,
       },
     });
+
+    // P0-Fix-3: 电子签名审计(21 CFR Part 11 §11.50)
+    await this.securityAudit.system(AuditEventType.REPORT_SIGNED, {
+      reportId,
+      signerId: userId,
+      signerRole: role,
+      certificateSerial,
+      signatureId: sig.id,
+    });
+
+    return sig;
   }
 
   /**

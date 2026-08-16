@@ -7,6 +7,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { User } from '@prisma/client';
 import { ComplianceService } from './compliance.service';
 
@@ -27,7 +29,8 @@ export class ComplianceController {
   listTA(@Query('all') all?: string) { return this.svc.listTempAuths(all !== 'true'); }
 
   @Post('temp-auth/:id/revoke')
-  @ApiOperation({ summary: '撤销临时授权' })
+  @MfaProtected(MFA_SCENES.USER_ROLE_CHANGE)
+  @ApiOperation({ summary: '撤销临时授权(MFA 强制 — 等同角色变更)' })
   revokeTA(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.revokeTempAuth(id, u.id); }
 
   @Get('summary')
@@ -44,7 +47,8 @@ export class ComplianceController {
   listIA(@Query('status') status?: string) { return this.svc.listInternalAudits(status); }
 
   @Post('internal-audit/:id/close')
-  @ApiOperation({ summary: '关闭内审(记录不符合项)' })
+  @MfaProtected(MFA_SCENES.INTERNAL_AUDIT_APPROVE)
+  @ApiOperation({ summary: '关闭内审(CNAS §8.8 必审,MFA 强制)' })
   closeIA(@Param('id') id: string, @Body() body: any) { return this.svc.closeInternalAudit(id, body); }
 
   // ---- 管理评审 ----
@@ -57,7 +61,8 @@ export class ComplianceController {
   listMR() { return this.svc.listManagementReviews(); }
 
   @Post('management-review/:id/close')
-  @ApiOperation({ summary: '关闭管理评审(记录决议)' })
+  @MfaProtected(MFA_SCENES.MANAGEMENT_REVIEW_APPROVE)
+  @ApiOperation({ summary: '关闭管理评审(CNAS §8.9 必审,MFA 强制)' })
   closeMR(@Param('id') id: string, @Body() body: any) { return this.svc.closeManagementReview(id, body); }
 
   // ---- 监督记录 ----

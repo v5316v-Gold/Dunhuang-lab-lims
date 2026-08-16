@@ -2,14 +2,18 @@
 // QC API
 // =====================================================
 
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole, QcType } from '@prisma/client';
 
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SecurityAuditService } from '../../common/audit/security-audit.service';
+import { AuditEventType } from '../../common/audit/audit-event.enum';
 
 import { QcService } from './qc.service';
 
@@ -22,6 +26,7 @@ export class QcController {
   constructor(
     private readonly qcService: QcService,
     private readonly prisma: PrismaService,
+    private readonly securityAudit: SecurityAuditService,
   ) {}
 
   @Post('measurements')
@@ -47,6 +52,63 @@ export class QcController {
   @ApiOperation({ summary: 'QC 趋势数据' })
   trend(@Query('element') element: string, @Query('days') days?: number) {
     return this.qcService.getTrend(element, days ? Number(days) : 30);
+  }
+
+  // ---- OOS / NonConformance 管理(P0-Fix-2/3) ----
+  @Get('nonconformances')
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.SENIOR_ANALYST, UserRole.ADMIN)
+  @ApiOperation({ summary: '查询 OOS / 不符合工作列表' })
+  listOOS(@Query('status') status?: string, @Query('page') page?: string, @Query('pageSize') pageSize?: string) {
+    return this.qcService.listOOS(status, page ? Number(page) : 1, pageSize ? Number(pageSize) : 20);
+  }
+
+  @Get('nonconformances/:id')
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.SENIOR_ANALYST, UserRole.ADMIN)
+  @ApiOperation({ summary: '查询 NC 详情' })
+  async getNC(@Param('id', ParseUUIDPipe) id: string) {
+    return this.prisma.nonConformance.findUnique({
+      where: { id },
+      include: {
+        reportedBy: { select: { id: true, name: true } },
+        investigatedBy: { select: { id: true, name: true } },
+        closedBy: { select: { id: true, name: true } },
+        qcMeasurement: true,
+        test: { include: { sample: { select: { sampleNo: true, customerName: true } } } },
+      },
+    });
+  }
+
+  // P0-Fix-2: OOS 关闭必须 MFA(CNAS §7.10 不符合工作 — 评审必查)
+  @Patch('nonconformances/:id/close')
+  @MfaProtected(MFA_SCENES.OOS_CLOSE)
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR)
+  @ApiOperation({ summary: '关闭 OOS / NC(MFA 强制 — 评审必查)' })
+  async closeNC(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { rootCause: string; immediateAction?: string; correctiveAction?: string; preventiveAction?: string; effectivenessVerification?: string },
+    @CurrentUser() user: User,
+  ) {
+    const nc = await this.prisma.nonConformance.update({
+      where: { id },
+      data: {
+        status: 'CLOSED',
+        closedById: user.id,
+        closedAt: new Date(),
+        rootCause: body.rootCause,
+        immediateAction: body.immediateAction,
+        correctiveAction: body.correctiveAction,
+        preventiveAction: body.preventiveAction,
+        effectivenessVerification: body.effectivenessVerification,
+      },
+    });
+    // P0-Fix-3:审计事件
+    await this.securityAudit.system(AuditEventType.OOS_CLOSED, {
+      ncId: nc.id,
+      ncNo: nc.ncNo,
+      rootCause: body.rootCause,
+      closedById: user.id,
+    });
+    return nc;
   }
 
   @Get('westgard')
