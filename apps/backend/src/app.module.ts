@@ -24,6 +24,7 @@ import { MetricsModule } from './infrastructure/observability/metrics.module';
 
 // 公共模块
 import { SignatureModule } from './common/signature/signature.module';
+import { QrCodeModule } from './common/qrcode/qrcode.module';
 
 // 业务模块
 import { AnalyticsModule } from './modules/analytics/analytics.module';
@@ -87,6 +88,7 @@ import { SopModule } from './modules/test/sop/sop.module';
     AuthModule,
     AuditModule,
     SignatureModule,
+    QrCodeModule,
 
     // ============================================
     // 5. 业务模块(11 域)

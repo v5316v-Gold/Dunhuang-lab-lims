@@ -367,6 +367,8 @@ private async generateReportNo(): Promise<string> {
       unit: r.sample?.tests?.[0]?.unit ?? '%',
       signatures,
       watermark: r.reportNo,
+      // P2-4: 传递 reportId 用于 QR 反查(签发前占位,签后用真 SHA256)
+      reportId: r.id,
     });
 
     // 真实签名(本地 RSA-SHA256 + RFC 3161 时间戳)
@@ -417,13 +419,15 @@ private async generateReportNo(): Promise<string> {
       });
     }
 
-    // 写 PDF SHA256 + 审计
+    // 写 PDF SHA256 + 审计 + P2-4: QR Code 反查 URL
     const updated = await this.prisma.report.update({
       where: { id: reportId },
       data: {
         status: 'ISSUED',
         issuedAt,
         pdfSha256: signedHash,
+        // P2-4: 写 QR 反查 URL 到 reports.qr_code(可被前端渲染为 PNG)
+        qrCode: pdf.qrContent ?? null,
       },
     });
 
