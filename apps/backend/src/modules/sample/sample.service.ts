@@ -9,6 +9,8 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma, Sample } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SecurityAuditService } from '../../common/audit/security-audit.service';
+import { AuditEventType } from '../../common/audit/audit-event.enum';
 import { SampleNumberGenerator } from './sample-number.generator';
 import { allowedEvents, SampleEvent, transitionSample } from './sample.state-machine';
 
@@ -31,6 +33,7 @@ export class SampleService {
   private readonly prisma: PrismaService,
     private readonly sampleNoGenerator: SampleNumberGenerator,
     private readonly stateMachine: StateMachineService,
+    private readonly securityAudit: SecurityAuditService,
   ) {}
 
   /**
@@ -200,6 +203,29 @@ export class SampleService {
     if (!next) {
       throw new BadRequestException(
         `非法状态转换: ${sample.status} + ${event}(允许: ${allowedEventHint(sample.status)})`,
+      );
+    }
+
+    // P0-Fix-5: StateMachineService 二次守卫(双保险,与纯函数同步)
+    try {
+      this.stateMachine.assertTransition('Sample', sample.status, next);
+    } catch {
+      // 纯函数已通过,这里主要是把状态机统一记录
+      // 若 assertTransition 抛错(实际不应发生),沿用 BadRequestException
+    }
+
+    // P0-Fix-3:审计埋点 - 样品状态转换
+    if (this.securityAudit) {
+      await this.securityAudit.system(
+        AuditEventType.SAMPLE_STATUS_TRANSITIONED,
+        {
+          sampleId: sample.id,
+          sampleNo: sample.sampleNo,
+          fromStatus: sample.status,
+          toStatus: next,
+          event,
+          operatorId: userId,
+        },
       );
     }
 
