@@ -59,3 +59,43 @@ coverage/
 
 # Phase 1 Task 2.5: 数据库备份(不纳入版本库)
 backups/
+
+# ============================================
+# 生产化加固 — 2026-08-15
+# ============================================
+
+# 环境变量(绝不能提交)
+.env.prod
+.env.production
+.env.staging
+.env.staging.local
+*.env.local
+
+# TLS / SSL / CA(私钥绝不能提交)
+**/*.key
+**/*.pem
+**/*.p12
+infrastructure/nginx/ssl/
+!infrastructure/nginx/ssl/.gitkeep
+deploy/ca/servers/
+deploy/ca/clients/
+deploy/ca/ca.key
+deploy/ca/serial.txt
+deploy/ca/index.txt
+deploy/ca/*.old
+
+# 备份文件(避免误提交)
+deploy/backup/dumps/
+deploy/backup/wal/
+deploy/backup/.gpg-key
+deploy/backup/*.tar.gz
+deploy/backup/*.enc
+
+# Docker 运行时
+.docker/
+docker-compose.override.yml
+
+# 临时/草稿
+*.bak
+*.tmp
+*.orig

@@ -20,8 +20,10 @@ import { MinioModule } from './infrastructure/minio/minio.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
+import { MetricsModule } from './infrastructure/observability/metrics.module';
 
 // 公共模块
+import { SignatureModule } from './common/signature/signature.module';
 
 // 业务模块
 import { AnalyticsModule } from './modules/analytics/analytics.module';
@@ -32,6 +34,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { EquipmentModule } from './modules/equipment/equipment.module';
 import { IdentityModule } from './modules/identity/identity.module';
+import { InstrumentDataModule } from './modules/instrument/instrument-data.module';
 import { PersonnelModule } from './modules/personnel/personnel.module';
 import { QcModule } from './modules/qc/qc.module';
 import { ReagentModule } from './modules/reagent/reagent.module';
@@ -74,6 +77,7 @@ import { TestModule } from './modules/test/test.module';
     RedisModule,
     MinioModule,
     QueueModule,
+    MetricsModule,
     HealthModule,
 
     // ============================================
@@ -81,6 +85,7 @@ import { TestModule } from './modules/test/test.module';
     // ============================================
     AuthModule,
     AuditModule,
+    SignatureModule,
 
     // ============================================
     // 5. 业务模块(11 域)
@@ -97,6 +102,7 @@ import { TestModule } from './modules/test/test.module';
     EhsModule,
     PreciousMetalModule,
     RealtimeModule,
+    InstrumentDataModule,
     ComplianceModule,
     AnalyticsModule,
   ],

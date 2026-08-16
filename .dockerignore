@@ -1,0 +1,60 @@
+# =====================================================
+# Docker 构建上下文排除 — 加速 build,减少镜像体积
+# =====================================================
+
+# Git
+.git
+.gitignore
+.github
+.gitattributes
+
+# 文档(不进镜像,构建时不需要)
+docs/
+*.md
+CONTRIBUTING.md
+README.md
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 日志 / 临时
+*.log
+logs/
+tmp/
+*.tmp
+
+# 测试产物
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# 环境(不进镜像,运行时注入)
+.env
+.env.local
+.env.*.local
+.env.prod
+.env.production
+.env.staging
+
+# Docker 自身
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 备份/CA(不进镜像)
+backups/
+deploy/backup/dumps/
+deploy/backup/wal/
+deploy/ca/
+infrastructure/nginx/ssl/
+
+# 大型媒体(不进镜像)
+*.zip
+*.tar.gz
+*.tgz

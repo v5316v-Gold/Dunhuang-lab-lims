@@ -30,10 +30,11 @@ scrape_configs:
   - job_name: 'lims-backend'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['host.docker.internal:3000']
+      - targets: ['backend:3030']
         labels:
           service: 'backend'
           app: 'dunhuang-lims'
+          environment: 'production'
 
   # PostgreSQL exporter(可选,Phase 5 接入)
   - job_name: 'postgres'

@@ -72,6 +72,12 @@ export class LoginResponse {
   @ApiProperty({ description: '是否需要 MFA 验证' })
   mfaRequired!: boolean;
 
+  @ApiProperty({
+    description: 'MFA 短期 token(5 分钟,仅敏感操作需要,Header X-MFA-Token)',
+    required: false,
+  })
+  mfaToken?: string;
+
   @ApiProperty({ description: '当前用户信息' })
   user!: {
     id: string;
@@ -81,4 +87,16 @@ export class LoginResponse {
     email: string;
     mfaEnabled: boolean;
   };
+}
+
+export class MfaChallengeDto {
+  @ApiProperty({ example: '123456', description: 'TOTP 6 位码' })
+  @IsString()
+  @Matches(/^\d{6}$/)
+  code!: string;
+
+  @ApiProperty({ example: false, required: false, description: '是否使用备份码' })
+  @IsOptional()
+  @IsBoolean()
+  useBackupCode?: boolean;
 }
