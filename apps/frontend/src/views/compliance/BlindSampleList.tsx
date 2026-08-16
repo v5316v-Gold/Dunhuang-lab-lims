@@ -43,9 +43,9 @@ export default function BlindSampleList() {
 
   const { data: users } = useQuery({
     queryKey: ['users-list'],
-    queryFn: async () => (await api.get<{ items: any[] }>('/identity/users')).data,
+    queryFn: async () => (await api.get<{ data: any[] }>('/users', { params: { pageSize: 100 } })).data,
   });
-  const userMap = new Map((users?.items ?? []).map((u: any) => [u.id, u.name ?? u.username]));
+  const userMap = new Map((users?.data ?? []).map((u: any) => [u.id, u.name ?? u.username]));
 
   const createMut = useMutation({
     mutationFn: async (v: any) => (await api.post('/compliance/blind-sample', v)).data,
@@ -142,7 +142,7 @@ export default function BlindSampleList() {
       />
 
       <Modal title="新建盲样" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => createForm.submit()} confirmLoading={createMut.isPending} okText="创建" cancelText="取消" width={520}>
-        <Form form={createForm} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={createForm} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => createMut.mutate(values)}>
           <Form.Item label="盲样编号" name="sampleCode" rules={[{ required: true }]}>
             <Input placeholder="如:BL-AU-2026-001" />
           </Form.Item>
@@ -150,7 +150,7 @@ export default function BlindSampleList() {
             <InputNumber min={0} max={100} step={0.0001} precision={4} style={{ width: '100%' }} placeholder="如:99.99" />
           </Form.Item>
           <Form.Item label="被考核人" name="assignedToId" rules={[{ required: true }]}>
-            <Select showSearch optionFilterProp="label" placeholder="选择检测员" options={(users?.items ?? []).map((u: any) => ({ value: u.id, label: u.name ?? u.username }))} />
+            <Select showSearch optionFilterProp="label" placeholder="选择检测员" options={(users?.data ?? []).map((u: any) => ({ value: u.id, label: u.name ?? u.username }))} />
           </Form.Item>
           <Form.Item label="备注" name="remarks"><Input.TextArea rows={2} /></Form.Item>
         </Form>
@@ -174,7 +174,7 @@ export default function BlindSampleList() {
             style={{ marginBottom: 16 }}
           />
         )}
-        <Form form={assessForm} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={assessForm} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => assessMut.mutate({ id: editing?.id, ...values })}>
           <Form.Item label="被考核人测得值" name="measuredValue" rules={[{ required: true }]}>
             <InputNumber min={0} max={100} step={0.0001} precision={4} style={{ width: '100%' }} placeholder="如:99.95" />
           </Form.Item>

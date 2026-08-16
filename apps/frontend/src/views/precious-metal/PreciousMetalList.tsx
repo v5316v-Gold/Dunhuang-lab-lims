@@ -404,7 +404,7 @@ export function PreciousMetalList() {
       </Card>
 
       {/* 取样登记 */}
-      <Modal title="取样登记(CNAS §7.8)" open={createSamplingOpen} onOk={handleCreateSampling} onCancel={() => setCreateSamplingOpen(false)} width={720}>
+      <Modal title="取样登记(CNAS §7.8)" open={createSamplingOpen} destroyOnClose onOk={handleCreateSampling} onCancel={() => setCreateSamplingOpen(false)} width={720}>
         <Form form={samplingForm} layout="vertical" style={{ marginTop: 16 }}>
           <Row gutter={16}>
             <Col span={12}>
@@ -487,7 +487,7 @@ export function PreciousMetalList() {
       </Modal>
 
       {/* 生成条码 */}
-      <Modal title={<Space><QrcodeOutlined />生成贵金属条码</Space>} open={createBarOpen} onOk={handleCreateBar} onCancel={() => setCreateBarOpen(false)} width={720}>
+      <Modal title={<Space><QrcodeOutlined />生成贵金属条码</Space>} open={createBarOpen} destroyOnClose onOk={handleCreateBar} onCancel={() => setCreateBarOpen(false)} width={720}>
         <Form form={barForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item label="样品 ID(UUID)" name="sampleId" rules={[{ required: true }]}>
             <Input placeholder="如:952cf4a1-07a5-4cda-9e84-2d5e76c15e06" />

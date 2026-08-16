@@ -43,8 +43,8 @@ export class FileUploadService {
 
     // 1. sha256 指纹
     const sha256 = createHash('sha256').update(buffer).digest('hex');
-    // 2. 防重:同 sha256 已存在则直接返回
-    const existing = await this.prisma.fileAttachment.findUnique({ where: { sha256 } });
+    // 2. 防重:同 sha256 已存在则直接返回(sha256 为 @@index 非 @unique,用 findFirst)
+    const existing = await this.prisma.fileAttachment.findFirst({ where: { sha256 } });
     if (existing) {
       return existing;
     }
@@ -52,7 +52,7 @@ export class FileUploadService {
     // 3. 存 MinIO
     const ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
     const storagePath = `uploads/${category}/${Date.now()}-${sha256.slice(0, 12)}.${ext}`;
-    await this.minio.upload('dunhuang-certificates', storagePath, buffer);
+    await this.minio.upload('certificates', storagePath, buffer, mimeType);
 
     // 4. 写 FileAttachment 表
     const record = await this.prisma.fileAttachment.create({

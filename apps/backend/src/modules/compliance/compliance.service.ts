@@ -16,7 +16,7 @@ export class ComplianceService {
     private readonly securityAudit: SecurityAuditService,
   ) {}
 
-  private async nextNo(model: 'internalAudit' | 'managementReview' | 'supervisionRecord' | 'blindSample' | 'proficiencyTest',
+  private async nextNo(model: 'internalAudit' | 'managementReview' | 'supervisionRecord' | 'blindSample' | 'proficiencyTest' | 'temporaryAuthorization',
     prefix: string, noField: string): Promise<string> {
     const today = new Date();
     const ymd = today.getFullYear().toString()

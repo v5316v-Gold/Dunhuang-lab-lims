@@ -140,7 +140,7 @@ export default function ProficiencyTestList() {
         scroll={{ x: 800 }}
       />
       <Modal title="新建 PT" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => createForm.submit()} confirmLoading={createMut.isPending} okText="创建" cancelText="取消" width={520}>
-        <Form form={createForm} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={createForm} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => createMut.mutate(values)}>
           <Form.Item label="组织方" name="organizer" rules={[{ required: true }]}>
             <Input placeholder="如:CNAS PT 计划 / 国家计量院" />
           </Form.Item>
@@ -151,11 +151,7 @@ export default function ProficiencyTestList() {
             <Input placeholder="如:GB/T 9288 火试金法" />
           </Form.Item>
           <Form.Item label="开始日期" name="startDate" rules={[{ required: true }]}>
-            <input
-              type="date"
-              onChange={(e) => createForm.setFieldValue('startDate', new Date(e.target.value).toISOString())}
-              style={{ width: '100%', padding: '4px 11px', border: '1px solid #d9d9d9', borderRadius: 6 }}
-            />
+            <Input type="date" placeholder="选择开始日期" />
           </Form.Item>
           <Form.Item label="备注" name="remarks"><Input.TextArea rows={2} /></Form.Item>
         </Form>
@@ -178,7 +174,7 @@ export default function ProficiencyTestList() {
             style={{ marginBottom: 16 }}
           />
         )}
-        <Form form={resultForm} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={resultForm} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => resultMut.mutate({ id: editing?.id, ...values })}>
           <Form.Item label="zScore" name="zScore" rules={[{ required: true }]}>
             <InputNumber min={-5} max={5} step={0.01} precision={4} style={{ width: '100%' }} placeholder="如:0.8" />
           </Form.Item>

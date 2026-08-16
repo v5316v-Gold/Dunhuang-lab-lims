@@ -31,7 +31,12 @@ export class EquipmentController {
   @Get()
   @ApiOperation({ summary: '查询设备列表' })
   findAll(@Query() filter: any) {
-    return this.equipmentService.findAll(filter);
+    const { page, pageSize, ...rest } = filter ?? {};
+    return this.equipmentService.findAll({
+      ...rest,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Get(':id')

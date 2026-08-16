@@ -32,7 +32,12 @@ export class ReportController {
   @Get()
   @ApiOperation({ summary: '查询报告列表' })
   findAll(@Query() filter: { status?: ReportStatus; sampleId?: string; page?: number; pageSize?: number }) {
-    return this.reportService.findAll(filter);
+    const { page, pageSize, ...rest } = filter ?? {};
+    return this.reportService.findAll({
+      ...rest,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Get(':id')

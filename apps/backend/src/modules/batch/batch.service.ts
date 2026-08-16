@@ -70,6 +70,10 @@ export class BatchService {
     process?: ProcessParameterDto,
   ): Promise<SampleBatch> {
     const batch = await this.findOne(batchId);
+    // 白名单校验:非法事件直接 400,避免 XState actor 异步异常逃逸导致进程崩溃
+    if (!['START', 'ADVANCE', 'COMPLETE', 'REJECT'].includes(action?.action)) {
+      throw new BadRequestException(`未知批次事件: ${action?.action}`);
+    }
     const machine = resolveMachine(batch.method);
     let nextState: string;
     const actor = createActor(machine, { snapshot: machine.resolveState({ value: batch.status }) });

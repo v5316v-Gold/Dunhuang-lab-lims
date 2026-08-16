@@ -32,7 +32,8 @@ interface Sample {
   sampleNo: string;
   customerName: string;
   weightG: string;
-  testId: string;
+  testId?: string;
+  tests?: Array<{ id: string }>;
 }
 
 interface FireAssayFormProps {
@@ -107,13 +108,10 @@ export default function FireAssayForm({
         })
       ).data,
     onSuccess: (data, vars) => {
-      // 后端返回的是 transaction 结果,我们要 purity
-      // 但 recordWeights 实际返回的是包含完整 test 记录
-      // 这里假设返回结构为 { test: { purityPct, uncertainty, qcPassed } } 或 test 本身
-      const test = data?.test ?? data;
-      const purityPct = test?.purityPct?.toString() ?? test?.purityPct ?? '?';
-      const uncertainty = test?.uncertainty?.toString() ?? test?.uncertainty ?? '?';
-      const qcPassed = test?.qcPassed ?? true;
+      // 后端返回 { purityPct, uncertainty, qcPassed, testId }(无 id 字段)
+      const purityPct = data?.purityPct?.toString?.() ?? data?.purityPct ?? '?';
+      const uncertainty = data?.uncertainty?.toString?.() ?? data?.uncertainty ?? '?';
+      const qcPassed = data?.qcPassed ?? true;
       // 计算纯度等级
       const purityNum = parseFloat(purityPct);
       let grade = '?';
@@ -125,9 +123,9 @@ export default function FireAssayForm({
 
       setParallels((prev) =>
         prev.map((p) =>
-          p.sampleId === vars.testId || p.testId === test?.id
+          p.testId === vars.testId
             ? { ...p, status: 'saved' as const, result: { purityPct, uncertainty, qcPassed, grade } }
-            : p
+            : p,
         ),
       );
     },
@@ -143,14 +141,15 @@ export default function FireAssayForm({
     },
   });
 
-  // 自动同步 testId 映射
+  // 自动同步 testId 映射(样品关联检测的后端结构是 tests[] 数组)
   useEffect(() => {
     if (parallels.length > 0 && samples.length > 0) {
       setParallels((prev) =>
         prev.map((p) => {
           if (p.testId) return p;
           const s = samples.find((s) => p.sampleNo.startsWith(s.sampleNo));
-          return s ? { ...p, testId: s.testId } : p;
+          if (!s) return p;
+          return { ...p, testId: s.testId ?? s.tests?.[0]?.id };
         }),
       );
     }

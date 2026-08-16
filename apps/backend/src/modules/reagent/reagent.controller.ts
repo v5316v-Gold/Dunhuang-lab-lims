@@ -31,7 +31,12 @@ export class ReagentController {
   @Get()
   @ApiOperation({ summary: '查询试剂列表' })
   findAll(@Query() filter: any) {
-    return this.reagentService.findAll(filter);
+    const { page, pageSize, ...rest } = filter ?? {};
+    return this.reagentService.findAll({
+      ...rest,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Post(':id/lots')

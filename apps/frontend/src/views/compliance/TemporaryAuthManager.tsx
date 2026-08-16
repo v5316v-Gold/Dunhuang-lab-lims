@@ -57,9 +57,9 @@ export default function TemporaryAuthManager() {
 
   const { data: users } = useQuery({
     queryKey: ['users-list'],
-    queryFn: async () => (await api.get<{ items: User[] }>('/identity/users')).data,
+    queryFn: async () => (await api.get<{ data: User[] }>('/users', { params: { pageSize: 100 } })).data,
   });
-  const userMap = new Map((users?.items ?? []).map((u) => [u.id, u.name ?? u.username]));
+  const userMap = new Map((users?.data ?? []).map((u) => [u.id, u.name ?? u.username]));
 
   const createMut = useMutation({
     mutationFn: async (values: any) => {
@@ -142,13 +142,13 @@ export default function TemporaryAuthManager() {
         cancelText="取消"
         width={520}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => createMut.mutate(values)}>
           <Form.Item label="被授权人(代班)" name="granteeId" rules={[{ required: true }]}>
             <Select
               showSearch
               placeholder="选择检测员"
               optionFilterProp="label"
-              options={(users?.items ?? []).map((u) => ({ value: u.id, label: `${u.name}(${u.username})` }))}
+              options={(users?.data ?? []).map((u) => ({ value: u.id, label: `${u.name}(${u.username})` }))}
             />
           </Form.Item>
           <Form.Item label="授权方法" name="method" rules={[{ required: true }]} initialValue="FIRE_ASSAY">

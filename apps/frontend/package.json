@@ -18,9 +18,9 @@
     "clean": "rm -rf dist .turbo coverage"
   },
   "dependencies": {
+    "@ant-design/icons": "^5.4.0",
     "@dunhuang/lims-shared-types": "workspace:*",
     "@dunhuang/lims-ui-kit": "workspace:*",
-    "@ant-design/icons": "^5.4.0",
     "@tanstack/react-query": "^5.51.0",
     "@tanstack/react-query-devtools": "^5.51.0",
     "antd": "^5.20.0",
@@ -36,6 +36,7 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^20.12.0",

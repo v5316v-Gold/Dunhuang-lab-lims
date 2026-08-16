@@ -47,9 +47,9 @@ export default function SupervisionList() {
 
   const { data: users } = useQuery({
     queryKey: ['users-list'],
-    queryFn: async () => (await api.get<{ items: any[] }>('/identity/users')).data,
+    queryFn: async () => (await api.get<{ data: any[] }>('/users', { params: { pageSize: 100 } })).data,
   });
-  const userMap = new Map((users?.items ?? []).map((u: any) => [u.id, u.name ?? u.username]));
+  const userMap = new Map((users?.data ?? []).map((u: any) => [u.id, u.name ?? u.username]));
 
   const createMut = useMutation({
     mutationFn: async (values: any) => (await api.post('/compliance/supervision', values)).data,
@@ -128,28 +128,23 @@ export default function SupervisionList() {
         cancelText="取消"
         width={520}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => createMut.mutate(values)}>
           <Form.Item label="监督员" name="supervisorId" rules={[{ required: true }]}>
             <Select
               showSearch optionFilterProp="label"
               placeholder="选择监督员"
-              options={(users?.items ?? []).map((u: any) => ({ value: u.id, label: `${u.name ?? u.username}` }))}
+              options={(users?.data ?? []).map((u: any) => ({ value: u.id, label: `${u.name ?? u.username}` }))}
             />
           </Form.Item>
           <Form.Item label="被监督人" name="superviseeId" rules={[{ required: true }]}>
             <Select
               showSearch optionFilterProp="label"
               placeholder="选择被监督人"
-              options={(users?.items ?? []).map((u: any) => ({ value: u.id, label: `${u.name ?? u.username}` }))}
+              options={(users?.data ?? []).map((u: any) => ({ value: u.id, label: `${u.name ?? u.username}` }))}
             />
           </Form.Item>
           <Form.Item label="监督日期" name="supDate" rules={[{ required: true }]}>
-            <input
-              type="date"
-              defaultValue={new Date().toISOString().substring(0, 10)}
-              onChange={(e) => form.setFieldValue('supDate', new Date(e.target.value).toISOString())}
-              style={{ width: '100%', padding: '4px 11px', border: '1px solid #d9d9d9', borderRadius: 6 }}
-            />
+            <Input type="date" placeholder="选择监督日期" />
           </Form.Item>
           <Form.Item label="监督内容" name="content" rules={[{ required: true }]}>
             <Input.TextArea rows={3} placeholder="如:现场观察 ICP 操作是否规范" />

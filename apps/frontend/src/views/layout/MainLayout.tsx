@@ -72,11 +72,13 @@ export function MainLayout() {
             justifyContent: 'center',
             color: 'var(--text-primary)',
             fontSize: 16,
-            fontWeight: 600,
-            background: 'rgba(255,255,255,0.05)',
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+            background: 'rgba(255,255,255,0.03)',
+            borderBottom: '1px solid rgba(212,175,55,0.15)',
           }}
         >
-          敦煌金质检 LIMS
+          <span className="text-gold-shimmer">敦煌金质检 LIMS</span>
         </div>
         <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={menuItems} />
       </Sider>

@@ -56,7 +56,12 @@ export function ReportsList() {
   }, []);
 
   const create = async () => {
-    const values = await form.validateFields();
+    let values;
+    try {
+      values = await form.validateFields();
+    } catch {
+      return; // 校验失败,保持弹窗打开
+    }
     try {
       await api.post('/reports', { sampleId: values.sampleId });
       message.success('报告已创建');

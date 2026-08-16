@@ -31,7 +31,12 @@ export class PersonnelController {
   @Get()
   @ApiOperation({ summary: '查询人员列表' })
   findAll(@Query() filter: any) {
-    return this.personnelService.findAll(filter);
+    const { page, pageSize, ...rest } = filter ?? {};
+    return this.personnelService.findAll({
+      ...rest,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Get(':id')

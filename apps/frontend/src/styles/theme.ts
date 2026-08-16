@@ -1,6 +1,6 @@
 // =====================================================
 // Ant Design 主题 — 新中式奢华科技风(墨黑 + 辉金)
-// 依据: docs/UI-DESIGN-PARAMS.md §10 (Shadcn 变量映射)
+// 依据: docs/UI-DESIGN-PARAMS.md §10 (Shadcn 变量映射) + 2026-08-16 参数表
 // 与 src/styles/design-tokens.css 保持单一真源对齐
 // 使用: <ConfigProvider theme={antdTheme}>
 // =====================================================
@@ -33,10 +33,8 @@ export const DESIGN_TOKENS = {
 } as const;
 
 export const antdTheme: ThemeConfig = {
-  // 算法: 深色
-  // 注: antd v5 深色算法 theme.darkAlgorithm 需在组件内使用,
-  //     此处直接给足 token 值(等同暗色效果,避免引入算法依赖)
   token: {
+    // 主色系(辉金)
     colorPrimary: DESIGN_TOKENS.gold,
     colorInfo: DESIGN_TOKENS.gold,
     colorSuccess: DESIGN_TOKENS.success,
@@ -50,7 +48,7 @@ export const antdTheme: ThemeConfig = {
     colorBgLayout: DESIGN_TOKENS.bgPrimary,
     colorBgSpotlight: DESIGN_TOKENS.bgActive,
 
-    // 文字层次(象牙白)
+    // 文字层次(象牙白灰阶)
     colorText: DESIGN_TOKENS.textPrimary,
     colorTextSecondary: DESIGN_TOKENS.textSecondary,
     colorTextTertiary: DESIGN_TOKENS.textMuted,
@@ -67,16 +65,18 @@ export const antdTheme: ThemeConfig = {
     colorHoverBg: DESIGN_TOKENS.bgHover,
     colorFillTertiary: DESIGN_TOKENS.bgHover,
 
-    // 几何
+    // 链接
+    colorLink: DESIGN_TOKENS.gold,
+    colorLinkHover: DESIGN_TOKENS.goldHover,
+
+    // 几何与字号
     borderRadius: 6,
     borderRadiusLG: 8,
     borderRadiusSM: 4,
-    fontSize: 14,
+    fontSize: 15,      // 组件基线 15px(按钮/表格/菜单/表单)
+    fontSizeSM: 13,    // 小号(标签/提示)
+    fontSizeLG: 17,    // 大号(统计数字/强调)
     lineHeight: 1.6,
-
-    // 金色系容器
-    colorLink: DESIGN_TOKENS.gold,
-    colorLinkHover: DESIGN_TOKENS.goldHover,
   },
   components: {
     Layout: {
@@ -84,31 +84,136 @@ export const antdTheme: ThemeConfig = {
       siderBg: DESIGN_TOKENS.bgSecondary,
       bodyBg: DESIGN_TOKENS.bgPrimary,
       headerHeight: 56,
+      headerPadding: '0 24px',
     },
     Menu: {
       darkItemBg: DESIGN_TOKENS.bgSecondary,
       darkItemSelectedBg: 'rgba(212, 175, 55, 0.12)', // gold-muted
       darkItemSelectedColor: DESIGN_TOKENS.gold,
       darkItemHoverBg: DESIGN_TOKENS.bgHover,
+      darkItemColor: DESIGN_TOKENS.textSecondary,
+      itemBorderRadius: 8,
+      itemMarginInline: 8,
+      itemHeight: 44,
     },
     Table: {
       headerBg: DESIGN_TOKENS.bgTertiary,
       headerColor: DESIGN_TOKENS.textSecondary,
       rowHoverBg: DESIGN_TOKENS.bgHover,
       borderColor: DESIGN_TOKENS.borderColor,
+      colorBgContainer: 'transparent',
+      headerSplitColor: 'rgba(212, 175, 55, 0.2)',
     },
     Card: {
       colorBgContainer: DESIGN_TOKENS.bgCard,
+      headerBg: 'transparent',
     },
     Modal: {
       contentBg: DESIGN_TOKENS.bgCard,
       headerBg: DESIGN_TOKENS.bgCard,
+      titleColor: DESIGN_TOKENS.textPrimary,
+    },
+    Drawer: {
+      colorBgElevated: DESIGN_TOKENS.bgCard,
     },
     Message: {
       contentBg: DESIGN_TOKENS.bgElevated,
+      colorText: DESIGN_TOKENS.textPrimary,
+      borderRadiusLG: 8,
     },
     Notification: {
       colorBgElevated: DESIGN_TOKENS.bgElevated,
+    },
+    Tooltip: {
+      colorBgSpotlight: DESIGN_TOKENS.bgActive,
+      colorText: DESIGN_TOKENS.textPrimary,
+    },
+    Popover: {
+      colorBgElevated: DESIGN_TOKENS.bgElevated,
+    },
+    Dropdown: {
+      colorBgElevated: DESIGN_TOKENS.bgElevated,
+      colorText: DESIGN_TOKENS.textSecondary,
+    },
+    Input: {
+      colorBgContainer: DESIGN_TOKENS.bgTertiary,
+      colorBorder: DESIGN_TOKENS.borderColor,
+      colorText: DESIGN_TOKENS.textPrimary,
+      activeBorderColor: DESIGN_TOKENS.gold,
+      hoverBorderColor: DESIGN_TOKENS.borderLight,
+      activeShadow: '0 0 0 3px rgba(212, 175, 55, 0.12)',
+    },
+    Select: {
+      colorBgContainer: DESIGN_TOKENS.bgTertiary,
+      colorBorder: DESIGN_TOKENS.borderColor,
+      optionSelectedBg: 'rgba(212, 175, 55, 0.12)',
+      optionSelectedColor: DESIGN_TOKENS.gold,
+      selectorBg: DESIGN_TOKENS.bgTertiary,
+    },
+    DatePicker: {
+      colorBgContainer: DESIGN_TOKENS.bgTertiary,
+      colorBorder: DESIGN_TOKENS.borderColor,
+      activeBorderColor: DESIGN_TOKENS.gold,
+    },
+    Tabs: {
+      inkBarColor: DESIGN_TOKENS.gold,
+      itemSelectedColor: DESIGN_TOKENS.gold,
+      itemHoverColor: DESIGN_TOKENS.goldHover,
+      itemColor: DESIGN_TOKENS.textSecondary,
+    },
+    Tag: {
+      defaultBg: DESIGN_TOKENS.bgTertiary,
+      defaultColor: DESIGN_TOKENS.textSecondary,
+      defaultBorderColor: DESIGN_TOKENS.borderColor,
+    },
+    Pagination: {
+      itemActiveBg: 'rgba(212, 175, 55, 0.12)',
+      colorPrimary: DESIGN_TOKENS.gold,
+      colorPrimaryHover: DESIGN_TOKENS.goldHover,
+    },
+    Form: {
+      labelColor: DESIGN_TOKENS.textSecondary,
+    },
+    Alert: {
+      colorInfoBg: 'rgba(90, 122, 184, 0.12)',
+      colorSuccessBg: 'rgba(74, 154, 122, 0.12)',
+      colorWarningBg: 'rgba(196, 154, 58, 0.12)',
+      colorErrorBg: 'rgba(184, 84, 80, 0.12)',
+    },
+    Progress: {
+      remainingColor: DESIGN_TOKENS.bgHover,
+    },
+    Segmented: {
+      itemSelectedBg: DESIGN_TOKENS.bgActive,
+      itemSelectedColor: DESIGN_TOKENS.gold,
+    },
+    Statistic: {
+      colorText: DESIGN_TOKENS.textPrimary,
+    },
+    Empty: {
+      colorTextDescription: DESIGN_TOKENS.textMuted,
+    },
+    Skeleton: {
+      colorBgBase: DESIGN_TOKENS.bgTertiary,
+    },
+    Steps: {
+      colorText: DESIGN_TOKENS.textSecondary,
+    },
+    Descriptions: {
+      labelBg: DESIGN_TOKENS.bgTertiary,
+      titleColor: DESIGN_TOKENS.textPrimary,
+    },
+    Radio: {
+      buttonColorCheckedBg: DESIGN_TOKENS.bgActive,
+    },
+    Checkbox: {
+      colorPrimary: DESIGN_TOKENS.gold,
+    },
+    Switch: {
+      colorPrimary: DESIGN_TOKENS.gold,
+    },
+    Timeline: {
+      dotBg: DESIGN_TOKENS.bgCard,
     },
   },
 };

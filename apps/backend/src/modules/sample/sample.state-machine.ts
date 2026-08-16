@@ -52,6 +52,7 @@ const TRANSITIONS: Record<SampleStatus, Partial<Record<SampleEvent, SampleStatus
     ARCHIVE: SampleStatus.ARCHIVED,
   },
   [SampleStatus.ARCHIVED]: {},
+  [SampleStatus.DISPOSED]: {},
   [SampleStatus.REJECTED]: {},
 };
 

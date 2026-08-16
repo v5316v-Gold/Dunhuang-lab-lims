@@ -1,7 +1,7 @@
 /* =====================================================
  * 敦煌金质检 LIMS — 设计令牌 (Design Tokens)
  * 主题: 新中式奢华科技风(墨黑 + 辉金)
- * 依据: docs/UI-DESIGN-PARAMS.md (Phase 2 前置)
+ * 依据: docs/UI-DESIGN-PARAMS.md (Phase 2 前置) + 2026-08-16 设计系统参数表
  * 使用: 组件内 var(--token-name); 禁止散落魔法值
  * ===================================================== */
 
@@ -17,9 +17,18 @@
   --font-smoothing: antialiased;              /* -webkit-font-smoothing */
   --line-height-base: 1.6;
   --letter-spacing-base: 0.01em;
-  --radius-base: 0.5rem;
 
-  /* ========== 二、主色(金色系) ========== */
+  /* ========== 二、圆角体系 ========== */
+  --radius: 0.5rem;                            /* 基准 8px */
+  --radius-sm: calc(var(--radius) - 4px);     /* 4px */
+  --radius-md: calc(var(--radius) - 2px);     /* 6px */
+  --radius-lg: var(--radius);                 /* 8px */
+  --radius-xl: calc(var(--radius) + 4px);     /* 12px */
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
+
+  /* ========== 三、主色(金色系) ========== */
   --gold: #d4af37;                            /* 主金 · 辉金 */
   --gold-bright: #f5d76e;                     /* 亮金 · 高光 */
   --gold-hover: #e5c158;                      /* 悬停金 */
@@ -29,7 +38,7 @@
   --gold-border: rgba(212, 175, 55, 0.25);    /* 金色边框 */
   --gold-gradient: linear-gradient(135deg, #d4af37 0%, #f5d76e 50%, #d4af37 100%);
 
-  /* ========== 三、背景色(墨黑层次) ========== */
+  /* ========== 四、背景色(墨黑层次) ========== */
   --bg-primary: #08080a;                      /* 主背景 · 深墨黑 */
   --bg-secondary: #0e0e12;                    /* 次级背景 */
   --bg-tertiary: #16161c;                     /* 三级背景 */
@@ -40,31 +49,31 @@
   --bg-overlay: rgba(8, 8, 10, 0.9);          /* 遮罩层 */
   --bg-glass: rgba(17, 17, 21, 0.85);         /* 玻璃拟态 */
 
-  /* ========== 四、边框色 ========== */
+  /* ========== 五、边框色 ========== */
   --border-color: #252530;                    /* 默认边框 */
   --border-light: #35354a;                    /* 亮边框 */
   --border-gold: rgba(212, 175, 55, 0.3);     /* 金色边框 */
   --border-gold-hover: rgba(212, 175, 55, 0.5); /* 金色悬停边框 */
 
-  /* ========== 五、文字色 ========== */
+  /* ========== 六、文字色(象牙白灰阶) ========== */
   --text-primary: #f8f6f0;                    /* 主文字 · 象牙白 */
   --text-secondary: #b8b4a8;                  /* 次级文字 */
   --text-muted: #6a6860;                      /* 弱化文字 */
-  --text-dim: #454540;                        /* 暗淡文字 */
-  --text-inverse: #0a0a08;                    /* 反色文字 */
-  --text-gold: #d4af37;                       /* 金色文字 */
+  --text-dim: #454540;                        /* 暗淡文字(placeholder) */
+  --text-inverse: #0a0a08;                    /* 反色文字(金底黑字) */
+  --text-gold: #d4af37;                       /* 金色文字(强调) */
 
-  /* ========== 六、功能色(中国风) ========== */
+  /* ========== 七、功能色(国风语义) ========== */
   --success: #4a9a7a;                         /* 翠玉绿 */
   --error: #b85450;                           /* 朱砂红 */
   --warning: #c49a3a;                         /* 琥珀黄 */
   --info: #5a7ab8;                            /* 青花蓝 */
-  --success-light: rgba(74, 154, 122, 0.12);  /* 翠绿淡背景 */
-  --error-light: rgba(184, 84, 80, 0.12);     /* 朱砂淡背景 */
-  --warning-light: rgba(196, 154, 58, 0.12);  /* 琥珀淡背景 */
-  --info-light: rgba(90, 122, 184, 0.12);     /* 青花淡背景 */
+  --success-light: rgba(74, 154, 122, 0.12);
+  --error-light: rgba(184, 84, 80, 0.12);
+  --warning-light: rgba(196, 154, 58, 0.12);
+  --info-light: rgba(90, 122, 184, 0.12);
 
-  /* ========== 七、阴影系统 ========== */
+  /* ========== 八、阴影系统 ========== */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
@@ -73,14 +82,19 @@
   --shadow-gold-lg: 0 8px 32px rgba(212, 175, 55, 0.2);
   --shadow-gold-glow: 0 0 30px rgba(212, 175, 55, 0.3);
 
-  /* ========== 八、过渡动画 ========== */
+  /* ========== 九、过渡与动画 ========== */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* ========== 九、特色背景 ========== */
+  /* ========== 十、特色背景 ========== */
   /* 中心光晕: 用于 body 伪元素 */
   --bg-halo: radial-gradient(ellipse 80% 50% at 50% -10%,
     rgba(212, 175, 55, 0.08) 0%, transparent 60%);
+
+  /* 纹样底纹(120×120 SVG 平铺,金色低透明度) */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23D4AF37'%3E%3Cpath d='M0 0h120v120H0z' stroke-width='0.3' opacity='0.04'/%3E%3Ccircle cx='60' cy='60' r='40' stroke-width='0.25' opacity='0.03'/%3E%3Ccircle cx='60' cy='60' r='25' stroke-width='0.2' opacity='0.025'/%3E%3Ccircle cx='60' cy='60' r='12' stroke-width='0.15' opacity='0.02'/%3E%3Cpath d='M0 0l120 120M120 0L0 120' stroke-width='0.2' opacity='0.02'/%3E%3Ccircle cx='8' cy='8' r='8' stroke-width='0.15' opacity='0.015'/%3E%3Ccircle cx='112' cy='8' r='8' stroke-width='0.15' opacity='0.015'/%3E%3Ccircle cx='8' cy='112' r='8' stroke-width='0.15' opacity='0.015'/%3E%3Ccircle cx='112' cy='112' r='8' stroke-width='0.15' opacity='0.015'/%3E%3C/g%3E%3C/svg%3E");
+
+  color-scheme: dark;
 }

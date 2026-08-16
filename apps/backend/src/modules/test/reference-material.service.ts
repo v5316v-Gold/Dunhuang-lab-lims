@@ -4,7 +4,7 @@
 // =====================================================
 
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { Prisma, ReferenceMaterialStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SecurityAuditService } from '../../common/audit/security-audit.service';
 import { AuditEventType } from '../../common/audit/audit-event.enum';
@@ -93,7 +93,6 @@ export class ReferenceMaterialService {
         storageTemp: dto.storageTemp,
         standardUncertainty: dto.standardUncertainty != null ? new Prisma.Decimal(dto.standardUncertainty) : null,
         sha256Certificate: dto.sha256Certificate,
-        remarks: dto.remarks,
       },
     });
 
@@ -110,7 +109,8 @@ export class ReferenceMaterialService {
   /** 列表(可选过期过滤) */
   async findAll(params: { activeOnly?: boolean; element?: string; page?: number; pageSize?: number }) {
     const { activeOnly, element, page = 1, pageSize = 20 } = params;
-    const where: any = { deletedAt: null };
+    // 注:ReferenceMaterial 模型无 deletedAt 列,不能过滤
+    const where: any = {};
     if (activeOnly) {
       where.status = 'ACTIVE';
       where.OR = [
@@ -135,7 +135,6 @@ export class ReferenceMaterialService {
   async findOne(id: string) {
     const rm = await this.prisma.referenceMaterial.findUnique({
       where: { id },
-      include: { certificateFile: true },
     });
     if (!rm) throw new NotFoundException(`标准物质 ${id} 不存在`);
     // 是否需要期间核查?
@@ -215,13 +214,13 @@ export class ReferenceMaterialService {
   async findUsageHistory(rmId: string, page = 1, pageSize = 20) {
     const [items, total] = await Promise.all([
       this.prisma.referenceMaterialUsage.findMany({
-        where: { referenceMaterialId: rmId, deletedAt: null },
+        where: { referenceMaterialId: rmId },
         orderBy: { usedAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: { usedBy: { select: { id: true, name: true } } },
       }),
-      this.prisma.referenceMaterialUsage.count({ where: { referenceMaterialId: rmId, deletedAt: null } }),
+      this.prisma.referenceMaterialUsage.count({ where: { referenceMaterialId: rmId } }),
     ]);
     return { items, total, page, pageSize };
   }
@@ -231,7 +230,6 @@ export class ReferenceMaterialService {
     const future = new Date(Date.now() + daysAhead * 24 * 3600 * 1000);
     const items = await this.prisma.referenceMaterial.findMany({
       where: {
-        deletedAt: null,
         status: 'ACTIVE',
         OR: [
           { expiryDate: { lte: future, gt: new Date() } },

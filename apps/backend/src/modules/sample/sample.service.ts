@@ -5,7 +5,7 @@ import { RealtimeBus } from '../realtime/realtime.bus';
 // 详见 Phase 2 文档 §5.1
 // =====================================================
 
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, Sample } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -25,9 +25,8 @@ function allowedEventHint(status: string): string {
 }
 
 @Injectable()
-export class SampleService implements OnModuleInit, OnModuleDestroy {
+export class SampleService {
   private readonly logger = new Logger(SampleService.name);
-  private retentionTimer?: NodeJS.Timeout;
   constructor(
   private readonly prisma: PrismaService,
     private readonly sampleNoGenerator: SampleNumberGenerator,

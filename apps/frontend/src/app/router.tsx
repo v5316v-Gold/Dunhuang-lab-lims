@@ -26,7 +26,9 @@ const SamplesListPage = lazy(() => import('../views/sample/SamplesList'));
 const SampleReceivePage = lazy(() => import('../views/sample/SampleReceive'));
 const BatchesListPage = lazy(() => import('../views/batch/BatchesList'));
 const BatchDetailPage = lazy(() => import('../views/batch/BatchDetail'));
-const ReportDetailPage = lazy(() => import('../views/report/ReportDetail'));
+const ReportDetailPage = lazy(() =>
+  import('../views/report/ReportDetail').then((m) => ({ default: m.ReportDetail })),
+);
 const QcDashboardPage = lazy(() => import('../views/qc/QcDashboard'));
 const AuditLogsPage = lazy(() => import('../views/audit/AuditLogs'));
 const CompliancePage = lazy(() => import('../views/compliance/ComplianceHub'));

@@ -307,7 +307,9 @@ private async generateReportNo(): Promise<string> {
   async downloadPdf(reportId: string): Promise<{ buffer: Buffer; reportNo: string; sha256: string }> {
     const report = await this.prisma.report.findUnique({
       where: { id: reportId },
-      include: { sample: true },
+      include: {
+        sample: { include: { tests: { include: { fireAssay: true, elementResults: true } } } },
+      },
     });
     if (!report) throw new NotFoundException(`Report ${reportId} 不存在`);
     if (!report.pdfSha256) {

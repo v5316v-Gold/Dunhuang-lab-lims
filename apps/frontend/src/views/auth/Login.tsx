@@ -51,19 +51,28 @@ export default function LoginPage() {
 
   return (
     <div
+      className="bg-auth animate-fade-in"
       style={{
-        height: '100vh',
+        minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       }}
     >
-      <Card style={{ width: 420 }}>
+      <Card
+        style={{
+          width: 420,
+          background: 'var(--bg-glass)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid var(--border-gold)',
+          boxShadow: 'var(--shadow-xl), var(--shadow-gold-glow)',
+          borderRadius: 'var(--radius-2xl)',
+        }}
+      >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ textAlign: 'center' }}>
             <Title level={2} style={{ margin: 0 }}>
-              敦煌金质检
+              <span className="text-gold-shimmer">敦煌金质检</span>
             </Title>
             <Text type="secondary">CNAS 合规实验室信息管理系统</Text>
           </div>
