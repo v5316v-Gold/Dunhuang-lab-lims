@@ -313,10 +313,10 @@ export class SampleService {
       where: { id: sampleId },
       data: { status: 'DISPOSED', disposedAt: new Date() },
     });
-    if ((this as any).securityAudit) {
-      await (this as any).securityAudit.system(
-        'CONFIG:SETTINGS_CHANGED',
-        { event: 'SAMPLE_DISPOSED', sampleNo: sample.sampleNo, method, approvedBy: approveById },
+    if (this.securityAudit) {
+      await this.securityAudit.system(
+        AuditEventType.SAMPLE_DISPOSED,
+        { sampleNo: sample.sampleNo, method, approvedBy: approveById },
       );
     }
     return result;
