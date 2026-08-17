@@ -16,6 +16,7 @@
 
 import { Module } from '@nestjs/common';
 
+import { AuditModule } from '../../common/audit/audit.module';
 import { InstrumentDataController } from './instrument-data.controller';
 import { InstrumentDataService } from './instrument-data.service';
 import { InstrumentDataConsumer } from './instrument-data.consumer';
@@ -23,6 +24,7 @@ import { InstrumentRegistryService } from './instrument-registry.service';
 
 @Module({
   // P0-Fix-1: ScheduleModule 已在 MetricsModule @Global 注册,这里不重复
+  imports: [AuditModule],   // P0-Fix-2 修复:consumer 依赖 SecurityAuditService
   controllers: [InstrumentDataController],
   providers: [InstrumentDataService, InstrumentDataConsumer, InstrumentRegistryService],
   exports: [InstrumentDataService, InstrumentRegistryService],
