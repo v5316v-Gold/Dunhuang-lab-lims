@@ -3,7 +3,7 @@
 // 详见 ADR-0009
 // =====================================================
 
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -12,11 +12,13 @@ import { AuditModule } from '../audit/audit.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { MfaGuard } from './guards/mfa.guard';
 import { RbacGuard } from './guards/rbac.guard';
 import { PasswordService } from './password.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TotpService } from './totp.service';
 
+@Global()  // P0-Fix-2 修复:MfaGuard 依赖 JwtService,必须全局可解析
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -34,7 +36,7 @@ import { TotpService } from './totp.service';
     AuditModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, RbacGuard, TotpService, PasswordService],
-  exports: [AuthService, JwtAuthGuard, RbacGuard, TotpService, PasswordService],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, RbacGuard, MfaGuard, TotpService, PasswordService],
+  exports: [AuthService, JwtAuthGuard, RbacGuard, MfaGuard, TotpService, PasswordService, JwtModule],
 })
 export class AuthModule {}

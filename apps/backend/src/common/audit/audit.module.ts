@@ -4,7 +4,7 @@
 // Phase 1 Task 2.1: 新增 SecurityAuditService
 // =====================================================
 
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AuditContextInterceptor } from './audit-context.interceptor';
@@ -12,6 +12,7 @@ import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
 import { SecurityAuditService } from './security-audit.service';
 
+@Global()  // P0-Fix-2 修复:SecurityAuditService 需全局可注入(MfaGuard/业务服务依赖)
 @Module({
   controllers: [AuditController],
   providers: [
