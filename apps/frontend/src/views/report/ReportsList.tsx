@@ -6,9 +6,11 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Form, Input, Modal, Table, Tag, message, Space } from 'antd';
+import { Button, Form, Input, Modal, Table, Tag, message, Space } from 'antd';
 import { PlusOutlined, FileDoneOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface ReportRow {
   id: string;
@@ -25,8 +27,7 @@ const STATUS_COLOR: Record<string, string> = {
   FINAL_REVIEW: 'var(--warning)',
   APPROVED: 'var(--success)',
   ISSUED: 'var(--success)',
-  REJECTED: 'var(--error)',
-};
+  REJECTED: 'var(--error)' };
 
 export function ReportsList() {
   const navigate = useNavigate();
@@ -74,20 +75,22 @@ export function ReportsList() {
   };
 
   return (
-    <Card style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-      <Space style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>检测报告</h3>
-        <Button
+    <div>
+      <PageHeader
+        title="检测报告"
+        subtitle="CNAS §7.8 结果报告 · 多级审核 + 电子签名"
+        icon={<FileDoneOutlined />}
+        extra={<Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => setCreateOpen(true)}
           style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }}
         >
           创建报告
-        </Button>
-      </Space>
+        </Button>}
+      />
 
-      <Table<ReportRow>
+      <DataTable<ReportRow>
         rowKey="id"
         loading={loading}
         dataSource={data}
@@ -100,8 +103,7 @@ export function ReportsList() {
           {
             title: '状态',
             dataIndex: 'status',
-            render: (v) => <Tag style={{ color: STATUS_COLOR[v] ?? 'var(--text-muted)' }}>{v}</Tag>,
-          },
+            render: (v) => <Tag style={{ color: STATUS_COLOR[v] ?? 'var(--text-muted)' }}>{v}</Tag> },
           { title: '签发时间', dataIndex: 'issuedAt', render: (v) => (v ? new Date(v).toLocaleString() : '—') },
           {
             title: '操作',
@@ -113,8 +115,7 @@ export function ReportsList() {
               >
                 查看/审核
               </Button>
-            ),
-          },
+            ) },
         ]}
       />
 
@@ -125,6 +126,6 @@ export function ReportsList() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }

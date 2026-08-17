@@ -6,12 +6,12 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Button, Card, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider,
-} from 'antd';
-import {
-  PlusOutlined, AlertOutlined, CheckCircleOutlined, WarningOutlined, RocketOutlined, ExperimentOutlined,
-} from '@ant-design/icons';
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider } from 'antd';
+import { 
+  PlusOutlined, AlertOutlined, CheckCircleOutlined, WarningOutlined, RocketOutlined, ExperimentOutlined, CloudOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface GasRow {
   id: string;
@@ -60,8 +60,7 @@ const GAS_TYPE_LABEL: Record<string, { label: string; color: string }> = {
   HYDROGEN: { label: '氢气', color: 'magenta' },
   HELIUM: { label: '氦气', color: 'purple' },
   ACETYLENE: { label: '乙炔', color: 'orange' },
-  COMPRESSED_AIR: { label: '压缩空气', color: 'default' },
-};
+  COMPRESSED_AIR: { label: '压缩空气', color: 'default' } };
 
 const PURCHASE_STATUS: Record<string, { label: string; color: string }> = {
   ORDERED: { label: '已下单', color: 'blue' },
@@ -69,8 +68,7 @@ const PURCHASE_STATUS: Record<string, { label: string; color: string }> = {
   RECEIVED: { label: '已到货', color: 'geekblue' },
   INSPECTED: { label: '已验收', color: 'green' },
   REJECTED: { label: '拒收', color: 'red' },
-  RETURNED: { label: '退货', color: 'volcano' },
-};
+  RETURNED: { label: '退货', color: 'volcano' } };
 
 export function GasList() {
   const [data, setData] = useState<GasRow[]>([]);
@@ -100,8 +98,7 @@ export function GasList() {
     setLoading(true);
     try {
       const res = await api.get('/gas', {
-        params: { page: p, pageSize: ps, type: filterType, lowStockOnly: onlyLowStock },
-      });
+        params: { page: p, pageSize: ps, type: filterType, lowStockOnly: onlyLowStock } });
       setData(res.data.items ?? []);
       setTotal(res.data.total ?? 0);
     } catch {
@@ -205,13 +202,11 @@ export function GasList() {
       dataIndex: 'code',
       key: 'code',
       width: 130,
-      render: (v: string) => <span style={{ fontFamily: 'monospace', color: 'var(--gold, #D4AF37)' }}>{v}</span>,
-    },
+      render: (v: string) => <span style={{ fontFamily: 'monospace', color: 'var(--gold, #D4AF37)' }}>{v}</span> },
     {
       title: '名称',
       dataIndex: 'name',
-      key: 'name',
-    },
+      key: 'name' },
     {
       title: '类型',
       dataIndex: 'type',
@@ -220,14 +215,12 @@ export function GasList() {
       render: (v: string) => {
         const meta = GAS_TYPE_LABEL[v] ?? { label: v, color: 'default' };
         return <Tag color={meta.color}>{meta.label}</Tag>;
-      },
-    },
+      } },
     {
       title: '纯度',
       dataIndex: 'purity',
       key: 'purity',
-      width: 100,
-    },
+      width: 100 },
     {
       title: '库存(瓶)',
       dataIndex: 'currentStock',
@@ -241,27 +234,23 @@ export function GasList() {
             {v}
           </span>
         );
-      },
-    },
+      } },
     {
       title: '最低库存',
       dataIndex: 'minStock',
       key: 'minStock',
-      width: 90,
-    },
+      width: 90 },
     {
       title: '存放位置',
       dataIndex: 'storageLocation',
       key: 'storageLocation',
-      width: 120,
-    },
+      width: 120 },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 90,
-      render: (v: string) => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v}</Tag>,
-    },
+      render: (v: string) => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v}</Tag> },
     {
       title: '操作',
       key: 'action',
@@ -290,8 +279,7 @@ export function GasList() {
             采购
           </Button>
         </Space>
-      ),
-    },
+      ) },
   ];
 
   const purchaseColumns = [
@@ -306,8 +294,7 @@ export function GasList() {
       render: (v: string) => {
         const meta = PURCHASE_STATUS[v] ?? { label: v, color: 'default' };
         return <Tag color={meta.color}>{meta.label}</Tag>;
-      },
-    },
+      } },
     {
       title: '操作',
       key: 'action',
@@ -324,8 +311,7 @@ export function GasList() {
           </Space>
         ) : (
           <Tag color="default">已处理</Tag>
-        ),
-    },
+        ) },
   ];
 
   const usageColumns = [
@@ -340,8 +326,7 @@ export function GasList() {
           </Tag>
           {r.gas.code}
         </span>
-      ),
-    },
+      ) },
     { title: '使用量', dataIndex: 'quantity', key: 'quantity', width: 90 },
     { title: '用途', dataIndex: 'purpose', key: 'purpose' },
     { title: '使用人', dataIndex: ['usedBy', 'name'], key: 'usedBy', width: 100 },
@@ -350,27 +335,23 @@ export function GasList() {
       dataIndex: 'usedAt',
       key: 'usedAt',
       width: 170,
-      render: (v: string) => v?.substring(0, 19).replace('T', ' '),
-    },
+      render: (v: string) => v?.substring(0, 19).replace('T', ' ') },
   ];
 
   return (
     <div style={{ padding: 24 }}>
-      <Card
-        title={
-          <Space>
-            <ExperimentOutlined />
-            <span>气体管理</span>
-            <Tag color="gold">CNAS §7.5 + §6.4</Tag>
-          </Space>
-        }
+          <div>
+      <PageHeader
+        title="气体管理"
+        subtitle="CNAS §6.4 + §7.5 · 气瓶台账 + 采购 + 使用"
+        icon={<CloudOutlined />}
         extra={
           <Space>
             <Button icon={<AlertOutlined />} onClick={loadSummary}>合规摘要</Button>
             <Button icon={<PlusOutlined />} type="primary" onClick={() => setCreateOpen(true)}>创建气体</Button>
           </Space>
         }
-      >
+      />
         {/* 筛选 */}
         <Space style={{ marginBottom: 16 }} wrap>
           <Select
@@ -386,7 +367,7 @@ export function GasList() {
           </Button>
         </Space>
 
-        <Table
+        <DataTable
           rowKey="id"
           columns={columns}
           dataSource={data}
@@ -397,15 +378,14 @@ export function GasList() {
             pageSize,
             total,
             showSizeChanger: true,
-            onChange: (p, ps) => { setPage(p); setPageSize(ps); load(p, ps); },
-          }}
+            onChange: (p, ps) => { setPage(p); setPageSize(ps); load(p, ps); } }}
         />
 
         <Divider style={{ margin: '32px 0 16px' }}>采购记录</Divider>
         <Space style={{ marginBottom: 12 }}>
           <Button onClick={loadPurchases} size="small">刷新</Button>
         </Space>
-        <Table
+        <DataTable
           rowKey="id"
           columns={purchaseColumns}
           dataSource={purchases}
@@ -417,14 +397,14 @@ export function GasList() {
         <Space style={{ marginBottom: 12 }}>
           <Button onClick={loadUsages} size="small">刷新</Button>
         </Space>
-        <Table
+        <DataTable
           rowKey="id"
           columns={usageColumns}
           dataSource={usages}
           pagination={{ pageSize: 5 }}
           size="small"
         />
-      </Card>
+      </div>
 
       {/* 创建气体 */}
       <Modal title="创建气体主数据" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} width={640}>
@@ -556,7 +536,7 @@ export function GasList() {
             <h4>本月使用 <Tag color="gold">{summary.totalUsagesThisMonth ?? 0}</Tag></h4>
             <h4>低库存预警 <Tag color="red">{summary.lowStockCount ?? 0}</Tag></h4>
             {(summary.lowStock ?? []).length > 0 && (
-              <Table
+              <DataTable
                 rowKey="id"
                 size="small"
                 pagination={false}

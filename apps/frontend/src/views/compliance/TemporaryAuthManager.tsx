@@ -5,11 +5,13 @@
 
 import { useState } from 'react';
 import {
-  Button, Card, Form, Input, Select, Table, Tag, Space, DatePicker, Modal,
+  Button, Form, Input, Select, Table, Tag, Space, DatePicker, Modal,
   App, Popconfirm,
 } from 'antd';
-import { PlusOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
+import {  PlusOutlined, ReloadOutlined, StopOutlined, KeyOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import dayjs, { Dayjs } from 'dayjs';
 
@@ -112,17 +114,19 @@ export default function TemporaryAuthManager() {
   ];
 
   return (
-    <Card
-      title="临时授权(代班管理)"
-      size="small"
-      extra={
-        <Space>
+        <div>
+      <PageHeader
+        title="临时授权"
+        subtitle="CNAS §7.2 人员授权 · 代班管理"
+        icon={<KeyOutlined />}
+        extra={
+          <Space>
           <Button icon={<ReloadOutlined />} onClick={() => qc.invalidateQueries({ queryKey: ['temp-auths'] })}>刷新</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>授予临时权限</Button>
         </Space>
-      }
-    >
-      <Table<TempAuth>
+        }
+      />
+      <DataTable<TempAuth>
         rowKey="id"
         columns={columns}
         dataSource={list?.items ?? []}
@@ -170,6 +174,6 @@ export default function TemporaryAuthManager() {
           </div>
         )}
       </Modal>
-    </Card>
+    </div>
   );
 }

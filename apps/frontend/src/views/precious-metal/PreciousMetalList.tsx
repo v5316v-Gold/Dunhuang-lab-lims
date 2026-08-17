@@ -6,12 +6,14 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Button, Card, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Tabs,
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Tabs,
 } from 'antd';
 import {
   PlusOutlined, AlertOutlined, QrcodeOutlined, ScanOutlined, GoldOutlined, EnvironmentOutlined, IdcardOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface SamplingRow {
   id: string;
@@ -347,14 +349,11 @@ export function PreciousMetalList() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Card
-        title={
-          <Space>
-            <GoldOutlined />
-            <span>贵金属业务</span>
-            <Tag color="gold">CNAS §7.5 + §7.8(抽样)+ §7.4(记录)</Tag>
-          </Space>
-        }
+          <div>
+      <PageHeader
+        title="贵金属业务"
+        subtitle="CNAS §7.4 + §7.8 · 取样 + 条码"
+        icon={<QrcodeOutlined />}
         extra={
           <Space>
             <Button icon={<ScanOutlined />} onClick={() => setScanOpen(true)}>扫码追溯</Button>
@@ -362,7 +361,7 @@ export function PreciousMetalList() {
             <Button icon={<PlusOutlined />} type="primary" onClick={() => setCreateBarOpen(true)}>生成条码</Button>
           </Space>
         }
-      >
+      />
         <Tabs
           defaultActiveKey="bars"
           items={[
@@ -370,7 +369,7 @@ export function PreciousMetalList() {
               key: 'bars',
               label: <span><QrcodeOutlined /> 贵金属条码 ({bars.length})</span>,
               children: (
-                <Table
+                <DataTable
                   rowKey="id"
                   columns={barColumns}
                   dataSource={bars}
@@ -388,7 +387,7 @@ export function PreciousMetalList() {
                   <Space style={{ marginBottom: 12 }}>
                     <Button icon={<PlusOutlined />} onClick={() => setCreateSamplingOpen(true)}>取样登记</Button>
                   </Space>
-                  <Table
+                  <DataTable
                     rowKey="id"
                     columns={samplingColumns}
                     dataSource={samplings}
@@ -401,7 +400,7 @@ export function PreciousMetalList() {
             },
           ]}
         />
-      </Card>
+      </div>
 
       {/* 取样登记 */}
       <Modal title="取样登记(CNAS §7.8)" open={createSamplingOpen} destroyOnClose onOk={handleCreateSampling} onCancel={() => setCreateSamplingOpen(false)} width={720}>
@@ -607,7 +606,7 @@ export function PreciousMetalList() {
             </Row>
             <Divider />
             <h4>按成色分布</h4>
-            <Table
+            <DataTable
               rowKey={(r: any) => r.grade}
               size="small"
               pagination={false}
@@ -624,7 +623,7 @@ export function PreciousMetalList() {
             />
             <Divider />
             <h4>按金属分布</h4>
-            <Table
+            <DataTable
               rowKey={(r: any) => r.metal}
               size="small"
               pagination={false}

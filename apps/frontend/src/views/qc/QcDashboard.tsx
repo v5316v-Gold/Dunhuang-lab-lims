@@ -24,6 +24,8 @@ import { CheckCircleOutlined, CloseCircleOutlined, ExperimentOutlined } from '@a
 import { useQuery } from '@tanstack/react-query';
 import ReactECharts from 'echarts-for-react';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -103,16 +105,10 @@ export default function QcDashboard() {
 
   return (
     <div>
-      <Card
-        title={
-          <Space>
-            <ExperimentOutlined />
-            <Title level={4} style={{ margin: 0 }}>
-              QC 质量控制仪表盘
-            </Title>
-            <Text type="secondary">Phase 2 · Day 5</Text>
-          </Space>
-        }
+      <PageHeader
+        title="QC 监控"
+        subtitle="CNAS §7.7 期间核查 · Westgard 多规则"
+        icon={<ExperimentOutlined />}
         extra={
           <Select
             value={days}
@@ -125,7 +121,7 @@ export default function QcDashboard() {
             style={{ width: 150 }}
           />
         }
-      >
+      />
         {/* 顶部统计卡片 */}
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={6}>
@@ -309,7 +305,6 @@ export default function QcDashboard() {
             <Empty description="暂无 QC 测量数据" />
           )}
         </Card>
-      </Card>
-    </div>
+        </div>
   );
 }

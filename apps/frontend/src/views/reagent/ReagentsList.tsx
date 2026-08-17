@@ -5,9 +5,11 @@
 // =====================================================
 
 import { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, Modal, Select, Table, Tag, message, Space } from 'antd';
-import { PlusOutlined, AlertOutlined } from '@ant-design/icons';
+import { Button, Form, Input, Modal, Select, Table, Tag, message, Space } from 'antd';
+import {  PlusOutlined, AlertOutlined, GoldOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface ReagentRow {
   id: string;
@@ -71,25 +73,17 @@ export function ReagentsList() {
   };
 
   return (
-    <Card style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-      <Space style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>试剂库存</h3>
-        <Space>
-          <Button icon={<AlertOutlined />} onClick={showAlerts}>
+    <div>
+      <PageHeader
+        title="试剂库存"
+        subtitle="CNAS §6.6 外部产品 · 试剂台账 + 库存预警"
+        icon={<GoldOutlined />}
+        extra={<Button icon={<AlertOutlined />} onClick={showAlerts}>
             库存预警
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setCreateOpen(true)}
-            style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }}
-          >
-            创建试剂
-          </Button>
-        </Space>
-      </Space>
+          </Button>}
+      />
 
-      <Table<ReagentRow>
+      <DataTable<ReagentRow>
         rowKey="id"
         loading={loading}
         dataSource={data}
@@ -156,6 +150,6 @@ export function ReagentsList() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }

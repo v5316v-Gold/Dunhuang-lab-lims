@@ -4,10 +4,12 @@
 
 import { useState } from 'react';
 import {
-  Button, Card, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, App, Popconfirm, Progress, Alert,
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, App, Popconfirm, Progress, Alert,
 } from 'antd';
-import { PlusOutlined, ReloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import {  PlusOutlined, ReloadOutlined, CheckCircleOutlined, SafetyOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 interface BlindSample {
@@ -115,23 +117,25 @@ export default function BlindSampleList() {
   const passRate = stats.assessed > 0 ? Math.round((stats.passed / stats.assessed) * 100) : 0;
 
   return (
-    <Card
-      title="盲样考核(5% 偏差容差)"
-      size="small"
-      extra={
-        <Space>
+        <div>
+      <PageHeader
+        title="盲样考核"
+        subtitle="盲样 5% 偏差容差 · 人员能力验证"
+        icon={<SafetyOutlined />}
+        extra={
+          <Space>
           <Button icon={<ReloadOutlined />} onClick={() => qc.invalidateQueries({ queryKey: ['blind-samples'] })}>刷新</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { createForm.resetFields(); setCreateOpen(true); }}>新建盲样</Button>
         </Space>
-      }
-    >
+        }
+      />
       <Space size="middle" style={{ marginBottom: 12 }}>
         <Tag color="blue">总数: {stats.total}</Tag>
         <Tag color="cyan">已评: {stats.assessed}</Tag>
         <Tag color="green">通过: {stats.passed}</Tag>
         <Progress percent={passRate} size="small" style={{ width: 120 }} format={(p) => `通过率 ${p}%`} />
       </Space>
-      <Table<BlindSample>
+      <DataTable<BlindSample>
         rowKey="id"
         columns={columns}
         dataSource={list?.items ?? []}
@@ -183,6 +187,6 @@ export default function BlindSampleList() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }

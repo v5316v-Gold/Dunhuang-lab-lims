@@ -12,6 +12,8 @@ import {
   PlusOutlined, AlertOutlined, ContainerOutlined, ExportOutlined, ImportOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface ContainerRow {
   id: string;
@@ -330,21 +332,17 @@ export function ContainerList() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Card
-        title={
-          <Space>
-            <ContainerOutlined />
-            <span>容器管理</span>
-            <Tag color="gold">CNAS §7.5 + §6.5</Tag>
-          </Space>
-        }
+      <PageHeader
+        title="容器管理"
+        subtitle="CNAS §6.5 + §7.5 · 容器台账 + 使用"
+        icon={<ContainerOutlined />}
         extra={
           <Space>
             <Button icon={<AlertOutlined />} onClick={loadSummary}>合规摘要</Button>
             <Button icon={<PlusOutlined />} type="primary" onClick={() => setCreateOpen(true)}>容器建档</Button>
           </Space>
         }
-      >
+      />
         <Space style={{ marginBottom: 16 }} wrap>
           <Select
             placeholder="容器类型"
@@ -372,7 +370,7 @@ export function ContainerList() {
           />
         </Space>
 
-        <Table
+        <DataTable
           rowKey="id"
           columns={columns}
           dataSource={data}
@@ -391,14 +389,14 @@ export function ContainerList() {
         <Space style={{ marginBottom: 12 }}>
           <Button onClick={loadUsages} size="small">刷新</Button>
         </Space>
-        <Table
+        <DataTable
           rowKey="id"
           columns={usageColumns}
           dataSource={usages}
           pagination={{ pageSize: 5 }}
           size="small"
         />
-      </Card>
+
 
       {/* 创建容器 */}
       <Modal title="容器建档" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} width={720}>
@@ -514,7 +512,7 @@ export function ContainerList() {
             </Row>
             <Divider />
             <h4>按类型分布</h4>
-            <Table
+            <DataTable
               rowKey={(r: any) => r.type}
               size="small"
               pagination={false}

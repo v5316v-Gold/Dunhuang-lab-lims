@@ -6,12 +6,14 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Button, Card, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Radio,
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Radio,
 } from 'antd';
 import {
   PlusOutlined, AlertOutlined, TruckOutlined, FireOutlined, GoldOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface WasteRow {
   id: string;
@@ -298,21 +300,18 @@ export function WasteList() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Card
-        title={
-          <Space>
-            <GoldOutlined />
-            <span>危废管理</span>
-            <Tag color="gold">CNAS §7.10</Tag>
-          </Space>
-        }
+          <div>
+      <PageHeader
+        title="危废管理"
+        subtitle="CNAS §7.10 不符合工作 · 危废台账 + 处置"
+        icon={<GoldOutlined />}
         extra={
           <Space>
             <Button icon={<AlertOutlined />} onClick={loadSummary}>合规摘要</Button>
             <Button icon={<PlusOutlined />} type="primary" onClick={() => setCreateOpen(true)}>危废登记</Button>
           </Space>
         }
-      >
+      />
         {/* 筛选 */}
         <Space style={{ marginBottom: 16 }} wrap>
           <Select
@@ -341,7 +340,7 @@ export function WasteList() {
           />
         </Space>
 
-        <Table
+        <DataTable
           rowKey="id"
           columns={columns}
           dataSource={data}
@@ -355,7 +354,7 @@ export function WasteList() {
             onChange: (p, ps) => { setPage(p); setPageSize(ps); load(p, ps); },
           }}
         />
-      </Card>
+      </div>
 
       {/* 创建危废 */}
       <Modal title="危废登记" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} width={720}>
@@ -507,7 +506,7 @@ export function WasteList() {
             <Row gutter={16}>
               <Col span={12}>
                 <h4>按状态分布</h4>
-                <Table
+                <DataTable
                   rowKey={(r: any) => r.status}
                   size="small"
                   pagination={false}
@@ -526,7 +525,7 @@ export function WasteList() {
               </Col>
               <Col span={12}>
                 <h4>按危险类别分布</h4>
-                <Table
+                <DataTable
                   rowKey={(r: any) => r.cls}
                   size="small"
                   pagination={false}
