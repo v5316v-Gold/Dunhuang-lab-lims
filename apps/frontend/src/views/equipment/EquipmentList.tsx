@@ -1,13 +1,15 @@
 // =====================================================
-// 设备管理列表 — 前端填充(原空壳页补全)
+// 设备管理列表 — P2 美化版(PageHeader + DataTable + statusTag)
 // 功能: 设备列表 + 创建设备 + 校准/维护/期间核查入口
 // 样式: 设计令牌(墨黑+辉金)
 // =====================================================
 
 import { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, Modal, Select, Table, Tag, message, Space } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Button, Form, Input, Modal, Select, Tag, message, Space } from 'antd';
+import { PlusOutlined, ToolOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface EquipmentRow {
   id: string;
@@ -18,13 +20,6 @@ interface EquipmentRow {
   model?: string;
   location?: string;
 }
-
-const STATUS_COLOR: Record<string, string> = {
-  ACTIVE: 'var(--success)',
-  MAINTENANCE: 'var(--warning)',
-  RETIRED: 'var(--text-muted)',
-  BROKEN: 'var(--error)',
-};
 
 export function EquipmentList() {
   const [data, setData] = useState<EquipmentRow[]>([]);
@@ -66,34 +61,56 @@ export function EquipmentList() {
   };
 
   return (
-    <Card style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-      <Space style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>设备管理</h3>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setCreateOpen(true)}
-          style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }}
-        >
-          创建设备
-        </Button>
-      </Space>
+    <div>
+      <PageHeader
+        title="设备管理"
+        subtitle="CNAS §6.4 设备 + §7.7 期间核查 · 校准/核查状态实时监控"
+        icon={<ToolOutlined />}
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+            创建设备
+          </Button>
+        }
+      />
 
-      <Table<EquipmentRow>
+      <DataTable<EquipmentRow>
+        title="设备列表"
+        subtitle={`共 ${total} 台`}
         rowKey="id"
         loading={loading}
         dataSource={data}
-        pagination={{ current: page, total, pageSize: 20, onChange: (p) => { setPage(p); load(p); } }}
-        locale={{ emptyText: '暂无设备' }}
+        onRefresh={() => load(page)}
+        onAdd={() => setCreateOpen(true)}
+        addLabel="创建设备"
+        pagination={{
+          current: page,
+          total,
+          pageSize: 20,
+          showSizeChanger: false,
+          onChange: (p) => { setPage(p); load(p); },
+        }}
         columns={[
-          { title: '设备编号', dataIndex: 'equipmentNo' },
-          { title: '名称', dataIndex: 'name' },
-          { title: '类型', dataIndex: 'type', render: (v) => <Tag>{v}</Tag> },
+          { title: '设备编号', dataIndex: 'equipmentNo', width: 130 },
+          { title: '名称', dataIndex: 'name', width: 160 },
+          {
+            title: '类型',
+            dataIndex: 'type',
+            width: 140,
+            render: (v) => {
+              const map: Record<string, string> = {
+                FIRE_ASSAY_FURNACE: '试金炉', CUPELLATION_FURNACE: '灰吹炉',
+                ANALYTICAL_BALANCE: '分析天平', ICP_OES: 'ICP-OES', ICP_MS: 'ICP-MS',
+                XRF: 'XRF', OTHER: '其他',
+              };
+              return <Tag style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>{map[v] ?? v}</Tag>;
+            },
+          },
           { title: '型号', dataIndex: 'model', render: (v) => v ?? '—' },
           {
             title: '状态',
             dataIndex: 'status',
-            render: (v) => <Tag style={{ color: STATUS_COLOR[v] ?? 'var(--text-muted)' }}>{v}</Tag>,
+            width: 110,
+            render: statusTag,
           },
           { title: '位置', dataIndex: 'location', render: (v) => v ?? '—' },
         ]}
@@ -128,6 +145,6 @@ export function EquipmentList() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }
