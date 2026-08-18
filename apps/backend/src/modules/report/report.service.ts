@@ -228,6 +228,30 @@ export class ReportService {
   }
 
   /**
+   * 更新报告内容(DRAFT/审核中可编辑 summary/remarks)
+   */
+  async update(id: string, dto: { summary?: string; remarks?: string }, userId: string): Promise<Report> {
+    const report = await this.prisma.report.findUnique({ where: { id } });
+    if (!report) throw new NotFoundException(`报告 ${id} 不存在`);
+    // 已签发不可编辑
+    if (report.status === 'ISSUED' || report.status === 'SUPERSEDED') {
+      throw new BadRequestException(`报告已${report.status === 'ISSUED' ? '签发' : '作废'},不可编辑内容`);
+    }
+    const data: any = {};
+    if (dto.summary !== undefined) data.summary = dto.summary;
+    if (dto.remarks !== undefined) data.remarks = dto.remarks;
+    const updated = await this.prisma.report.update({ where: { id }, data });
+    // 审计:内容编辑
+    await this.securityAudit.system(AuditEventType.REPORT_DRAFTED, {
+      reportId: id,
+      reportNo: report.reportNo,
+      action: 'content_updated',
+      operatorId: userId,
+    }).catch(() => undefined);
+    return updated;
+  }
+
+  /**
    * 列表
    */
   async findAll(filter: { status?: ReportStatus; sampleId?: string; page?: number; pageSize?: number }) {

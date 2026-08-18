@@ -10,7 +10,10 @@ import {
   Button, Card, Descriptions, Spin, Tag, Space, message,
   Modal, Input, Timeline, Empty,
 } from 'antd';
-import { ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined,
+  EditOutlined, DownloadOutlined, EyeOutlined,
+} from '@ant-design/icons';
 import { api } from '../../data/api';
 
 interface ReportStage {
@@ -25,6 +28,7 @@ interface ReportDetail {
   reportNo: string;
   status: string;
   summary?: string;
+  remarks?: string;
   issuedAt?: string;
   createdAt: string;
   sample?: {
@@ -71,6 +75,10 @@ export function ReportDetail() {
     action: '',
   });
   const [comment, setComment] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSummary, setEditSummary] = useState('');
+  const [editRemarks, setEditRemarks] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -99,6 +107,58 @@ export function ReportDetail() {
       message.error(e?.response?.data?.message || '操作失败');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // 打开编辑弹窗
+  const openEdit = () => {
+    setEditSummary(detail?.summary ?? '');
+    setEditRemarks(detail?.remarks ?? '');
+    setEditOpen(true);
+  };
+
+  // 保存编辑内容
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      await api.patch(`/reports/${id}`, { summary: editSummary, remarks: editRemarks });
+      message.success('报告内容已保存');
+      setEditOpen(false);
+      await load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 下载 PDF(仅 ISSUED 状态有)
+  const downloadPdf = async () => {
+    try {
+      const res = await api.get(`/reports/${id}/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${detail?.reportNo || 'report'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      message.success('报告 PDF 已下载');
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '下载失败(报告可能尚未签发 PDF)');
+    }
+  };
+
+  // 预览 PDF
+  const previewPdf = async () => {
+    try {
+      const res = await api.get(`/reports/${id}/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data as Blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '预览失败(报告可能尚未签发 PDF)');
     }
   };
 
@@ -164,6 +224,13 @@ export function ReportDetail() {
                 签发
               </Button>
             )}
+            {/* 编辑内容(未签发可编辑) */}
+            {detail.status !== 'ISSUED' && detail.status !== 'SUPERSEDED' && (
+              <Button icon={<EditOutlined />} onClick={openEdit}>编辑内容</Button>
+            )}
+            {/* 下载/预览 PDF */}
+            <Button icon={<DownloadOutlined />} onClick={downloadPdf}>下载</Button>
+            <Button icon={<EyeOutlined />} onClick={previewPdf}>预览</Button>
           </Space>
         </Space>
       </Card>
@@ -188,6 +255,11 @@ export function ReportDetail() {
       <Card
         title="检测结果"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        extra={
+          detail.status !== 'ISSUED' && detail.status !== 'SUPERSEDED' ? (
+            <Button size="small" icon={<EditOutlined />} onClick={openEdit}>编辑</Button>
+          ) : null
+        }
       >
         {detail.summary ? (
           <pre
@@ -202,7 +274,13 @@ export function ReportDetail() {
             {detail.summary}
           </pre>
         ) : (
-          <Empty description="暂无内容" />
+          <Empty description={'暂无内容,点击右上角"编辑"填写'} />
+        )}
+        {detail.remarks && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-color)' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>备注: </span>
+            <span style={{ color: 'var(--text-secondary)' }}>{detail.remarks}</span>
+          </div>
         )}
       </Card>
 
@@ -264,6 +342,40 @@ export function ReportDetail() {
           onChange={(e) => setComment(e.target.value)}
           style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
         />
+      </Modal>
+
+      {/* 编辑内容弹窗 */}
+      <Modal
+        title="编辑报告内容"
+        open={editOpen}
+        onCancel={() => setEditOpen(false)}
+        onOk={saveEdit}
+        okText="保存"
+        confirmLoading={saving}
+        width={640}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <div style={{ color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 600 }}>检测结果内容</div>
+            <Input.TextArea
+              rows={10}
+              value={editSummary}
+              onChange={(e) => setEditSummary(e.target.value)}
+              placeholder={'样品编号 / 客户 / 检测方法 / 纯度 / 不确定度 / 元素结果...\n建议从"检测结果"自动生成,可手动调整'}
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 13 }}
+            />
+          </div>
+          <div>
+            <div style={{ color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 600 }}>备注</div>
+            <Input.TextArea
+              rows={3}
+              value={editRemarks}
+              onChange={(e) => setEditRemarks(e.target.value)}
+              placeholder="报告备注(选填)"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        </div>
       </Modal>
     </div>
   );

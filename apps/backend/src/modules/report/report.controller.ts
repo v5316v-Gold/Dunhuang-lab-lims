@@ -3,7 +3,7 @@
 // =====================================================
 
 import {
-  Res, Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+  Res, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole, ReportStatus } from '@prisma/client';
 
@@ -56,6 +56,17 @@ export class ReportController {
     res.setHeader('Content-Disposition', `attachment; filename="${reportNo}.pdf"`);
     res.setHeader('X-PDF-SHA256', sha256);
     res.send(buffer);
+  }
+
+  // 更新报告内容(DRAFT/审核中可编辑 summary/remarks)
+  @Patch(':id')
+  @ApiOperation({ summary: '更新报告内容(summary/remarks)' })
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { summary?: string; remarks?: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.reportService.update(id, body, user.id);
   }
 
   // P0-Fix-2: 状态机推进强制 MFA(覆盖 SUBMIT / REVIEW / APPROVE / ISSUE 等所有动作)
