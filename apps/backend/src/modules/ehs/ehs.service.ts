@@ -22,7 +22,10 @@ export class EhsService {
   }
 
   async findHazards(filter: { severity?: HazardSeverity; status?: HazardStatus; page?: number; pageSize?: number }) {
-    const { page = 1, pageSize = 20, ...where } = filter;
+    // 修复: page/pageSize 来自 query 是 string,需转 number
+    const page = filter.page ? Number(filter.page) : 1;
+    const pageSize = filter.pageSize ? Number(filter.pageSize) : 20;
+    const { ...where } = filter;
     const where_: any = {};
     if (where.severity) where_.severity = where.severity;
     if (where.status) where_.status = where.status;

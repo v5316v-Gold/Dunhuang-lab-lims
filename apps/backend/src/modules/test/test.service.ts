@@ -27,7 +27,10 @@ export class TestService {
   ) {}
 
   async findAll(filter: TestFilterDto) {
-    const { page = 1, pageSize = 20, ...where } = filter;
+    // 修复: page/pageSize 来自 query 是 string,需转 number(否则 Prisma take/skip 报错)
+    const page = filter.page ? Number(filter.page) : 1;
+    const pageSize = filter.pageSize ? Number(filter.pageSize) : 20;
+    const { ...where } = filter;
     const where_: any = {};
     if (where.method) where_.method = where.method;
     if (where.status) where_.status = where.status;
