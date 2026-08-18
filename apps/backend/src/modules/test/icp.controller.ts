@@ -44,7 +44,7 @@ export class IcpController {
   @Post(':testId/complete')
   @RequireRole(UserRole.SENIOR_ANALYST, UserRole.ADMIN)
   @ApiOperation({ summary: '完成 ICP 检测' })
-  complete(@Param('testId', ParseUUIDPipe) testId: string) {
-    return this.icpService.complete(testId);
+  complete(@Param('testId', ParseUUIDPipe) testId: string, @CurrentUser() user: User) {
+    return this.icpService.complete(testId, user);
   }
 }

@@ -16,6 +16,9 @@ import { SignatureService } from '../../common/signature/signature.service';
 import { ReportEvent, transitionReport } from './report.state-machine';
 import { ReportPdfService } from './report-pdf.service';
 
+// CNAS-CL01 §7.4 样品处置:报告签发后留样期(默认 6 个月)
+const REPORT_RETENTION_MONTHS = 6;
+
 
 @Injectable()
 export class ReportService {
@@ -61,6 +64,19 @@ export class ReportService {
 
       return report;
     });
+  }
+
+  /**
+   * 断点④修复:检测完成时自动创建报告草稿(幂等)
+   * 样品已有非作废报告(DRAFT/REVIEW/ISSUED)则跳过,避免重复建报告
+   */
+  async autoCreateReportIfNeeded(sampleId: string, userId: string): Promise<Report | null> {
+    const existing = await this.prisma.report.findFirst({
+      where: { sampleId, status: { not: ReportStatus.SUPERSEDED } },
+      select: { id: true },
+    });
+    if (existing) return null;
+    return this.create(sampleId, userId);
   }
 
   /**
@@ -140,7 +156,7 @@ export class ReportService {
         });
       }
 
-      // 同步样品状态
+      // 同步样品状态(断点⑤修复:签发时自动登记留样 retentionUntil + archivedAt)
       const sampleStatusMap: Record<string, string> = {
         DRAFT: 'REPORT_DRAFT',
         INTERNAL_REVIEW: 'REPORT_REVIEW',
@@ -150,9 +166,16 @@ export class ReportService {
       };
       const newSampleStatus = sampleStatusMap[nextState];
       if (newSampleStatus) {
+        const isIssue = nextState === 'ISSUED';
+        const retentionUntil = new Date();
+        retentionUntil.setMonth(retentionUntil.getMonth() + REPORT_RETENTION_MONTHS);
         await tx.sample.update({
           where: { id: report.sampleId },
-          data: { status: newSampleStatus as any },
+          data: {
+            status: newSampleStatus as any,
+            ...(isIssue && { archivedAt: new Date() }),
+            ...(isIssue && { retentionUntil }),
+          },
         });
       }
 
@@ -347,131 +370,6 @@ private async generateReportNo(): Promise<string> {
    * APPROVED → ISSUED,不可逆
    * P0-Fix-4: 接入 SignatureService 真实签名 PDF + RFC 3161 时间戳
    */
-  async issue(reportId: string, userId: string) {
-    const r = await this.prisma.report.findUnique({
-      where: { id: reportId },
-      include: {
-        sample: { include: { tests: { include: { fireAssay: true, elementResults: true } } } },
-        stages: { orderBy: { createdAt: 'asc' } },
-      },
-    });
-    if (!r) throw new NotFoundException(`Report ${reportId} 不存在`);
-    // 状态机校验
-    this.stateMachine.assertTransition('Report', r.status, 'ISSUED');
-
-    const issuedAt = new Date();
-    const signer = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!signer) throw new NotFoundException(`User ${userId} 不存在`);
-
-    // P0-Fix-4: 调用 SignatureService 签发 PDF
-    // 先重建 PDF(从模板)+ 签发人信息 + 时间戳
-    const stages = r.stages ?? [];
-    const userIds = [...new Set(stages.map((st: any) => st.userId))];
-    const users = userIds.length > 0
-      ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
-      : [];
-    const nameMap = new Map(users.map((u: any) => [u.id, u.name ?? 'unknown']));
-    const signatures = stages.map((st: any) => ({
-      stage: st.stage,
-      userName: nameMap.get(st.userId) ?? 'unknown',
-      signedAt: st.signedAt ?? st.createdAt,
-    }));
-
-    const pdf = this.pdfService.generate({
-      reportNo: r.reportNo,
-      sampleNo: r.sample?.sampleNo ?? '',
-      customerName: r.sample?.customerName ?? '',
-      sampleType: r.sample?.sampleType ?? '',
-      summary: r.summary ?? '',
-      issuedAt,
-      purityPct: r.sample?.tests?.[0]?.purityPct != null
-        ? String(r.sample.tests[0].purityPct) : null,
-      uncertainty: r.sample?.tests?.[0]?.uncertainty != null
-        ? String(r.sample.tests[0].uncertainty) : null,
-      unit: r.sample?.tests?.[0]?.unit ?? '%',
-      signatures,
-      watermark: r.reportNo,
-      // P2-4: 传递 reportId 用于 QR 反查(签发前占位,签后用真 SHA256)
-      reportId: r.id,
-    });
-
-    // 真实签名(本地 RSA-SHA256 + RFC 3161 时间戳)
-    let signedHash = pdf.sha256;
-    let signatureData = '';
-    let certificateSerial = '';
-    let timestampToken: string | null = null;
-
-    try {
-      const signResult = await this.signatureService.signReport({
-        reportId: r.id,
-        reportNumber: r.reportNo,
-        pdfBuffer: pdf.pdfBuffer,
-        signerUserId: userId,
-        signerUsername: signer.username,
-        signerRole: signer.role,
-        issuedAt,
-      });
-      signedHash = signResult.signature.hash;
-      signatureData = JSON.stringify(signResult.signature);
-      certificateSerial = signResult.signature.certificateSerial;
-      timestampToken = signResult.signature.timestamp
-        ? JSON.stringify(signResult.signature.timestamp)
-        : (signResult.signature.timestampFallback ?? null);
-    } catch (e) {
-      // P0-Fix-4: 签名失败(无证书/TSA 不可达)时,降级为本地 SHA256 + 警告
-      // 评审关注:不应阻断签发,但要审计
-      await this.securityAudit.system(AuditEventType.AUDIT_TAMPER_ATTEMPT, {
-        reason: 'signature_failed',
-        reportId: r.id,
-        reportNo: r.reportNo,
-        error: (e as Error).message,
-        fallback: 'local_sha256_only',
-      });
-    }
-
-    // 写 ReportSignature 表(已有 model,字段匹配)
-    if (signatureData) {
-      await this.prisma.reportSignature.create({
-        data: {
-          reportId: r.id,
-          signerId: userId,
-          signerRole: signer.role,
-          signatureData,
-          certificateSerial: certificateSerial || 'LOCAL_SHA256_ONLY',
-          timestampToken,
-        },
-      });
-    }
-
-    // 写 PDF SHA256 + 审计 + P2-4: QR Code 反查 URL
-    const updated = await this.prisma.report.update({
-      where: { id: reportId },
-      data: {
-        status: 'ISSUED',
-        issuedAt,
-        pdfSha256: signedHash,
-        // P2-4: 写 QR 反查 URL 到 reports.qr_code(可被前端渲染为 PNG)
-        qrCode: pdf.qrContent ?? null,
-      },
-    });
-
-    // P0-Fix-3: 报告 PDF 生成 + 签发审计(单独事件,便于检索)
-    await this.securityAudit.system(AuditEventType.REPORT_PDF_GENERATED, {
-      reportId: r.id,
-      reportNo: r.reportNo,
-      sha256: signedHash,
-      hasSignature: !!signatureData,
-      certificateSerial,
-    });
-    await this.securityAudit.system(AuditEventType.REPORT_ISSUED, {
-      reportId: r.id,
-      reportNo: r.reportNo,
-      signedBy: signer.username,
-      issuedAt: issuedAt.toISOString(),
-    });
-
-    return updated;
-  }
   /**
    * W+1-8: 下载报告 PDF(重建 buffer,按 sha256 校验完整性)
    */

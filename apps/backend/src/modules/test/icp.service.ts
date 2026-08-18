@@ -3,8 +3,10 @@
 // =====================================================
 
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { User } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { ReportService } from '../report/report.service';
 
 export interface CreateIcpTestDto {
   sampleId: string;
@@ -26,7 +28,10 @@ export interface ElementResultInput {
 
 @Injectable()
 export class IcpService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportService: ReportService,
+  ) {}
 
   async create(dto: CreateIcpTestDto, operatorId: string) {
     // 修复: 校验 sampleId 是合法 UUID(否则 Prisma P2023)
@@ -74,7 +79,7 @@ export class IcpService {
     return this.findOne(testId);
   }
 
-  async complete(testId: string) {
+  async complete(testId: string, user?: User) {
     const test = await this.findOne(testId);
 
     // 计算主元素纯度(若有 Au 结果,用作 purityPct)
@@ -98,6 +103,11 @@ export class IcpService {
       });
     });
 
+    // 断点④修复:自动创建报告草稿(已有报告则跳过)
+    const reporterId = user?.id ?? test.operatorId;
+    if (reporterId) {
+      await this.reportService.autoCreateReportIfNeeded(test.sampleId, reporterId);
+    }
     return this.findOne(testId);
   }
 

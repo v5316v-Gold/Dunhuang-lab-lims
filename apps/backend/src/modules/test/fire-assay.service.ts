@@ -9,6 +9,7 @@ import Decimal from 'decimal.js';
 import { validateStepOrder, isAllStepsDone } from './fire-assay-steps';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { ReportService } from '../report/report.service';
 
 import {
   calculateFireAssayPurity,
@@ -40,7 +41,10 @@ export interface RecordWeightsDto {
 
 @Injectable()
 export class FireAssayService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportService: ReportService,
+  ) {}
 
   /**
    * Phase 1 Task 2.2: row-level 权限校验(检测归属)
@@ -151,7 +155,7 @@ export class FireAssayService {
     const result = calculateFireAssayPurity(calcInput);
 
     // 更新数据库(单事务)
-    return this.prisma.$transaction(async (tx) => {
+    const txResult = await this.prisma.$transaction(async (tx) => {
       await tx.fireAssayDetail.update({
         where: { testId: dto.testId },
         data: {
@@ -205,6 +209,13 @@ export class FireAssayService {
 
       return { ...result, testId: dto.testId };
     });
+
+    // 断点④修复:QC 通过(检测完成)→ 自动创建报告草稿(已有报告则跳过)
+    if (result.qcPassed) {
+      await this.reportService.autoCreateReportIfNeeded(test.sampleId, user.id);
+    }
+
+    return txResult;
   }
 
   /**
@@ -212,11 +223,21 @@ export class FireAssayService {
    */
   async complete(testId: string, user: User) {
     await this.assertCanOperate(testId, user);
-    await this.findOne(testId);
-    return this.prisma.test.update({
-      where: { id: testId },
-      data: { status: 'COMPLETED', completedAt: new Date() },
+    const test = await this.findOne(testId);
+    // 断点③修复:单事务内回写 Test.COMPLETED + Sample.TESTED
+    await this.prisma.$transaction(async (tx) => {
+      await tx.test.update({
+        where: { id: testId },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      });
+      await tx.sample.update({
+        where: { id: test.sampleId },
+        data: { status: 'TESTED' },
+      });
     });
+    // 断点④修复:自动创建报告草稿(已有报告则跳过)
+    await this.reportService.autoCreateReportIfNeeded(test.sampleId, user.id);
+    return this.findOne(testId);
   }
 
   /**

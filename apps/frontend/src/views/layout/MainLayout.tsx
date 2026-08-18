@@ -19,6 +19,9 @@ import {
   Tag,
   Drawer,
   Grid,
+  Modal,
+  Spin,
+  message,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -46,6 +49,7 @@ import {
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
+import { api } from '../../data/api';
 import { RealtimeCenter } from '../../components/RealtimeCenter';
 import { useI18n } from '../../i18n/I18nProvider';
 
@@ -129,6 +133,53 @@ export function MainLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // ---- MFA 启用弹窗(账号安全)----
+  const [mfaOpen, setMfaOpen] = useState(false);
+  const [mfaStep, setMfaStep] = useState<'loading' | 'qr'>('loading');
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaQr, setMfaQr] = useState('');
+  const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaBusy, setMfaBusy] = useState(false);
+
+  const openMfa = async () => {
+    setMfaOpen(true);
+    setMfaStep('loading');
+    setMfaCode('');
+    try {
+      const res = await api.post('/auth/mfa/enable');
+      setMfaSecret(res.data?.secret ?? '');
+      setMfaQr(res.data?.qrCodeDataUrl ?? '');
+      setMfaBackupCodes(res.data?.backupCodes ?? []);
+      setMfaStep('qr');
+    } catch {
+      setMfaOpen(false);
+    }
+  };
+
+  const verifyMfa = async () => {
+    if (mfaCode.length !== 6) {
+      message.warning('请输入 6 位 TOTP 验证码');
+      return;
+    }
+    setMfaBusy(true);
+    try {
+      const res = await api.post('/auth/mfa/verify', { code: mfaCode });
+      if (res.data?.verified) {
+        const me = await api.get('/auth/me');
+        useAuthStore.getState().setUser(me.data);
+        message.success('MFA 已启用,敏感操作(签发/审核)需二次验证');
+        setMfaOpen(false);
+      } else {
+        message.error('验证码无效,请重试');
+      }
+    } catch {
+      // 具体错误由 api 拦截器统一提示
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
   const selectedKey =
     allMenuItems.find((m) => location.pathname.startsWith(m.key))?.key ?? '/dashboard';
 
@@ -159,7 +210,14 @@ export function MainLayout() {
     localStorage.setItem('dsh-sider-collapsed', next ? '1' : '0');
   };
 
-  const userMenuItems = [{ key: 'logout', icon: <LogoutOutlined />, label: '退出登录' }];
+  const userMenuItems = [
+    {
+      key: 'mfa',
+      icon: <SafetyOutlined />,
+      label: user?.mfaEnabled ? '账号安全 · MFA 已启用' : '账号安全 · 启用 MFA',
+    },
+    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
+  ];
 
   // 菜单 items(分组 + 子项)
   const menuItems = menuGroups.map((g) => ({
@@ -372,6 +430,9 @@ export function MainLayout() {
                   logout();
                   navigate('/login');
                 }
+                if (key === 'mfa') {
+                  openMfa();
+                }
               },
             }}
           >
@@ -437,6 +498,65 @@ export function MainLayout() {
           敦煌金质检 LIMS · CNAS-CL01:2018 / ISO 17025:2017 合规 · 内部系统,请勿外传
         </Footer>
       </Layout>
+
+      {/* MFA 启用弹窗 */}
+      <Modal
+        title={user?.mfaEnabled ? 'MFA 已启用 · 重新设置' : '启用 MFA 二次验证'}
+        open={mfaOpen}
+        onCancel={() => setMfaOpen(false)}
+        footer={
+          mfaStep === 'qr' ? (
+            <Space>
+              <Button onClick={() => setMfaOpen(false)}>关闭</Button>
+              <Button type="primary" loading={mfaBusy} onClick={verifyMfa} disabled={mfaCode.length !== 6}>
+                验证并启用
+              </Button>
+            </Space>
+          ) : null
+        }
+        width={420}
+      >
+        {mfaStep === 'loading' && (
+          <div style={{ textAlign: 'center', padding: 24 }}>
+            <Spin />
+          </div>
+        )}
+        {mfaStep === 'qr' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ textAlign: 'center' }}>
+              <img src={mfaQr} alt="MFA 二维码" style={{ width: 180, height: 180, borderRadius: 8 }} />
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
+              使用手机验证器(Google Authenticator / 支付宝 / 微信小程序)扫码绑定
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>密钥(Secret)</div>
+              <Input readOnly value={mfaSecret} style={{ fontFamily: 'var(--font-mono)' }} />
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>备份码(仅显示一次,请妥善保存)</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                {mfaBackupCodes.map((c) => (
+                  <Tag key={c} style={{ fontFamily: 'var(--font-mono)' }}>{c}</Tag>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>
+                输入验证器当前 6 位验证码完成启用
+              </div>
+              <Input
+                value={mfaCode}
+                maxLength={6}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="TOTP 6 位验证码"
+                size="large"
+                style={{ letterSpacing: 6, textAlign: 'center', fontFamily: 'var(--font-mono)' }}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </Layout>
   );
 }
