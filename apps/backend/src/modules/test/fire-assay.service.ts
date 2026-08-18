@@ -19,7 +19,7 @@ import {
 export interface CreateFireAssayTestDto {
   sampleId: string;
   batchId?: string;
-  sampleWeightG: string;
+  sampleWeightG?: string;   // 修复: 可选,未传则从样品表自动取 weightG
 }
 
 export interface RecordProcessDto {
@@ -68,6 +68,17 @@ export class FireAssayService {
    * 创建火试金检测
    */
   async create(dto: CreateFireAssayTestDto, operatorId: string) {
+    // 修复: sampleWeightG 未传时,自动从样品表取 weightG
+    let sampleWeightG = dto.sampleWeightG;
+    if (!sampleWeightG) {
+      const sample = await this.prisma.sample.findUnique({
+        where: { id: dto.sampleId },
+        select: { weightG: true },
+      });
+      if (sample?.weightG != null) {
+        sampleWeightG = String(sample.weightG);
+      }
+    }
     return this.prisma.test.create({
       data: {
         sampleId: dto.sampleId,
@@ -77,7 +88,7 @@ export class FireAssayService {
         status: 'PENDING',
         fireAssay: {
           create: {
-            sampleWeightG: dto.sampleWeightG,
+            sampleWeightG: sampleWeightG ?? '0',
           },
         },
       },
