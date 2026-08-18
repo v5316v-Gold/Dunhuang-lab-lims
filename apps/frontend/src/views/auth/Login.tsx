@@ -5,7 +5,7 @@
 // =====================================================
 
 import { useState } from 'react';
-import { Form, Input, Button, Typography, Alert, Space, Divider, Tag } from 'antd';
+import { Form, Input, Button, Typography, Alert, Space, Divider, Tag, Grid } from 'antd';
 import { UserOutlined, LockOutlined, KeyOutlined, SafetyCertificateOutlined, AuditOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../data/api';
@@ -45,6 +45,8 @@ function GoldBarSVG() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md; // <768px
   const [form] = Form.useForm<LoginFormValues>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,15 +82,16 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'stretch',
         justifyContent: 'center',
-        padding: '0 24px',
+        padding: isMobile ? '12px' : '0 24px',
       }}
     >
-      {/* ============ 双栏容器 ============ */}
+      {/* ============ 双栏容器(手机单栏堆叠) ============ */}
       <div
         style={{
           display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
           width: '100%',
-          maxWidth: 1080,
+          maxWidth: isMobile ? 480 : 1080,
           margin: 'auto',
           borderRadius: 'var(--radius-3xl)',
           overflow: 'hidden',
@@ -104,80 +107,87 @@ export default function LoginPage() {
           className="dsh-login-brand"
           style={{
             flex: 1.2,
-            padding: '48px 40px',
+            padding: isMobile ? '24px 20px' : '48px 40px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            gap: 20,
+            gap: isMobile ? 10 : 20,
             background:
               'radial-gradient(ellipse 80% 60% at 20% 0%, rgba(212,175,55,0.1) 0%, transparent 60%), var(--bg-secondary)',
-            borderRight: '1px solid rgba(212,175,55,0.15)',
+            borderRight: isMobile ? 'none' : '1px solid rgba(212,175,55,0.15)',
+            borderBottom: isMobile ? '1px solid rgba(212,175,55,0.15)' : 'none',
             position: 'relative',
           }}
         >
-          {/* 装饰印章 */}
-          <div
-            className="animate-float"
-            style={{
-              position: 'absolute',
-              top: 28,
-              right: 28,
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              border: '2px solid rgba(212,175,55,0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 22,
-              color: 'rgba(212,175,55,0.5)',
-            }}
-          >
-            ☯
-          </div>
+          {/* 装饰印章(手机隐藏) */}
+          {!isMobile && (
+            <div
+              className="animate-float"
+              style={{
+                position: 'absolute',
+                top: 28,
+                right: 28,
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                border: '2px solid rgba(212,175,55,0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 22,
+                color: 'rgba(212,175,55,0.5)',
+              }}
+            >
+              ☯
+            </div>
+          )}
 
-          {/* 金条动画 */}
-          <div className="animate-float" style={{ alignSelf: 'flex-start' }}>
+          {/* 金条动画(手机缩小) */}
+          <div className="animate-float" style={{ alignSelf: 'flex-start', transform: isMobile ? 'scale(0.7)' : 'none', transformOrigin: 'left center' }}>
             <GoldBarSVG />
           </div>
 
           <div>
-            <Title level={1} style={{ margin: 0, letterSpacing: '0.08em' }}>
+            <Title level={isMobile ? 2 : 1} style={{ margin: 0, letterSpacing: '0.08em' }}>
               <span className="text-gold-shimmer">敦煌金质检</span>
             </Title>
-            <Title level={4} style={{ margin: '8px 0 0', color: 'var(--text-secondary)', fontWeight: 400 }}>
+            <Title level={5} style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontWeight: 400 }}>
               贵金属检测实验室信息管理系统
             </Title>
           </div>
 
-          <div className="divider-gold" style={{ width: 120 }} />
+          <div className="divider-gold" style={{ width: isMobile ? 80 : 120 }} />
 
-          <div>
-            <Text style={{ color: 'var(--text-muted)', lineHeight: 1.9, display: 'block' }}>
-              面向黄金 / 白银 / 铂 / 钯检测业务,实现
-              <br />
-              「收样 → 检测 → 出证 → 溯源」全流程数字化闭环
-            </Text>
-          </div>
+          {!isMobile && (
+            <div>
+              <Text style={{ color: 'var(--text-muted)', lineHeight: 1.9, display: 'block' }}>
+                面向黄金 / 白银 / 铂 / 钯检测业务,实现
+                <br />
+                「收样 → 检测 → 出证 → 溯源」全流程数字化闭环
+              </Text>
+            </div>
+          )}
 
           {/* 合规徽章 */}
-          <Space size={10} wrap>
+          <Space size={8} wrap>
             <Tag color="gold" icon={<SafetyCertificateOutlined />} style={{ margin: 0 }}>CNAS-CL01:2018</Tag>
             <Tag color="gold" icon={<SafetyCertificateOutlined />} style={{ margin: 0 }}>ISO/IEC 17025</Tag>
             <Tag color="gold" icon={<SafetyCertificateOutlined />} style={{ margin: 0 }}>CMA</Tag>
           </Space>
-          <Space size={10} wrap>
-            <Tag icon={<AuditOutlined />} style={{ margin: 0 }}>SHA256 审计链</Tag>
-            <Tag icon={<ExperimentOutlined />} style={{ margin: 0 }}>火试金 GB/T 9288</Tag>
-            <Tag icon={<ExperimentOutlined />} style={{ margin: 0 }}>ICP-OES/MS</Tag>
-          </Space>
+          {!isMobile && (
+            <Space size={10} wrap>
+              <Tag icon={<AuditOutlined />} style={{ margin: 0 }}>SHA256 审计链</Tag>
+              <Tag icon={<ExperimentOutlined />} style={{ margin: 0 }}>火试金 GB/T 9288</Tag>
+              <Tag icon={<ExperimentOutlined />} style={{ margin: 0 }}>ICP-OES/MS</Tag>
+            </Space>
+          )}
         </div>
 
         {/* ============ 右: 登录卡 ============ */}
         <div
           style={{
             flex: 1,
-            padding: '48px 40px',
+            padding: isMobile ? '20px 16px' : '48px 40px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',

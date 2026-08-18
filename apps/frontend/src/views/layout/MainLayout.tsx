@@ -1,6 +1,7 @@
 // =====================================================
 // 主布局 - 侧边栏(可折叠+分组) + Header(面包屑/搜索/通知) + 内容区
 // 主题: 新中式奢华科技风(墨黑 + 辉金)
+// 响应式: 手机(<768px)侧边栏改 Drawer 抽屉,Header 精简
 // =====================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -16,7 +17,8 @@ import {
   Input,
   Badge,
   Tag,
-  theme,
+  Drawer,
+  Grid,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -37,6 +39,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MenuOutlined,
   BellOutlined,
   SearchOutlined,
   DeploymentUnitOutlined,
@@ -48,6 +51,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 
 const { Sider, Header, Content, Footer } = Layout;
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 // ---------- 菜单分组 ----------
 const menuGroups = [
@@ -118,7 +122,11 @@ export function MainLayout() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md; // <768px 视为手机
+
   const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
   const selectedKey =
@@ -134,11 +142,16 @@ export function MainLayout() {
     };
   }, [location.pathname]);
 
-  // 折叠状态持久化
+  // 折叠状态持久化(仅桌面)
   useEffect(() => {
     const saved = localStorage.getItem('dsh-sider-collapsed');
     if (saved === '1') setCollapsed(true);
   }, []);
+
+  // 路由变化时关闭抽屉(手机)
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
 
   const toggleCollapse = () => {
     const next = !collapsed;
@@ -156,115 +169,132 @@ export function MainLayout() {
     children: g.children.map((c) => ({ key: c.key, icon: c.icon, label: c.label })),
   }));
 
-  return (
-    <Layout style={{ minHeight: '100vh' }}>
-      {/* ============ 侧边栏 ============ */}
-      <Sider
-        theme="dark"
-        width={224}
-        collapsedWidth={64}
-        collapsible
-        collapsed={collapsed}
-        trigger={null}
+  // 菜单内容(供 Sider + Drawer 复用)
+  const menuContent = (
+    <>
+      {/* Logo 区 */}
+      <div
+        className="dsh-logo-area"
         style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          scrollbarWidth: 'thin',
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          padding: '0 16px',
+          gap: 10,
+          cursor: 'pointer',
+          borderBottom: '1px solid rgba(212,175,55,0.15)',
+          background: 'rgba(212,175,55,0.04)',
         }}
+        onClick={() => navigate('/dashboard')}
       >
-        {/* Logo 区 */}
         <div
-          className="dsh-logo-area"
+          className="dsh-logo-mark glow-icon"
           style={{
-            height: 64,
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #d4af37, #f5d76e)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: collapsed ? 0 : '0 16px',
-            gap: 10,
-            cursor: 'pointer',
-            borderBottom: '1px solid rgba(212,175,55,0.15)',
-            background: 'rgba(212,175,55,0.04)',
+            justifyContent: 'center',
+            color: '#08080a',
+            fontWeight: 800,
+            fontSize: 18,
+            fontFamily: 'var(--font-mono)',
+            flexShrink: 0,
+            boxShadow: '0 0 16px rgba(212,175,55,0.35)',
           }}
-          onClick={() => navigate('/dashboard')}
         >
-          <div
-            className="dsh-logo-mark glow-icon"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
-              background: 'linear-gradient(135deg, #d4af37, #f5d76e)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#08080a',
-              fontWeight: 800,
-              fontSize: 18,
-              fontFamily: 'var(--font-mono)',
-              flexShrink: 0,
-              boxShadow: '0 0 16px rgba(212,175,55,0.35)',
-            }}
-          >
-            敦
+          敦
+        </div>
+        <div style={{ lineHeight: 1.2 }}>
+          <div className="text-gold-shimmer" style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em' }}>
+            敦煌金质检
           </div>
-          {!collapsed && (
-            <div style={{ lineHeight: 1.2 }}>
-              <div className="text-gold-shimmer" style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em' }}>
-                敦煌金质检
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.15em' }}>
-                DUNHUANG GOLD LIMS
-              </div>
-            </div>
-          )}
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.15em' }}>
+            DUNHUANG GOLD LIMS
+          </div>
         </div>
+      </div>
 
-        {/* 菜单 */}
-        <Menu
+      {/* 菜单 */}
+      <Menu
+        theme="dark"
+        mode="inline"
+        selectedKeys={[selectedKey]}
+        defaultOpenKeys={[breadcrumb.group ? menuGroups.find((g) => g.label === breadcrumb.group)?.key ?? 'g-overview' : 'g-overview']}
+        items={menuItems}
+        style={{ borderRight: 'none', marginTop: 4 }}
+      />
+
+      {/* 底部: 环境徽章 + 版本 */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '12px 16px',
+          borderTop: '1px solid rgba(212,175,55,0.1)',
+          background: 'var(--bg-secondary)',
+        }}
+      >
+        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Tag color={ENV_BADGE.color} style={{ margin: 0, fontSize: 10 }}>{ENV_BADGE.text}</Tag>
+            <Text style={{ fontSize: 10, color: 'var(--text-muted)' }}>v1.0.0</Text>
+          </div>
+        </Space>
+      </div>
+    </>
+  );
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      {/* ============ 侧边栏(桌面) / 抽屉(手机) ============ */}
+      {isMobile ? (
+        <Drawer
+          placement="left"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          width={240}
+          styles={{ body: { padding: 0, background: 'var(--bg-secondary)' } }}
+          closable={false}
+          style={{ background: 'var(--bg-secondary)' }}
+        >
+          {menuContent}
+        </Drawer>
+      ) : (
+        <Sider
           theme="dark"
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          defaultOpenKeys={[breadcrumb.group ? menuGroups.find((g) => g.label === breadcrumb.group)?.key ?? 'g-overview' : 'g-overview']}
-          items={menuItems}
-          style={{ borderRight: 'none', marginTop: 4 }}
-        />
-
-        {/* 底部: 环境徽章 + 版本 */}
-        <div
+          width={224}
+          collapsedWidth={64}
+          collapsible
+          collapsed={collapsed}
+          trigger={null}
           style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: '12px 16px',
-            borderTop: '1px solid rgba(212,175,55,0.1)',
-            background: 'var(--bg-secondary)',
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            scrollbarWidth: 'thin',
           }}
         >
-          {!collapsed && (
-            <Space direction="vertical" size={6} style={{ width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Tag color={ENV_BADGE.color} style={{ margin: 0, fontSize: 10 }}>{ENV_BADGE.text}</Tag>
-                <Text style={{ fontSize: 10, color: 'var(--text-muted)' }}>v1.0.0</Text>
-              </div>
-            </Space>
-          )}
-        </div>
-      </Sider>
+          {menuContent}
+        </Sider>
+      )}
 
       {/* ============ 主区 ============ */}
       <Layout>
         <Header
           style={{
             background: 'var(--bg-card)',
-            padding: '0 16px 0 8px',
+            padding: isMobile ? '0 8px' : '0 16px 0 8px',
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
+            gap: isMobile ? 6 : 12,
             height: 56,
             lineHeight: '56px',
             borderBottom: '1px solid rgba(212,175,55,0.12)',
@@ -273,52 +303,65 @@ export function MainLayout() {
             zIndex: 100,
           }}
         >
-          {/* 折叠按钮 */}
+          {/* 折叠/汉堡按钮 */}
           <Button
             type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={toggleCollapse}
+            icon={isMobile ? <MenuOutlined /> : collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={isMobile ? () => setDrawerOpen(true) : toggleCollapse}
             style={{ color: 'var(--text-secondary)' }}
           />
 
-          {/* 面包屑 */}
-          <Space size={4} style={{ fontSize: 14 }}>
-            <DeploymentUnitOutlined style={{ color: 'var(--gold)' }} />
-            <Text style={{ color: 'var(--text-muted)' }}>{breadcrumb.group}</Text>
-            {breadcrumb.page && <Text style={{ color: 'var(--text-primary)' }}>/</Text>}
-            {breadcrumb.page && <Text strong style={{ color: 'var(--text-primary)' }}>{breadcrumb.page}</Text>}
-          </Space>
+          {/* 面包屑(手机隐藏分组名,只留页面名) */}
+          {!isMobile && (
+            <Space size={4} style={{ fontSize: 14 }}>
+              <DeploymentUnitOutlined style={{ color: 'var(--gold)' }} />
+              <Text style={{ color: 'var(--text-muted)' }}>{breadcrumb.group}</Text>
+              {breadcrumb.page && <Text style={{ color: 'var(--text-primary)' }}>/</Text>}
+              {breadcrumb.page && <Text strong style={{ color: 'var(--text-primary)' }}>{breadcrumb.page}</Text>}
+            </Space>
+          )}
+          {isMobile && (
+            <Text strong style={{ color: 'var(--text-primary)', fontSize: 15 }}>
+              {breadcrumb.page || '敦煌金质检'}
+            </Text>
+          )}
 
           <div style={{ flex: 1 }} />
 
-          {/* 全局搜索(简版) */}
-          <Input
-            prefix={<SearchOutlined style={{ color: 'var(--text-muted)' }} />}
-            placeholder="搜索…"
-            style={{ width: searchOpen ? 200 : 130, background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}
-            onFocus={() => setSearchOpen(true)}
-            onBlur={() => setSearchOpen(false)}
-          />
+          {/* 全局搜索(手机隐藏) */}
+          {!isMobile && (
+            <Input
+              prefix={<SearchOutlined style={{ color: 'var(--text-muted)' }} />}
+              placeholder="搜索…"
+              style={{ width: searchOpen ? 200 : 130, background: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => setSearchOpen(false)}
+            />
+          )}
 
           {/* 实时中心 */}
           <RealtimeCenter />
 
           {/* 语言切换 */}
-          <Button
-            type="text"
-            size="small"
-            onClick={() => useI18n().setLang(useI18n().lang === 'zh' ? 'en' : 'zh')}
-            style={{ color: '#D4AF37', fontWeight: 600 }}
-          >
-            {useI18n().lang === 'zh' ? 'EN' : '中文'}
-          </Button>
+          {!isMobile && (
+            <Button
+              type="text"
+              size="small"
+              onClick={() => useI18n().setLang(useI18n().lang === 'zh' ? 'en' : 'zh')}
+              style={{ color: '#D4AF37', fontWeight: 600 }}
+            >
+              {useI18n().lang === 'zh' ? 'EN' : '中文'}
+            </Button>
+          )}
 
           {/* 通知铃铛(占位) */}
-          <Tooltip title="通知中心">
-            <Badge dot offset={[-2, 6]}>
-              <BellOutlined style={{ fontSize: 16, color: 'var(--text-secondary)', cursor: 'pointer' }} />
-            </Badge>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title="通知中心">
+              <Badge dot offset={[-2, 6]}>
+                <BellOutlined style={{ fontSize: 16, color: 'var(--text-secondary)', cursor: 'pointer' }} />
+              </Badge>
+            </Tooltip>
+          )}
 
           {/* 用户 */}
           <Dropdown
@@ -332,9 +375,9 @@ export function MainLayout() {
               },
             }}
           >
-            <Space style={{ cursor: 'pointer', padding: '0 8px' }}>
+            <Space style={{ cursor: 'pointer', padding: '0 4px' }}>
               <Avatar
-                size={30}
+                size={isMobile ? 26 : 30}
                 style={{
                   background: 'linear-gradient(135deg, #d4af37, #8b6914)',
                   color: '#fff',
@@ -343,7 +386,7 @@ export function MainLayout() {
               >
                 {user?.name?.charAt(0) ?? '客'}
               </Avatar>
-              <Text style={{ color: 'var(--text-primary)' }}>{user?.name ?? '未登录'}</Text>
+              {!isMobile && <Text style={{ color: 'var(--text-primary)' }}>{user?.name ?? '未登录'}</Text>}
             </Space>
           </Dropdown>
         </Header>
@@ -352,8 +395,8 @@ export function MainLayout() {
         <Content
           className="dsh-content-area"
           style={{
-            margin: 16,
-            padding: 20,
+            margin: isMobile ? 8 : 16,
+            padding: isMobile ? 12 : 20,
             background: 'var(--bg-card)',
             borderRadius: 12,
             border: '1px solid var(--border-color)',
@@ -385,10 +428,10 @@ export function MainLayout() {
         <Footer
           style={{
             textAlign: 'center',
-            padding: '8px 24px 12px',
+            padding: isMobile ? '4px 12px 8px' : '8px 24px 12px',
             background: 'transparent',
             color: 'var(--text-muted)',
-            fontSize: 12,
+            fontSize: isMobile ? 10 : 12,
           }}
         >
           敦煌金质检 LIMS · CNAS-CL01:2018 / ISO 17025:2017 合规 · 内部系统,请勿外传
