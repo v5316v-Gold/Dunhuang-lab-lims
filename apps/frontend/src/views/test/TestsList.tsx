@@ -140,8 +140,15 @@ export function TestsList() {
         okText="创建"
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="sampleId" label="样品 ID" rules={[{ required: true, message: '请输入样品 ID' }]}>
-            <Input placeholder="粘贴样品 UUID" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
+          <Form.Item
+            name="sampleId"
+            label="样品 ID"
+            rules={[
+              { required: true, message: '请输入样品 ID' },
+              { pattern: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, message: '样品 ID 必须是有效的 UUID 格式(如 4542c828-0308-46d6-bd64-df7605f10ed3)' },
+            ]}
+          >
+            <Input placeholder="粘贴样品 UUID(完整格式)" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
           </Form.Item>
           <Form.Item name="method" label="检测方法" initialValue="FIRE_ASSAY" rules={[{ required: true }]}>
             <Select

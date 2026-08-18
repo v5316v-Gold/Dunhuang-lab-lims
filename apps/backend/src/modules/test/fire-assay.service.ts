@@ -68,20 +68,29 @@ export class FireAssayService {
    * 创建火试金检测
    */
   async create(dto: CreateFireAssayTestDto, operatorId: string) {
+    // 修复: 校验 sampleId 是合法 UUID(否则 Prisma P2023)
+    const sampleId = (dto.sampleId ?? '').trim();
+    const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!UUID_RE.test(sampleId)) {
+      throw new BadRequestException('样品 ID 不是有效的 UUID 格式,请检查(如 4542c828-0308-46d6-bd64-df7605f10ed3)');
+    }
     // 修复: sampleWeightG 未传时,自动从样品表取 weightG
     let sampleWeightG = dto.sampleWeightG;
     if (!sampleWeightG) {
       const sample = await this.prisma.sample.findUnique({
-        where: { id: dto.sampleId },
+        where: { id: sampleId },
         select: { weightG: true },
       });
+      if (!sample) {
+        throw new NotFoundException(`样品 ${sampleId} 不存在,无法创建检测`);
+      }
       if (sample?.weightG != null) {
         sampleWeightG = String(sample.weightG);
       }
     }
     return this.prisma.test.create({
       data: {
-        sampleId: dto.sampleId,
+        sampleId,
         batchId: dto.batchId,
         method: 'FIRE_ASSAY',
         operatorId,

@@ -2,7 +2,7 @@
 // ICP 检测服务
 // =====================================================
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
@@ -29,9 +29,19 @@ export class IcpService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateIcpTestDto, operatorId: string) {
+    // 修复: 校验 sampleId 是合法 UUID(否则 Prisma P2023)
+    const sampleId = (dto.sampleId ?? '').trim();
+    const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!UUID_RE.test(sampleId)) {
+      throw new BadRequestException('样品 ID 不是有效的 UUID 格式,请检查(如 4542c828-0308-46d6-bd64-df7605f10ed3)');
+    }
+    const sample = await this.prisma.sample.findUnique({ where: { id: sampleId }, select: { id: true } });
+    if (!sample) {
+      throw new NotFoundException(`样品 ${sampleId} 不存在,无法创建检测`);
+    }
     return this.prisma.test.create({
       data: {
-        sampleId: dto.sampleId,
+        sampleId,
         batchId: dto.batchId,
         method: 'ICP_OES',
         operatorId,
