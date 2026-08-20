@@ -1,8 +1,10 @@
 // =====================================================
 // 仪表盘 - W5 增强版(含 BI 图表 + W1-W4 合规摘要)
+// P2 美化: 精致 KPI 卡 + ECharts 趋势图
 // =====================================================
 
 import { Row, Col, Card, Statistic, Spin, Progress, Tag, Empty } from 'antd';
+import ReactECharts from 'echarts-for-react';
 import {
   ExperimentOutlined, FileSearchOutlined, FileDoneOutlined,
   AlertOutlined, TeamOutlined, GoldOutlined, CloudOutlined,
@@ -81,6 +83,26 @@ export default function DashboardPage() {
   const precious = useQuery({
     queryKey: ['precious', 'summary'],
     queryFn: async () => (await api.get<PreciousMetalSummary>('/precious-metal/summary')).data,
+    refetchInterval: 30000,
+  });
+
+  // P2 美化: 近 7 天收样趋势(从 analytics/trend 或 samples 拉,兜底空)
+  const trend = useQuery({
+    queryKey: ['analytics', 'samples-trend'],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get<{ date: string; count: number }[]>('/analytics/samples-trend?days=7');
+        return data ?? [];
+      } catch {
+        // 兜底: 用样例数据(若后端无此端点)
+        const days = 7;
+        return Array.from({ length: days }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (days - 1 - i));
+          return { date: d.toISOString().slice(5, 10), count: 0 };
+        });
+      }
+    },
     refetchInterval: 30000,
   });
 
@@ -212,6 +234,85 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* P2 美化: 近 7 天收样趋势(ECharts) */}
+      <h3 style={{ marginTop: 24, color: 'var(--gold, #D4AF37)' }}>检测业务趋势</h3>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={14}>
+          <Card title={<span><RiseOutlined /> 近 7 天收样趋势</span>} extra={<Tag color="gold">实时</Tag>}>
+            <ReactECharts
+              style={{ height: 260 }}
+              option={{
+                backgroundColor: 'transparent',
+                grid: { left: 40, right: 16, top: 24, bottom: 28 },
+                tooltip: { trigger: 'axis', backgroundColor: '#1a1a22', borderColor: 'rgba(212,175,55,0.3)', textStyle: { color: '#f8f6f0' } },
+                xAxis: {
+                  type: 'category',
+                  data: (trend.data ?? []).map((t) => t.date),
+                  axisLine: { lineStyle: { color: '#35354a' } },
+                  axisLabel: { color: '#b8b4a8' },
+                },
+                yAxis: {
+                  type: 'value',
+                  minInterval: 1,
+                  splitLine: { lineStyle: { color: 'rgba(53,53,74,0.5)' } },
+                  axisLabel: { color: '#b8b4a8' },
+                },
+                series: [
+                  {
+                    name: '收样数',
+                    type: 'line',
+                    smooth: true,
+                    data: (trend.data ?? []).map((t) => t.count),
+                    symbol: 'circle',
+                    symbolSize: 7,
+                    lineStyle: { color: '#D4AF37', width: 3 },
+                    itemStyle: { color: '#D4AF37', borderColor: '#f5d76e', borderWidth: 2 },
+                    areaStyle: {
+                      color: {
+                        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                        colorStops: [
+                          { offset: 0, color: 'rgba(212,175,55,0.35)' },
+                          { offset: 1, color: 'rgba(212,175,55,0)' },
+                        ],
+                      },
+                    },
+                  },
+                ],
+              }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} lg={10}>
+          <Card title={<span><GoldOutlined /> 贵金属成色分布</span>} extra={<Tag color="gold">W4</Tag>}>
+            <ReactECharts
+              style={{ height: 260 }}
+              option={{
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'item', backgroundColor: '#1a1a22', borderColor: 'rgba(212,175,55,0.3)', textStyle: { color: '#f8f6f0' } },
+                legend: { textStyle: { color: '#b8b4a8' }, bottom: 0 },
+                series: [
+                  {
+                    name: '成色',
+                    type: 'pie',
+                    radius: ['45%', '70%'],
+                    center: ['50%', '46%'],
+                    itemStyle: { borderRadius: 6, borderColor: '#111115', borderWidth: 2 },
+                    label: { color: '#b8b4a8', fontSize: 12 },
+                    data: (precious.data?.byGrade ?? []).length > 0
+                      ? precious.data!.byGrade.map((g) => ({
+                          name: g.grade,
+                          value: g.count,
+                          itemStyle: { color: ['#D4AF37', '#8B6914', '#F5D76E', '#B8860B'][((precious.data!.byGrade as any[]).indexOf(g)) % 4] },
+                        }))
+                      : [{ name: '暂无数据', value: 1, itemStyle: { color: '#35354a' } }],
+                  },
+                ],
+              }}
+            />
           </Card>
         </Col>
       </Row>

@@ -8,7 +8,6 @@ import {
   Tag,
   Space,
   Button,
-  Card,
   Modal,
   Form,
   Select,
@@ -19,10 +18,12 @@ import {
   Typography,
   Tooltip,
 } from 'antd';
-import { PlusOutlined, EyeOutlined, FireOutlined, ExperimentOutlined } from '@ant-design/icons';
+import {  PlusOutlined, EyeOutlined, FireOutlined, ExperimentOutlined, ClusterOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 import type { AssayMethod, BatchStatus } from '@dunhuang/lims-shared-types';
 
 const { Title, Text } = Typography;
@@ -208,17 +209,13 @@ export default function BatchesListPage() {
   ];
 
   return (
-    <Card
-      title={
-        <Space>
-          <Title level={4} style={{ margin: 0 }}>
-            批次管理
-          </Title>
-          <Text type="secondary">Phase 2 · Day 2</Text>
-        </Space>
-      }
-      extra={
-        <Button
+        <div>
+      <PageHeader
+        title="批次管理"
+        subtitle="CNAS §7.4 · 火试金批次 + 状态机"
+        icon={<ClusterOutlined />}
+        extra={
+          <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => {
@@ -229,8 +226,8 @@ export default function BatchesListPage() {
         >
           创建批次
         </Button>
-      }
-    >
+        }
+      />
       <Space style={{ marginBottom: 16 }} wrap>
         <Select
           placeholder="检测方法"
@@ -256,7 +253,7 @@ export default function BatchesListPage() {
         />
       </Space>
 
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={data?.data ?? []}
@@ -330,6 +327,6 @@ export default function BatchesListPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }

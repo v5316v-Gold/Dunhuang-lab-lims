@@ -1,13 +1,17 @@
 // =====================================================
 // W+2 审批管理 Controller(CMA 5 表 CRUD)
+// P2-6: 管评输入汇总 + 内审检查表 + NCR/CAPA 联动
 // =====================================================
 
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
-import { User } from '@prisma/client';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
+import { User, UserRole } from '@prisma/client';
+import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { ComplianceService } from './compliance.service';
 
 @ApiTags('compliance')
@@ -27,7 +31,8 @@ export class ComplianceController {
   listTA(@Query('all') all?: string) { return this.svc.listTempAuths(all !== 'true'); }
 
   @Post('temp-auth/:id/revoke')
-  @ApiOperation({ summary: '撤销临时授权' })
+  @MfaProtected(MFA_SCENES.USER_ROLE_CHANGE)
+  @ApiOperation({ summary: '撤销临时授权(MFA 强制 — 等同角色变更)' })
   revokeTA(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.revokeTempAuth(id, u.id); }
 
   @Get('summary')
@@ -44,7 +49,8 @@ export class ComplianceController {
   listIA(@Query('status') status?: string) { return this.svc.listInternalAudits(status); }
 
   @Post('internal-audit/:id/close')
-  @ApiOperation({ summary: '关闭内审(记录不符合项)' })
+  @MfaProtected(MFA_SCENES.INTERNAL_AUDIT_APPROVE)
+  @ApiOperation({ summary: '关闭内审(CNAS §8.8 必审,MFA 强制)' })
   closeIA(@Param('id') id: string, @Body() body: any) { return this.svc.closeInternalAudit(id, body); }
 
   // ---- 管理评审 ----
@@ -57,7 +63,8 @@ export class ComplianceController {
   listMR() { return this.svc.listManagementReviews(); }
 
   @Post('management-review/:id/close')
-  @ApiOperation({ summary: '关闭管理评审(记录决议)' })
+  @MfaProtected(MFA_SCENES.MANAGEMENT_REVIEW_APPROVE)
+  @ApiOperation({ summary: '关闭管理评审(CNAS §8.9 必审,MFA 强制)' })
   closeMR(@Param('id') id: string, @Body() body: any) { return this.svc.closeManagementReview(id, body); }
 
   // ---- 监督记录 ----
@@ -94,4 +101,42 @@ export class ComplianceController {
   @Get('proficiency-test')
   @ApiOperation({ summary: '能力验证列表' })
   listPT() { return this.svc.listProficiencyTests(); }
+
+  // ---- P2-6: 内审检查表 + 管评输入 + NCR/CAPA ----
+  @Get('audit-checklist')
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '内审检查表(CNAS §4-§7 全条款 15 项)' })
+  auditChecklist() {
+    return this.svc.generateAuditChecklist();
+  }
+
+  @Get('management-review/inputs')
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '管评 12 项输入自动汇总(CNAS §8.9)' })
+  mrInputs(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    const fromDate = from ? new Date(from) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const toDate = to ? new Date(to) : new Date();
+    return this.svc.getManagementReviewInputs(fromDate, toDate);
+  }
+
+  @Patch('nonconformances/:id/capa')
+  @MfaProtected(MFA_SCENES.CAPA_APPROVE)
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR)
+  @ApiOperation({ summary: 'NCR → CAPA 联动(CNAS §7.10 — 评审必查)' })
+  linkCapa(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { capaAction: string; preventiveAction?: string; effectivenessVerification?: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.svc.linkNcToCapa({
+      ncId: id,
+      capaAction: body.capaAction,
+      preventiveAction: body.preventiveAction,
+      effectivenessVerification: body.effectivenessVerification,
+      operatorId: user.id,
+    });
+  }
 }

@@ -18,7 +18,7 @@ test.describe('支撑模块 CRUD', () => {
     const code = `EQP-${ts()}`;
     await login(page);
     await page.goto('/equipment');
-    await page.getByRole('button', { name: btn('创建设备') }).click();
+    await page.getByRole('button', { name: btn('创建设备') }).first().click();
     await fillByLabel(page, '设备编号', code);
     await fillByLabel(page, '设备名称', 'E2E分析天平');
     await okModal(page);
@@ -68,15 +68,20 @@ test.describe('支撑模块 CRUD', () => {
   });
 
   test('11. 试剂库存: 创建试剂', async ({ page, request }) => {
+    // feat/cnas-hardening 移除了试剂创建按钮,改用 API 创建 + 页面验证
     const code = `RGT-${ts()}`;
+    const token = await loginApi(request);
+    const c = await request.post('/api/v1/reagents', {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { code, name: 'E2E硝酸', type: 'NITRIC_ACID', unit: 'mL' },
+    });
+    expect(c.ok()).toBeTruthy();
     await login(page);
     await page.goto('/reagents');
-    await page.getByRole('button', { name: btn('创建试剂') }).click();
-    await fillByLabel(page, '试剂编码', code);
-    await fillByLabel(page, '试剂名称', 'E2E硝酸');
-    await okModal(page);
-    await waitSuccess(page);
-    const token = await loginApi(request);
+    // 页面用 DataTable,无创建按钮;只断言页面加载 + 列表含该记录
+    await expect(page.locator('.ant-table-row', { hasText: code }).first()).toBeVisible({
+      timeout: 15000,
+    });
     const list = await request.get('/api/v1/reagents?pageSize=20', {
       headers: { Authorization: `Bearer ${token}` },
     });

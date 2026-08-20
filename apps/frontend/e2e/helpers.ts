@@ -84,8 +84,8 @@ export async function waitSuccess(page: Page) {
 }
 
 /** 等待指定文案出现(页面或 toast) */
-export async function waitToast(page: Page, text: string | RegExp) {
-  await expect(page.getByText(text).first()).toBeVisible({ timeout: 15000 });
+export async function waitToast(page: Page, text: string | RegExp, timeout = 15000) {
+  await expect(page.getByText(text).first()).toBeVisible({ timeout });
 }
 
 /** 等待列表页出现指定文本行 */

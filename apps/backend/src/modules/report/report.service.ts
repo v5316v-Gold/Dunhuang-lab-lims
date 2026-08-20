@@ -9,9 +9,15 @@ import { Report, ReportStatus, UserRole } from '@prisma/client';
 
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SecurityAuditService } from '../../common/audit/security-audit.service';
+import { AuditEventType } from '../../common/audit/audit-event.enum';
+import { SignatureService } from '../../common/signature/signature.service';
 
 import { ReportEvent, transitionReport } from './report.state-machine';
 import { ReportPdfService } from './report-pdf.service';
+
+// CNAS-CL01 §7.4 样品处置:报告签发后留样期(默认 6 个月)
+const REPORT_RETENTION_MONTHS = 6;
 
 
 @Injectable()
@@ -20,6 +26,8 @@ export class ReportService {
     private readonly prisma: PrismaService,
     private readonly pdfService: ReportPdfService,
     private readonly stateMachine: StateMachineService,
+    private readonly securityAudit: SecurityAuditService,
+    private readonly signatureService: SignatureService,
   ) {}
 
   /**
@@ -56,6 +64,19 @@ export class ReportService {
 
       return report;
     });
+  }
+
+  /**
+   * 断点④修复:检测完成时自动创建报告草稿(幂等)
+   * 样品已有非作废报告(DRAFT/REVIEW/ISSUED)则跳过,避免重复建报告
+   */
+  async autoCreateReportIfNeeded(sampleId: string, userId: string): Promise<Report | null> {
+    const existing = await this.prisma.report.findFirst({
+      where: { sampleId, status: { not: ReportStatus.SUPERSEDED } },
+      select: { id: true },
+    });
+    if (existing) return null;
+    return this.create(sampleId, userId);
   }
 
   /**
@@ -135,7 +156,7 @@ export class ReportService {
         });
       }
 
-      // 同步样品状态
+      // 同步样品状态(断点⑤修复:签发时自动登记留样 retentionUntil + archivedAt)
       const sampleStatusMap: Record<string, string> = {
         DRAFT: 'REPORT_DRAFT',
         INTERNAL_REVIEW: 'REPORT_REVIEW',
@@ -145,23 +166,52 @@ export class ReportService {
       };
       const newSampleStatus = sampleStatusMap[nextState];
       if (newSampleStatus) {
+        const isIssue = nextState === 'ISSUED';
+        const retentionUntil = new Date();
+        retentionUntil.setMonth(retentionUntil.getMonth() + REPORT_RETENTION_MONTHS);
         await tx.sample.update({
           where: { id: report.sampleId },
-          data: { status: newSampleStatus as any },
+          data: {
+            status: newSampleStatus as any,
+            ...(isIssue && { archivedAt: new Date() }),
+            ...(isIssue && { retentionUntil }),
+          },
         });
       }
 
+      return updated;
+    }).then(async (updated) => {
+      // P0-Fix-3: 报告状态推进审计
+      const eventToAuditEvent: Record<string, string> = {
+        SUBMIT: AuditEventType.REPORT_DRAFTED,
+        REVIEW_PASS: AuditEventType.REPORT_REVIEWED,
+        APPROVE: AuditEventType.REPORT_APPROVED,
+        ISSUE: AuditEventType.REPORT_ISSUED,
+        REVIEW_REJECT: AuditEventType.REPORT_REVIEWED,
+      };
+      const auditEvent = eventToAuditEvent[event];
+      if (auditEvent) {
+        await this.securityAudit.system(auditEvent as any, {
+          reportId,
+          event,
+          fromStatus: report.status,
+          toStatus: nextState,
+          operatorId: userId,
+          comments,
+        });
+      }
       return updated;
     });
   }
 
   /**
    * 电子签名(Phase 4 集成第三方 CA)
+   * P0-Fix-3: 加审计埋点
    */
   async sign(reportId: string, userId: string, role: UserRole, signatureData: string, certificateSerial: string) {
     await this.findOne(reportId);
 
-    return this.prisma.reportSignature.create({
+    const sig = await this.prisma.reportSignature.create({
       data: {
         reportId,
         signerId: userId,
@@ -170,6 +220,17 @@ export class ReportService {
         certificateSerial,
       },
     });
+
+    // P0-Fix-3: 电子签名审计(21 CFR Part 11 §11.50)
+    await this.securityAudit.system(AuditEventType.REPORT_SIGNED, {
+      reportId,
+      signerId: userId,
+      signerRole: role,
+      certificateSerial,
+      signatureId: sig.id,
+    });
+
+    return sig;
   }
 
   /**
@@ -187,6 +248,30 @@ export class ReportService {
     });
     if (!report) throw new NotFoundException(`报告 ${id} 不存在`);
     return report;
+  }
+
+  /**
+   * 更新报告内容(DRAFT/审核中可编辑 summary/remarks)
+   */
+  async update(id: string, dto: { summary?: string; remarks?: string }, userId: string): Promise<Report> {
+    const report = await this.prisma.report.findUnique({ where: { id } });
+    if (!report) throw new NotFoundException(`报告 ${id} 不存在`);
+    // 已签发不可编辑
+    if (report.status === 'ISSUED' || report.status === 'SUPERSEDED') {
+      throw new BadRequestException(`报告已${report.status === 'ISSUED' ? '签发' : '作废'},不可编辑内容`);
+    }
+    const data: any = {};
+    if (dto.summary !== undefined) data.summary = dto.summary;
+    if (dto.remarks !== undefined) data.remarks = dto.remarks;
+    const updated = await this.prisma.report.update({ where: { id }, data });
+    // 审计:内容编辑
+    await this.securityAudit.system(AuditEventType.REPORT_DRAFTED, {
+      reportId: id,
+      reportNo: report.reportNo,
+      action: 'content_updated',
+      operatorId: userId,
+    }).catch(() => undefined);
+    return updated;
   }
 
   /**
@@ -283,24 +368,8 @@ private async generateReportNo(): Promise<string> {
   /**
    * P0-D 状态机守卫:报告签发
    * APPROVED → ISSUED,不可逆
+   * P0-Fix-4: 接入 SignatureService 真实签名 PDF + RFC 3161 时间戳
    */
-  async issue(reportId: string, userId: string) {
-    const r = await this.prisma.report.findUnique({ where: { id: reportId } });
-    if (!r) throw new NotFoundException(`Report ${reportId} 不存在`);
-    // 状态机校验
-    this.stateMachine.assertTransition('Report', r.status, 'ISSUED');
-    // 签发时必须有 PDF
-    if (!r.pdfSha256) {
-      throw new BadRequestException('ISSUED 报告必须有 PDF(pdfSha256 必填)');
-    }
-    return this.prisma.report.update({
-      where: { id: reportId },
-      data: {
-        status: 'ISSUED',
-        issuedAt: new Date(),
-      },
-    });
-  }
   /**
    * W+1-8: 下载报告 PDF(重建 buffer,按 sha256 校验完整性)
    */

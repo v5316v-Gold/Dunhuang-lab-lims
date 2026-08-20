@@ -10,7 +10,7 @@ import { Request } from 'express';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { ChangePasswordDto, LoginDto, LoginResponse, RefreshTokenDto, TotpVerifyDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto, LoginResponse, MfaChallengeDto, RefreshTokenDto, TotpVerifyDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PasswordService } from './password.service';
 import { TotpService } from './totp.service';
@@ -92,6 +92,20 @@ export class AuthController {
   async verifyMfa(@CurrentUser() user: User, @Body() dto: TotpVerifyDto) {
     const ok = await this.totpService.verifyEnable(user.id, dto.code);
     return { verified: ok };
+  }
+
+  /**
+   * POST /auth/mfa/challenge
+   * Phase 0.5 P0-2: 敏感操作前的 MFA challenge(弹窗输入 TOTP → 返回 mfaToken)
+   * 前端在打开"签发报告/关闭 OOS"等对话框前调用
+   */
+  @Post('mfa/challenge')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: '敏感操作前 MFA challenge,返回短期 mfaToken' })
+  async challengeMfa(@CurrentUser() user: User, @Body() dto: MfaChallengeDto) {
+    return this.authService.challengeMfa(user.id, dto.code, dto.useBackupCode);
   }
 
   /**

@@ -3,11 +3,13 @@
 // =====================================================
 
 import { useState } from 'react';
-import { Table, Tag, Space, Button, Input, Select, Card } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Tag, Space, Button, Input, Select } from 'antd';
+import { PlusOutlined, SearchOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 import type { SampleType, SampleStatus } from '@dunhuang/lims-shared-types';
 
 interface Sample {
@@ -104,14 +106,17 @@ export default function SamplesListPage() {
   ];
 
   return (
-    <Card
-      title="样品管理"
-      extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/samples/receive')}>
-          接收样品
-        </Button>
-      }
-    >
+    <div>
+      <PageHeader
+        title="样品管理"
+        subtitle="CNAS §7.4 监管链 · 收样登记 + 状态流转"
+        icon={<ExperimentOutlined />}
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/samples/receive')}>
+            接收样品
+          </Button>
+        }
+      />
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
           placeholder="客户名称"
@@ -136,7 +141,7 @@ export default function SamplesListPage() {
         />
       </Space>
 
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={data?.data ?? []}
@@ -156,6 +161,6 @@ export default function SamplesListPage() {
           onClick: () => navigate(`/samples/${record.id}`),
         })}
       />
-    </Card>
+    </div>
   );
 }

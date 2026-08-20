@@ -5,9 +5,11 @@
 // =====================================================
 
 import { useEffect, useState } from 'react';
-import { Button, Card, Form, Input, Modal, Table, Tag, message, Space } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Button, Form, Input, Modal, Table, Tag, message, Space } from 'antd';
+import {  PlusOutlined, TeamOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface PersonnelRow {
   id: string;
@@ -58,20 +60,22 @@ export function PersonnelList() {
   };
 
   return (
-    <Card style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-      <Space style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>人员管理</h3>
-        <Button
+    <div>
+      <PageHeader
+        title="人员管理"
+        subtitle="CNAS §7.2 人员 · 培训 + 能力矩阵"
+        icon={<TeamOutlined />}
+        extra={<Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => setCreateOpen(true)}
           style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }}
         >
           创建人员
-        </Button>
-      </Space>
+        </Button>}
+      />
 
-      <Table<PersonnelRow>
+      <DataTable<PersonnelRow>
         rowKey="id"
         loading={loading}
         dataSource={data}
@@ -84,8 +88,7 @@ export function PersonnelList() {
           {
             title: '登录账号',
             dataIndex: ['user', 'username'],
-            render: (v) => (v ? <Tag style={{ color: 'var(--gold)' }}>{v}</Tag> : '—'),
-          },
+            render: (v) => (v ? <Tag style={{ color: 'var(--gold)' }}>{v}</Tag> : '—') },
           { title: '联系电话', dataIndex: 'phone', render: (v) => v ?? '—' },
         ]}
       />
@@ -106,6 +109,6 @@ export function PersonnelList() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }

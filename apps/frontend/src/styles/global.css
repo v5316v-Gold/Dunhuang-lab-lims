@@ -491,6 +491,96 @@ pre,
 }
 
 /* =====================================================
+ * 五·补  P2 美化增强(2026-08)
+ * ===================================================== */
+
+/* 5.15 表单校验失败: 朱砂红抖动 */
+@keyframes dsh-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.ant-form-item-has-error .ant-input,
+.ant-form-item-has-error .ant-input-affix-wrapper,
+.ant-form-item-has-error .ant-picker,
+.ant-form-item-has-error .ant-select-selector {
+  animation: dsh-shake 0.4s ease-in-out;
+}
+.ant-form-item-required::before {
+  color: var(--gold, #D4AF37) !important;
+}
+
+/* 5.16 页面标题栏 */
+.dsh-page-header {
+  background: linear-gradient(180deg, rgba(212,175,55,0.03) 0%, transparent 100%);
+}
+
+/* 5.17 统计卡 hover 上浮 + 金边 */
+.dsh-stat-card .ant-card {
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+}
+.dsh-stat-card .ant-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-gold-hover);
+  box-shadow: var(--shadow-md), var(--shadow-gold);
+}
+.dsh-stat-card .ant-card .anticon {
+  transition: transform var(--transition-normal);
+}
+.dsh-stat-card .ant-card:hover .anticon {
+  transform: scale(1.15);
+}
+
+/* 5.18 通用空状态美化(金色插画) */
+.dsh-empty-custom {
+  padding: 32px 0;
+  text-align: center;
+}
+.dsh-empty-custom .dsh-empty-icon {
+  font-size: 48px;
+  color: rgba(212,175,55,0.3);
+  filter: drop-shadow(0 4px 12px rgba(212,175,55,0.15));
+  margin-bottom: 12px;
+}
+
+/* 5.19 敏感页水印(审计/合规) */
+.dsh-watermark {
+  position: relative;
+}
+.dsh-watermark::after {
+  content: '敦煌金质检 LIMS · 内部受控';
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: 700;
+  color: rgba(212,175,55,0.035);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+/* 5.20 表格斑马纹(可选) */
+.dsh-table-striped .ant-table-tbody > tr:nth-child(even) > td {
+  background-color: rgba(255,255,255,0.015) !important;
+}
+
+/* 5.21 登录页双栏品牌区渐入 */
+.dsh-login-brand {
+  animation: dsh-slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 5.22 侧边栏 Logo 区 */
+.dsh-logo-area:hover {
+  background: rgba(212,175,55,0.08) !important;
+}
+
+/* =====================================================
  * 六、打印样式(去除纹样,白底黑字)
  * ===================================================== */
 @media print {
@@ -512,6 +602,122 @@ pre,
   .hide-mobile { display: none !important; }
   .mobile-full { width: 100% !important; }
 }
+
+/* =====================================================
+ * 七·补 移动端细化(2026-08) — 手机体验打磨
+ * ===================================================== */
+@media (max-width: 767px) {
+  /* 1. 筛选栏: 控件全宽,每行一个(仅内容区,避免影响 Header) */
+  .dsh-content-area .ant-space:has(.ant-input),
+  .dsh-content-area .ant-space:has(.ant-select) {
+    flex-wrap: wrap;
+  }
+  .dsh-content-area .ant-space:has(.ant-input) .ant-space-item,
+  .dsh-content-area .ant-space:has(.ant-select) .ant-space-item {
+    flex: 1 1 100%;
+  }
+  .dsh-content-area .ant-space:has(.ant-input) .ant-input,
+  .dsh-content-area .ant-space:has(.ant-input) .ant-input-affix-wrapper,
+  .dsh-content-area .ant-space:has(.ant-input) .ant-picker,
+  .dsh-content-area .ant-space:has(.ant-select) .ant-select {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  /* 2. 表格: 字号缩小,更紧凑 */
+  .ant-table {
+    font-size: 12px;
+  }
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 10px !important;
+  }
+  .ant-table-pagination {
+    margin: 12px 8px !important;
+  }
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    min-width: 26px !important;
+    height: 26px !important;
+    line-height: 26px !important;
+  }
+
+  /* 3. 统计卡: 更紧凑 */
+  .ant-statistic-title {
+    font-size: 12px !important;
+  }
+  .ant-statistic-content {
+    font-size: 22px !important;
+  }
+
+  /* 4. PageHeader: 图标+标题缩小 */
+  .dsh-page-header {
+    margin-bottom: 12px !important;
+    padding-bottom: 10px !important;
+  }
+  .dsh-page-header .ant-typography {
+    font-size: 16px !important;
+  }
+  .dsh-page-header [style*="width: 40px"] {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 15px !important;
+  }
+
+  /* 5. Modal/Drawer 全屏化(手机友好) */
+  .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto !important;
+    top: 16px !important;
+  }
+  .ant-modal-content {
+    border-radius: 12px !important;
+  }
+  .ant-drawer-content-wrapper {
+    width: 85vw !important;
+    max-width: 300px !important;
+  }
+
+  /* 6. 表单: label 更紧凑 */
+  .ant-form-item {
+    margin-bottom: 12px !important;
+  }
+
+  /* 7. 按钮组: 允许换行不溢出 */
+  .ant-btn {
+    font-size: 13px;
+  }
+
+  /* 8. 进度环缩小(移动端) */
+  .ant-progress-circle .ant-progress-text {
+    font-size: 14px !important;
+  }
+
+  /* 9. 卡片 padding 压缩 */
+  .ant-card-body {
+    padding: 14px !important;
+  }
+
+  /* 10. 标签页滚动 */
+  .ant-tabs-nav-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 11. 内容区避免贴边 */
+  .dsh-content-area {
+    margin: 6px !important;
+    padding: 10px !important;
+    border-radius: 10px !important;
+  }
+
+  /* 12. RealtimeCenter 手机紧凑 */
+  .dsh-realtime-center {
+    max-width: 120px;
+  }
+}
+
 @media (min-width: 641px) and (max-width: 1024px) {
   .hide-tablet { display: none !important; }
 }

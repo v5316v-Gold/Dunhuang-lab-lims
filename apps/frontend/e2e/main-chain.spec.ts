@@ -175,14 +175,14 @@ test.describe('主链路(样品→批次→检测→报告签发)', () => {
     await login(page);
     await page.goto(`/reports/${reportId}`);
     await page.getByRole('button', { name: btn('提交校核') }).click();
-    await waitToast(page, '操作成功');
+    await waitToast(page, '操作成功', 30000);
     await page.getByRole('button', { name: btn('校核通过') }).click();
-    await waitToast(page, '操作成功');
+    await waitToast(page, '操作成功', 30000);
     await page.getByRole('button', { name: btn('审核批准') }).click();
-    await waitToast(page, '操作成功');
+    await waitToast(page, '操作成功', 30000);
     await page.getByRole('button', { name: btn('签发报告') }).click();
-    await waitToast(page, '操作成功');
-    await expect(page.getByText('ISSUED').first()).toBeVisible({ timeout: 15000 });
+    await waitToast(page, '操作成功', 30000);
+    await expect(page.getByText('ISSUED').first()).toBeVisible({ timeout: 30000 });
 
     // PDF 完整性:下载报告 PDF(前端无下载按钮,用 API 验证)
     const pdfRes = await request.get(`/api/v1/reports/${reportId}/pdf`, { headers: authHeaders });

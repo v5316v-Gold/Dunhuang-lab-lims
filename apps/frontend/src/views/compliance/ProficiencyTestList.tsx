@@ -6,10 +6,12 @@
 
 import { useState } from 'react';
 import {
-  Button, Card, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, App, Popconfirm, Alert,
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, App, Popconfirm, Alert,
 } from 'antd';
-import { PlusOutlined, ReloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import {  PlusOutlined, ReloadOutlined, CheckCircleOutlined, SafetyOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 interface ProficiencyTest {
@@ -114,23 +116,25 @@ export default function ProficiencyTestList() {
   };
 
   return (
-    <Card
-      title="能力验证 PT(zScore 三档判定)"
-      size="small"
-      extra={
-        <Space>
+        <div>
+      <PageHeader
+        title="能力验证 PT"
+        subtitle="PT zScore 三档判定 · 外部能力验证"
+        icon={<SafetyOutlined />}
+        extra={
+          <Space>
           <Button icon={<ReloadOutlined />} onClick={() => qc.invalidateQueries({ queryKey: ['pts'] })}>刷新</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { createForm.resetFields(); setCreateOpen(true); }}>新建 PT</Button>
         </Space>
-      }
-    >
+        }
+      />
       <Space size="middle" style={{ marginBottom: 12 }}>
         <Tag color="blue">总数: {stats.total}</Tag>
         <Tag color="green">满意: {stats.sat}</Tag>
         <Tag color="orange">可疑: {stats.que}</Tag>
         <Tag color="red">不满意: {stats.unSat}</Tag>
       </Space>
-      <Table<ProficiencyTest>
+      <DataTable<ProficiencyTest>
         rowKey="id"
         columns={columns}
         dataSource={list?.items ?? []}
@@ -186,6 +190,6 @@ export default function ProficiencyTestList() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }

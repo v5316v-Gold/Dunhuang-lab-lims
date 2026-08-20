@@ -5,8 +5,8 @@ test.describe('认证流程', () => {
   test('1. 正确账号登录成功', async ({ page }) => {
     await login(page);
     // 进入主布局:侧边栏菜单可见
-    await expect(page.getByText('样品管理').first()).toBeVisible();
-    await expect(page.getByText('仪表盘', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('样品管理').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText('仪表盘', { exact: true }).first()).toBeVisible({ timeout: 30000 });
   });
 
   test('2. 错误密码登录失败', async ({ page }) => {

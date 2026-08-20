@@ -42,6 +42,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('用户不存在或已禁用');
     }
 
-    return user;
+    // P0-Fix: 附加 sub(userId)到 req.user — MfaGuard 依赖 payload.sub === user.sub
+    // 否则 MFA token 永远"与当前用户不匹配"(403),报告审核/签发链路被阻断
+    return { ...user, sub: payload.sub } as unknown as User;
   }
 }

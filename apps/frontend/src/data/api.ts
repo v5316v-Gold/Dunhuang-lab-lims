@@ -71,9 +71,11 @@ api.interceptors.response.use(
       }
     }
 
-    // 错误提示
-    const errorMessage = response?.data?.message ?? error.message ?? '请求失败';
-    message.error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+    // 错误提示(MFA 等后端返回 {code, message} 对象时提取内层字符串)
+    const rawMsg = response?.data?.message ?? error.message ?? '请求失败';
+    const errorMessage =
+      typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message ?? JSON.stringify(rawMsg));
+    message.error(errorMessage);
 
     return Promise.reject(error);
   },

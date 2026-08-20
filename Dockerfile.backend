@@ -1,0 +1,83 @@
+# =====================================================
+# 敦煌金质检 LIMS - 后端生产镜像
+# 多阶段构建,非 root 运行,镜像版本锁
+# 详见 docs/05-DEPLOYMENT.md §生产部署
+# =====================================================
+
+# ---------- 构建阶段 ----------
+FROM node:22.11.0-bookworm-slim AS builder
+
+WORKDIR /app
+
+# 1. 启用 pnpm(corepack 内置)
+RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
+
+# 2. 先复制 lockfile → 单独 layer 安装依赖(缓存命中)
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/compliance-core/package.json ./packages/compliance-core/
+COPY packages/config/package.json ./packages/config/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/ui-kit/package.json ./packages/ui-kit/
+
+RUN pnpm install --frozen-lockfile --filter @dunhuang/lims-backend... --ignore-scripts
+
+# 3. 复制源码并构建
+COPY apps/backend ./apps/backend
+COPY packages ./packages
+COPY scripts ./scripts
+
+RUN pnpm --filter @dunhuang/lims-backend run build
+
+# 4. 生成 Prisma Client
+RUN pnpm --filter @dunhuang/lims-backend run prisma:generate
+
+# ---------- 运行时阶段 ----------
+FROM node:22.11.0-bookworm-slim AS runtime
+
+LABEL maintainer="Dunhuang-LIMS IT <it@dunhuang-lab.local>" \
+      org.opencontainers.image.title="dunhuang-lims-backend" \
+      org.opencontainers.image.description="敦煌金质检 LIMS 后端 (NestJS 10)" \
+      org.opencontainers.image.source="https://github.com/v5316v-Gold/Dunhuang-lab-lims" \
+      org.opencontainers.image.licenses="UNLICENSED"
+
+# 安全:安装 dumb-init + tini 做信号转发 + curl 做健康检查
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends dumb-init curl tini ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 非 root 用户
+RUN groupadd --system --gid 1001 dunhuang \
+    && useradd --system --uid 1001 --gid dunhuang --home-dir /app --shell /usr/sbin/nologin dunhuang
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    PORT=3030 \
+    NODE_OPTIONS="--enable-source-maps" \
+    PNPM_HOME="/pnpm" \
+    PATH="/pnpm:$PATH"
+
+# 启用 pnpm(corepack)
+RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
+
+# 复制生产依赖(避免源代码污染)
+COPY --from=builder --chown=dunhuang:dunhuang /app/package.json /app/pnpm-workspace.yaml /app/turbo.json /app/tsconfig.base.json ./
+COPY --from=builder --chown=dunhuang:dunhuang /app/apps/backend/package.json ./apps/backend/
+COPY --from=builder --chown=dunhuang:dunhuang /app/packages ./packages
+COPY --from=builder --chown=dunhuang:dunhuang /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder --chown=dunhuang:dunhuang /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder --chown=dunhuang:dunhuang /app/node_modules ./node_modules
+COPY --from=builder --chown=dunhuang:dunhuang /app/apps/backend/node_modules ./apps/backend/node_modules
+
+USER dunhuang
+
+EXPOSE 3030
+
+# 健康检查:30s 间隔,3 次失败后判 unhealthy
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:3030/health/live || exit 1
+
+# tini 接管 PID 1,优雅转发信号(SIGTERM)
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "apps/backend/dist/main.js"]

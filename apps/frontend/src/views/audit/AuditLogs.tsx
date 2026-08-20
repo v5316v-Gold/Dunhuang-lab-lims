@@ -4,10 +4,12 @@
 // =====================================================
 
 import { useState } from 'react';
-import { Table, Tag, Button, Space, Card, message, Modal, Descriptions, Alert } from 'antd';
-import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Table, Tag, Button, Space, message, Modal, Descriptions, Alert } from 'antd';
+import {  ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, AuditOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface AuditLog {
   id: number;
@@ -103,10 +105,13 @@ export default function AuditLogsPage() {
   ];
 
   return (
-    <Card
-      title="审计日志(SHA256 链 · 不可篡改)"
-      extra={
-        <Space>
+        <div>
+      <PageHeader
+        title="审计日志"
+        subtitle="CNAS §7.11 数据控制 · SHA256 链不可篡改"
+        icon={<AuditOutlined />}
+        extra={
+          <Space>
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
             刷新
           </Button>
@@ -114,8 +119,8 @@ export default function AuditLogsPage() {
             断链自检
           </Button>
         </Space>
-      }
-    >
+        }
+      />
       {verifyResult && (
         <Alert
           style={{ marginBottom: 16 }}
@@ -141,7 +146,7 @@ export default function AuditLogsPage() {
         />
       )}
 
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={data?.data ?? []}
@@ -157,6 +162,6 @@ export default function AuditLogsPage() {
           },
         }}
       />
-    </Card>
+    </div>
   );
 }

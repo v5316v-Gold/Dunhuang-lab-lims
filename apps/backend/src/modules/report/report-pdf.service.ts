@@ -1,5 +1,6 @@
 // =====================================================
 // W+4-1 报告 PDF 深化 — 防伪水印 + 签名链 + 不确定度段
+// P2-4: 加二维码反查 URL + SHA256 短前缀 + 反查端点说明
 // CNAS §7.8 结果报告(含不确定度)+ §7.11 数据控制
 //
 // 深化点(vs Phase 4 最小版):
@@ -8,6 +9,7 @@
 //   3. 签名链: 内容 SHA256 + 签发人/时间(与 ReportSignature 集成)
 //   4. 不确定度段: purity ± U(k=2)
 //   5. 完整性: 整 PDF SHA256(写回 reports.pdf_sha256)
+//   6. P2-4: QR Code 反查 URL(扫码验证报告真伪,无需登录)
 //
 // 约束: 零新依赖,纯 Node Buffer 构造 PDF 1.4
 // 适配: Node 20/22
@@ -34,12 +36,16 @@ export interface PdfGenerateInput {
   unit?: string;                   // W+4-1: 单位(默认 %)
   signatures?: PdfSignature[];     // W+4-1: 签字链
   watermark?: string;              // W+4-1: 水印(默认 = reportNo)
+  reportId?: string;                // P2-4: 用于 QR Code 反查 URL
+  pdfSha256?: string;              // P2-4: 已签 PDF 的 SHA256(写入 QR)
+  qrCodeText?: string;             // P2-4: 自定义 QR 内容(覆盖默认)
 }
 
 export interface PdfGenerateResult {
   pdfBuffer: Buffer;
   sha256: string;
   pages: number;
+  qrContent?: string;              // P2-4: 反查 URL
 }
 
 @Injectable()
@@ -58,6 +64,18 @@ export class ReportPdfService {
     lines.push(`Customer  : ${input.customerName}`);
     lines.push(`Type      : ${input.sampleType}`);
     lines.push(`Issued At : ${input.issuedAt.toISOString()}`);
+
+    // P2-4: 二维码反查 URL(显示在头部供扫码)
+    // 实际生产中应渲染为 PNG XObject;此处先写文本 URL,
+    // QR PNG 由前端 / 客户端在打印前覆盖
+    if (input.reportId && input.pdfSha256) {
+      const qrContent = input.qrCodeText ??
+        `https://lims.dunhuang-lab.local/verify?report=${encodeURIComponent(input.reportId)}&sha=${input.pdfSha256.slice(0, 16)}`;
+      lines.push('----------------------------------------');
+      lines.push('VERIFY (scan QR or visit URL):');
+      lines.push(`  URL : ${qrContent}`);
+      lines.push(`  SHA: ${input.pdfSha256.slice(0, 32)}...`);
+    }
 
     // --- W+4-1 不确定度段 ---
     if (input.purityPct) {
@@ -93,7 +111,12 @@ export class ReportPdfService {
     const pdf = this.buildPdf(lines.join('\n'));
     const sha256 = createHash('sha256').update(pdf).digest('hex');
 
-    return { pdfBuffer: pdf, sha256, pages: 1 };
+    // P2-4: 返回 qrContent 供调用方记录到 reports.qr_code
+    const qrContent = (input.reportId && input.pdfSha256)
+      ? (input.qrCodeText ?? `https://lims.dunhuang-lab.local/verify?report=${encodeURIComponent(input.reportId)}&sha=${input.pdfSha256.slice(0, 16)}`)
+      : undefined;
+
+    return { pdfBuffer: pdf, sha256, pages: 1, qrContent };
   }
 
   /** 构造最小合法 PDF 1.4(UTF-16 中文支持) */

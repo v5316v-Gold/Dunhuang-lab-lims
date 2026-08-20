@@ -154,6 +154,12 @@ export class AuthService {
     // 5. 颁发 token
     const result = await this.issueTokens(user, ip, userAgent);
 
+    // 5.1 Phase 0.5 P0-2: 若用户启用 MFA,签发短期 mfaToken(5 分钟)
+    //     用于敏感操作的二次验证(REPORT_ISSUE / OOS_CLOSE 等)
+    if (user.mfaEnabled) {
+      result.mfaToken = await this.signMfaToken(user.id, 5 * 60);
+    }
+
     // Phase 1 Task 2.1: 登录成功审计(在 issueTokens 之后,确保 session 已创建)
     await this.securityAudit.record({
       event: AuditEventType.LOGIN_SUCCESS,
@@ -268,6 +274,46 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * Phase 0.5 P0-2: 签发短期 mfaToken(5 分钟)
+   * 用于敏感操作的二次验证(@RequireMfa 装饰器)
+   */
+  async signMfaToken(userId: string, ttlSec = 300): Promise<string> {
+    const secret = this.config.get<string>('JWT_MFA_SECRET') || this.config.get<string>('JWT_SECRET');
+    return this.jwt.sign(
+      { sub: userId, type: 'mfa' },
+      { secret, expiresIn: ttlSec },
+    );
+  }
+
+  /**
+   * Phase 0.5 P0-2: 给已登录用户重新签发 mfaToken
+   * POST /auth/mfa/challenge  — 弹窗输入 TOTP 后,后端再签发 mfaToken
+   */
+  async challengeMfa(userId: string, totpCode: string, useBackupCode = false): Promise<{ mfaToken: string; expiresIn: number }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.mfaEnabled) {
+      throw new UnauthorizedException('用户未启用 MFA');
+    }
+    const ok = useBackupCode
+      ? await this.totpService.verifyBackupCode(user.id, totpCode)
+      : await this.totpService.verify(user.id, totpCode);
+    if (!ok) {
+      await this.securityAudit.record({
+        event: AuditEventType.LOGIN_FAILED,
+        domain: 'auth',
+        userId: user.id,
+        username: user.username,
+        detail: { reason: 'mfa_challenge_failed' },
+      });
+      throw new UnauthorizedException('MFA 验证失败');
+    }
+    return {
+      mfaToken: await this.signMfaToken(user.id, 5 * 60),
+      expiresIn: 300,
+    };
   }
 
   private parseTtl(ttl: string): number {

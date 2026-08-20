@@ -465,9 +465,15 @@ for (const u of usageSeeds) {
         nextDueDate: daysFromNow(160) },
     });
     await prisma.periodicCheck.create({
-      data: { equipmentId: furnace.id, checkDate: daysAgo(7),
-        performedBy: seniorUser.id, passed: true, zScore: '0.42' as any,
-        remarks: '温度校准 Z-score 0.42(<2 阈值),无异常' },
+      data: {
+        equipmentId: furnace.id,
+        equipmentName: furnace.name,
+        checkDate: daysAgo(7),
+        performedBy: seniorUser.id,
+        passed: true,
+        zScore: '0.42' as any,
+        remarks: '温度校准 Z-score 0.42(<2 阈值),无异常',
+      },
     });
   }
 

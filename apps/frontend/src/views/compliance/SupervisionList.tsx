@@ -4,10 +4,12 @@
 
 import { useState } from 'react';
 import {
-  Button, Card, Form, Input, Select, Table, Tag, Space, Modal, App, Popconfirm,
+  Button, Form, Input, Select, Table, Tag, Space, Modal, App, Popconfirm,
 } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import {  PlusOutlined, ReloadOutlined, SafetyOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 interface Supervision {
@@ -93,23 +95,25 @@ export default function SupervisionList() {
   ];
 
   return (
-    <Card
-      title="监督记录"
-      size="small"
-      extra={
-        <Space>
+        <div>
+      <PageHeader
+        title="监督记录"
+        subtitle="CNAS §7.2 人员监督 · 记录 + 整改"
+        icon={<SafetyOutlined />}
+        extra={
+          <Space>
           <Button icon={<ReloadOutlined />} onClick={() => qc.invalidateQueries({ queryKey: ['supervisions'] })}>刷新</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建监督</Button>
         </Space>
-      }
-    >
+        }
+      />
       <Space size="middle" style={{ marginBottom: 12 }}>
         <Tag color="blue">总数: {stats.total}</Tag>
         <Tag color="green">通过: {stats.pass}</Tag>
         <Tag color="orange">需关注: {stats.concern}</Tag>
         <Tag color="red">不通过: {stats.fail}</Tag>
       </Space>
-      <Table<Supervision>
+      <DataTable<Supervision>
         rowKey="id"
         columns={columns}
         dataSource={list?.items ?? []}
@@ -162,6 +166,6 @@ export default function SupervisionList() {
           </div>
         )}
       </Modal>
-    </Card>
+    </div>
   );
 }

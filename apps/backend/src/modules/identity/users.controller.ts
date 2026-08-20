@@ -19,6 +19,8 @@ import { User, UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 
@@ -60,22 +62,25 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @MfaProtected(MFA_SCENES.USER_DELETE)
   @RequireRole(UserRole.ADMIN)
-  @ApiOperation({ summary: '软删除用户' })
+  @ApiOperation({ summary: '软删除用户(MFA 强制)' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.softDelete(id);
   }
 
   @Post(':id/reset-mfa')
+  @MfaProtected(MFA_SCENES.USER_LOCKOUT_RESET)
   @RequireRole(UserRole.ADMIN)
-  @ApiOperation({ summary: '重置用户 MFA(管理员)' })
+  @ApiOperation({ summary: '重置用户 MFA(管理员,MFA 强制)' })
   resetMfa(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.resetMfa(id);
   }
 
   @Post(':id/roles')
+  @MfaProtected(MFA_SCENES.USER_ROLE_CHANGE)
   @RequireRole(UserRole.ADMIN)
-  @ApiOperation({ summary: '分配角色' })
+  @ApiOperation({ summary: '分配角色(MFA 强制)' })
   assignRole(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { role: UserRole },

@@ -33,6 +33,7 @@ import { AuditContextInterceptor } from './common/audit/audit-context.intercepto
 import { installBigIntReplacer } from './common/filters/bigint-replacer';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { HttpMetricsInterceptor } from './infrastructure/observability/http-metrics.interceptor';
 import { assertEnv } from './config/env.schema';
 
 async function bootstrap() {
@@ -94,7 +95,8 @@ async function bootstrap() {
   // 全局拦截器(从容器中获取,实现依赖注入)
   const loggingInterceptor = app.get(LoggingInterceptor);
   const auditContextInterceptor = app.get(AuditContextInterceptor);
-  app.useGlobalInterceptors(loggingInterceptor, auditContextInterceptor);
+  const httpMetricsInterceptor = app.get(HttpMetricsInterceptor);
+  app.useGlobalInterceptors(loggingInterceptor, auditContextInterceptor, httpMetricsInterceptor);
 
   // Swagger / OpenAPI
   const swaggerConfig = new DocumentBuilder()

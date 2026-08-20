@@ -9,6 +9,7 @@ import Decimal from 'decimal.js';
 import { validateStepOrder, isAllStepsDone } from './fire-assay-steps';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { ReportService } from '../report/report.service';
 
 import {
   calculateFireAssayPurity,
@@ -19,7 +20,7 @@ import {
 export interface CreateFireAssayTestDto {
   sampleId: string;
   batchId?: string;
-  sampleWeightG: string;
+  sampleWeightG?: string;   // 修复: 可选,未传则从样品表自动取 weightG
 }
 
 export interface RecordProcessDto {
@@ -40,7 +41,10 @@ export interface RecordWeightsDto {
 
 @Injectable()
 export class FireAssayService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportService: ReportService,
+  ) {}
 
   /**
    * Phase 1 Task 2.2: row-level 权限校验(检测归属)
@@ -68,16 +72,36 @@ export class FireAssayService {
    * 创建火试金检测
    */
   async create(dto: CreateFireAssayTestDto, operatorId: string) {
+    // 修复: 校验 sampleId 是合法 UUID(否则 Prisma P2023)
+    const sampleId = (dto.sampleId ?? '').trim();
+    const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!UUID_RE.test(sampleId)) {
+      throw new BadRequestException('样品 ID 不是有效的 UUID 格式,请检查(如 4542c828-0308-46d6-bd64-df7605f10ed3)');
+    }
+    // 修复: sampleWeightG 未传时,自动从样品表取 weightG
+    let sampleWeightG = dto.sampleWeightG;
+    if (!sampleWeightG) {
+      const sample = await this.prisma.sample.findUnique({
+        where: { id: sampleId },
+        select: { weightG: true },
+      });
+      if (!sample) {
+        throw new NotFoundException(`样品 ${sampleId} 不存在,无法创建检测`);
+      }
+      if (sample?.weightG != null) {
+        sampleWeightG = String(sample.weightG);
+      }
+    }
     return this.prisma.test.create({
       data: {
-        sampleId: dto.sampleId,
+        sampleId,
         batchId: dto.batchId,
         method: 'FIRE_ASSAY',
         operatorId,
         status: 'PENDING',
         fireAssay: {
           create: {
-            sampleWeightG: dto.sampleWeightG,
+            sampleWeightG: sampleWeightG ?? '0',
           },
         },
       },
@@ -131,7 +155,7 @@ export class FireAssayService {
     const result = calculateFireAssayPurity(calcInput);
 
     // 更新数据库(单事务)
-    return this.prisma.$transaction(async (tx) => {
+    const txResult = await this.prisma.$transaction(async (tx) => {
       await tx.fireAssayDetail.update({
         where: { testId: dto.testId },
         data: {
@@ -185,6 +209,13 @@ export class FireAssayService {
 
       return { ...result, testId: dto.testId };
     });
+
+    // 断点④修复:QC 通过(检测完成)→ 自动创建报告草稿(已有报告则跳过)
+    if (result.qcPassed) {
+      await this.reportService.autoCreateReportIfNeeded(test.sampleId, user.id);
+    }
+
+    return txResult;
   }
 
   /**
@@ -192,11 +223,21 @@ export class FireAssayService {
    */
   async complete(testId: string, user: User) {
     await this.assertCanOperate(testId, user);
-    await this.findOne(testId);
-    return this.prisma.test.update({
-      where: { id: testId },
-      data: { status: 'COMPLETED', completedAt: new Date() },
+    const test = await this.findOne(testId);
+    // 断点③修复:单事务内回写 Test.COMPLETED + Sample.TESTED
+    await this.prisma.$transaction(async (tx) => {
+      await tx.test.update({
+        where: { id: testId },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      });
+      await tx.sample.update({
+        where: { id: test.sampleId },
+        data: { status: 'TESTED' },
+      });
     });
+    // 断点④修复:自动创建报告草稿(已有报告则跳过)
+    await this.reportService.autoCreateReportIfNeeded(test.sampleId, user.id);
+    return this.findOne(testId);
   }
 
   /**

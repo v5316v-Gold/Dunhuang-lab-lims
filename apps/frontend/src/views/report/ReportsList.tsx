@@ -1,14 +1,16 @@
 // =====================================================
 // 检测报告列表 — 前端填充(原空壳页补全)
-// 功能: 报告列表 + 创建报告 + 跳转详情(三级审核)
+// 功能: 报告列表 + 创建报告 + 跳转详情 + 预览/下载 PDF
 // 样式: 设计令牌(墨黑+辉金)
 // =====================================================
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Form, Input, Modal, Table, Tag, message, Space } from 'antd';
-import { PlusOutlined, FileDoneOutlined } from '@ant-design/icons';
+import { Button, Form, Input, Modal, Tag, message, Space } from 'antd';
+import { PlusOutlined, FileDoneOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
+import { PageHeader } from '../../components/PageHeader';
+import { DataTable, statusTag } from '../../components/DataTable';
 
 interface ReportRow {
   id: string;
@@ -25,8 +27,7 @@ const STATUS_COLOR: Record<string, string> = {
   FINAL_REVIEW: 'var(--warning)',
   APPROVED: 'var(--success)',
   ISSUED: 'var(--success)',
-  REJECTED: 'var(--error)',
-};
+  REJECTED: 'var(--error)' };
 
 export function ReportsList() {
   const navigate = useNavigate();
@@ -55,6 +56,43 @@ export function ReportsList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 获取 PDF blob(带 JWT,axios 拦截器自动注入 token)
+  const fetchPdfBlob = async (id: string): Promise<Blob> => {
+    const res = await api.get(`/reports/${id}/pdf`, { responseType: 'blob' });
+    return res.data as Blob;
+  };
+
+  // 新窗口预览 PDF
+  const previewPdf = async (row: ReportRow) => {
+    try {
+      const blob = await fetchPdfBlob(row.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // 稍后释放(延迟,避免预览未加载完就释放)
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '预览失败(报告可能尚未签发 PDF)');
+    }
+  };
+
+  // 下载 PDF
+  const downloadPdf = async (row: ReportRow) => {
+    try {
+      const blob = await fetchPdfBlob(row.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${row.reportNo || 'report'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      message.success('报告已下载');
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '下载失败(报告可能尚未签发 PDF)');
+    }
+  };
+
   const create = async () => {
     let values;
     try {
@@ -74,20 +112,22 @@ export function ReportsList() {
   };
 
   return (
-    <Card style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-      <Space style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>检测报告</h3>
-        <Button
+    <div>
+      <PageHeader
+        title="检测报告"
+        subtitle="CNAS §7.8 结果报告 · 多级审核 + 电子签名 + PDF 预览/下载"
+        icon={<FileDoneOutlined />}
+        extra={<Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => setCreateOpen(true)}
           style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }}
         >
           创建报告
-        </Button>
-      </Space>
+        </Button>}
+      />
 
-      <Table<ReportRow>
+      <DataTable<ReportRow>
         rowKey="id"
         loading={loading}
         dataSource={data}
@@ -100,21 +140,38 @@ export function ReportsList() {
           {
             title: '状态',
             dataIndex: 'status',
-            render: (v) => <Tag style={{ color: STATUS_COLOR[v] ?? 'var(--text-muted)' }}>{v}</Tag>,
-          },
+            render: statusTag },
           { title: '签发时间', dataIndex: 'issuedAt', render: (v) => (v ? new Date(v).toLocaleString() : '—') },
           {
             title: '操作',
+            width: 200,
             render: (_, row) => (
-              <Button
-                size="small"
-                icon={<FileDoneOutlined />}
-                onClick={() => navigate(`/reports/${row.id}`)}
-              >
-                查看/审核
-              </Button>
-            ),
-          },
+              <Space size={4} wrap>
+                <Button
+                  size="small"
+                  type="primary"
+                  ghost
+                  icon={<EyeOutlined />}
+                  onClick={() => previewPdf(row)}
+                >
+                  预览
+                </Button>
+                <Button
+                  size="small"
+                  icon={<DownloadOutlined />}
+                  onClick={() => downloadPdf(row)}
+                >
+                  下载
+                </Button>
+                <Button
+                  size="small"
+                  icon={<FilePdfOutlined />}
+                  onClick={() => navigate(`/reports/${row.id}`)}
+                >
+                  审核
+                </Button>
+              </Space>
+            ) },
         ]}
       />
 
@@ -125,6 +182,6 @@ export function ReportsList() {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 }

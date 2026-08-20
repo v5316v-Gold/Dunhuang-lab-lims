@@ -2,9 +2,11 @@
 // ICP 检测服务
 // =====================================================
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { User } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { ReportService } from '../report/report.service';
 
 export interface CreateIcpTestDto {
   sampleId: string;
@@ -26,12 +28,25 @@ export interface ElementResultInput {
 
 @Injectable()
 export class IcpService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportService: ReportService,
+  ) {}
 
   async create(dto: CreateIcpTestDto, operatorId: string) {
+    // 修复: 校验 sampleId 是合法 UUID(否则 Prisma P2023)
+    const sampleId = (dto.sampleId ?? '').trim();
+    const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!UUID_RE.test(sampleId)) {
+      throw new BadRequestException('样品 ID 不是有效的 UUID 格式,请检查(如 4542c828-0308-46d6-bd64-df7605f10ed3)');
+    }
+    const sample = await this.prisma.sample.findUnique({ where: { id: sampleId }, select: { id: true } });
+    if (!sample) {
+      throw new NotFoundException(`样品 ${sampleId} 不存在,无法创建检测`);
+    }
     return this.prisma.test.create({
       data: {
-        sampleId: dto.sampleId,
+        sampleId,
         batchId: dto.batchId,
         method: 'ICP_OES',
         operatorId,
@@ -64,7 +79,7 @@ export class IcpService {
     return this.findOne(testId);
   }
 
-  async complete(testId: string) {
+  async complete(testId: string, user?: User) {
     const test = await this.findOne(testId);
 
     // 计算主元素纯度(若有 Au 结果,用作 purityPct)
@@ -88,6 +103,11 @@ export class IcpService {
       });
     });
 
+    // 断点④修复:自动创建报告草稿(已有报告则跳过)
+    const reporterId = user?.id ?? test.operatorId;
+    if (reporterId) {
+      await this.reportService.autoCreateReportIfNeeded(test.sampleId, reporterId);
+    }
     return this.findOne(testId);
   }
 
