@@ -35,45 +35,110 @@ const LEVEL_ICON: Record<string, string> = {
   error: '✗',
 };
 
-/** SSE 订阅 hook */
+/** SSE 订阅 hook(带指数退避重连) */
 export function useRealtimeEvents(token?: string) {
   const [events, setEvents] = useState<RealtimeEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [attempts, setAttempts] = useState(0);
   const esRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const url = token
-      ? `/api/v1/realtime/events?token=${encodeURIComponent(token)}`
-      : `/api/v1/realtime/events`;
-    const es = new EventSource(url);
-    esRef.current = es;
+    let unmounted = false;
+    let delay = 1000; // 指数退避初始 1s,上限 30s
+    const MAX_DELAY = 30_000;
 
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
-
-    const handler = (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data);
-        // 忽略 ping
-        if (data?.type === 'ping' || e.type === 'ping') return;
-        setEvents((prev) => [data, ...prev].slice(0, 50));  // 最多保留 50 条
-      } catch {
-        // ignore
+    const cleanup = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (esRef.current) {
+        esRef.current.close();
+        esRef.current = null;
       }
     };
-    es.addEventListener('message', handler);
-    // 也监听 type=ping
-    es.addEventListener('ping', () => { /* heartbeat */ });
+
+    const connect = () => {
+      if (unmounted) return;
+      const url = token
+        ? `/api/v1/realtime/events?token=${encodeURIComponent(token)}`
+        : `/api/v1/realtime/events`;
+      const es = new EventSource(url);
+      esRef.current = es;
+
+      es.onopen = () => {
+        if (unmounted) return;
+        setConnected(true);
+        setReconnecting(false);
+        setAttempts(0);
+        delay = 1000; // 重置退避
+      };
+      es.onerror = () => {
+        if (unmounted) return;
+        setConnected(false);
+        // 浏览器会默认重连,但不可靠;显式重连+指数退避
+        es.close();
+        esRef.current = null;
+        setReconnecting(true);
+        setAttempts((a) => a + 1);
+        reconnectTimerRef.current = window.setTimeout(() => {
+          if (!unmounted) {
+            connect();
+            delay = Math.min(delay * 2, MAX_DELAY);
+          }
+        }, delay);
+      };
+
+      const handler = (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          // 忽略 ping
+          if (data?.type === 'ping' || e.type === 'ping') return;
+          setEvents((prev) => [data, ...prev].slice(0, 50)); // 最多保留 50 条
+        } catch {
+          // ignore
+        }
+      };
+      es.addEventListener('message', handler);
+      // 也监听 type=ping
+      es.addEventListener('ping', () => { /* heartbeat */ });
+    };
+
+    connect();
 
     return () => {
-      es.close();
-      esRef.current = null;
+      unmounted = true;
+      cleanup();
       setConnected(false);
     };
   }, [token]);
 
   const clear = () => setEvents([]);
-  return { events, connected, clear };
+  // 手动立即重连(用户在 UI 上点重连)
+  const reconnectNow = () => {
+    if (esRef.current) esRef.current.close();
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    setAttempts(0);
+    // 触发重连:重新调 useEffect 不实际,但可以直接新建 EventSource
+    // 简化:让 useEffect 的 cleanup+重启 — 改 token ref 不实用;改为手工重连函数
+    const url = token
+      ? `/api/v1/realtime/events?token=${encodeURIComponent(token)}`
+      : `/api/v1/realtime/events`;
+    const es = new EventSource(url);
+    esRef.current = es;
+    es.onopen = () => { setConnected(true); setReconnecting(false); setAttempts(0); };
+    es.onerror = () => { setConnected(false); };
+    es.addEventListener('message', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data?.type === 'ping') return;
+        setEvents((prev) => [data, ...prev].slice(0, 50));
+      } catch { /* ignore */ }
+    });
+  };
+  return { events, connected, reconnecting, attempts, clear, reconnectNow };
 }
 
 /** 实时事件中心 UI(右下角铃铛) */
@@ -81,7 +146,7 @@ export function RealtimeCenter({ token }: { token?: string }) {
   const [open, setOpen] = useState(false);
   const [hasNew, setHasNew] = useState(false);
   const lastSeenId = useRef<string | null>(null);
-  const { events, connected, clear } = useRealtimeEvents(token);
+  const { events, connected, reconnecting, attempts, clear, reconnectNow } = useRealtimeEvents(token);
 
   useEffect(() => {
     if (events.length > 0 && events[0].id !== lastSeenId.current) {
@@ -107,9 +172,15 @@ export function RealtimeCenter({ token }: { token?: string }) {
           <span>
             <BellOutlined style={{ color: '#D4AF37', marginRight: 8 }} />
             实时事件中心
-            <Tag color={connected ? 'green' : 'red'} style={{ marginLeft: 12 }}>
-              {connected ? '已连接' : '已断开'}
-            </Tag>
+            {connected ? (
+              <Tag color="green" style={{ marginLeft: 12 }}>已连接</Tag>
+            ) : reconnecting ? (
+              <Tag color="orange" style={{ marginLeft: 12 }}>
+                重连中{attempts > 0 ? `(第 ${attempts} 次)` : ''}
+              </Tag>
+            ) : (
+              <Tag color="red" style={{ marginLeft: 12 }}>已断开</Tag>
+            )}
           </span>
         }
         placement="right"
@@ -119,7 +190,7 @@ export function RealtimeCenter({ token }: { token?: string }) {
         extra={
           <Space>
             <Button size="small" icon={<ClearOutlined />} onClick={clear}>清空</Button>
-            <Button size="small" icon={<ReloadOutlined />} onClick={() => window.location.reload()}>刷新</Button>
+            <Button size="small" icon={<ReloadOutlined />} onClick={reconnectNow}>重连</Button>
           </Space>
         }
       >
