@@ -109,19 +109,6 @@ export class ComplianceController {
   @ApiOperation({ summary: '删除盲样考核(仅未评可软删,MFA 强制)' })
   deleteBlind(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.deleteBlindSample(id, u.id); }
 
-  // ---- 能力验证 PT ----
-  @Post('proficiency-test')
-  @ApiOperation({ summary: '创建能力验证计划' })
-  createPT(@Body() body: any, @CurrentUser() u: User) { return this.svc.createProficiencyTest(body, u.id); }
-
-  @Post('proficiency-test/:id/result')
-  @ApiOperation({ summary: '录入 PT 结果(自动 zScore 判定)' })
-  recordPT(@Param('id') id: string, @Body() body: any) { return this.svc.recordPTResult(id, body); }
-
-  @Get('proficiency-test')
-  @ApiOperation({ summary: '能力验证列表' })
-  listPT() { return this.svc.listProficiencyTests(); }
-
   // ---- P2-6: 内审检查表 + 管评输入 + NCR/CAPA ----
   @Get('audit-checklist')
   @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.ADMIN)

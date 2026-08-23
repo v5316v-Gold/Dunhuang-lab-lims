@@ -46,6 +46,12 @@ export class WasteController {
     return this.wasteService.summary();
   }
 
+  @Get('scan/:code')
+  @ApiOperation({ summary: '扫码查询危废(按 code 模糊匹配)' })
+  scan(@Param('code') code: string) {
+    return this.wasteService.scanByCode(code);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '危废详情' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {

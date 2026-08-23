@@ -64,6 +64,39 @@ export function SampleDetail() {
   const [mfaOpen, setMfaOpen] = useState(false);
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const [rollbackForm] = Form.useForm();
+  // 接收后加入批次:Select 当前 PENDING 批次一键加入
+  const [joinBatchOpen, setJoinBatchOpen] = useState(false);
+  const [pendingBatches, setPendingBatches] = useState<any[]>([]);
+  const [joining, setJoining] = useState(false);
+
+  const openJoinBatch = async () => {
+    setJoinBatchOpen(true);
+    try {
+      const r = await api.get('/batches', { params: { status: 'PENDING', pageSize: 50 } });
+      setPendingBatches(r.data?.data ?? []);
+    } catch {
+      message.error('加载待启动批次失败');
+    }
+  };
+
+  const submitJoinBatch = async (batchId: string) => {
+    if (!batchId) {
+      message.warning('请选择目标批次');
+      return;
+    }
+    setJoining(true);
+    try {
+      await api.post(`/batches/${batchId}/samples`, { sampleIds: [id] });
+      message.success('已加入批次,样品状态推进为 BATCHED');
+      setJoinBatchOpen(false);
+      await load();
+      navigate(`/batches/${batchId}`);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message ?? '加入批次失败');
+    } finally {
+      setJoining(false);
+    }
+  };
   const [disposeForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const [archiveForm] = Form.useForm();
@@ -227,8 +260,8 @@ export function SampleDetail() {
             </Button>
             {/* 状态机动作 */}
             {detail.status === 'RECEIVED' && (
-              <Button type="primary" style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }} onClick={() => navigate('/batches')}>
-                去批次管理加入批次
+              <Button type="primary" style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }} onClick={openJoinBatch}>
+                加入批次
               </Button>
             )}
             {detail.status === 'BATCHED' && (
@@ -407,6 +440,46 @@ export function SampleDetail() {
         onCancel={() => setMfaOpen(false)}
         onConfirm={submitDispose}
       />
+
+      {/* 加入批次弹窗(RECEIVED 状态) */}
+      <Modal
+        title="加入批次"
+        open={joinBatchOpen}
+        onCancel={() => setJoinBatchOpen(false)}
+        footer={null}
+        width={520}
+      >
+        <Alert
+          type="info"
+          showIcon
+          message="选择目标批次加入。已显示当前可启动(PENDING)的批次。"
+          style={{ marginBottom: 12 }}
+        />
+        {pendingBatches.length === 0 ? (
+          <Empty description="暂无可启动批次,请到批次管理新建一个批次" />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+            {pendingBatches.map((b: any) => (
+              <Card
+                key={b.id}
+                size="small"
+                hoverable
+                onClick={() => submitJoinBatch(b.id)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Space>
+                  <Tag color="gold">{b.batchNo}</Tag>
+                  <span>{b.method}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                    样品 {b._count?.samples ?? 0} · {b.replicateCount} 份平行 · {b.furnaceNo ?? ''}
+                  </span>
+                </Space>
+              </Card>
+            ))}
+          </div>
+        )}
+        {joining && <div style={{ marginTop: 12 }}><Spin tip="加入中..." /></div>}
+      </Modal>
 
       {/* 回退弹窗 */}
       <Modal

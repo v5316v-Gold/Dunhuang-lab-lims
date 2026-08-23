@@ -209,7 +209,7 @@ export class ContainerService {
   async remove(id: string) {
     const c = await this.prisma.container.findUnique({ where: { id } });
     if (!c || c.deletedAt) throw new NotFoundException(`容器 ${id} 不存在`);
-    const usageCount = await this.prisma.containerUsage.count({ where: { containerId: id } });
+    const usageCount = await this.prisma.containerUsage.count({ where: { containerId: id, returnedAt: null } });
     if (usageCount > 0) {
       throw new BadRequestException('该容器存在领用记录,不可删除;不再使用请标记 RETIRED');
     }
@@ -375,5 +375,15 @@ export class ContainerService {
       byType: byType.map((b: any) => ({ type: b.type, count: b._count.id })),
       checkedAt: new Date().toISOString(),
     };
+  }
+
+  /** 扫码查询:按 code 模糊匹配,排除已软删 */
+  async scanByCode(code: string) {
+    if (!code || !code.trim()) return [];
+    return this.prisma.container.findMany({
+      where: { code: { contains: code.trim() }, deletedAt: null },
+      orderBy: { code: 'asc' },
+      take: 20,
+    });
   }
 }

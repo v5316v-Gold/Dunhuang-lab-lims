@@ -19,11 +19,13 @@ import {
   Typography,
   message,
   Tag,
+  Alert,
 } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
+import { MfaChallengeModal } from '../../components/MfaChallengeModal';
 
 const { Text } = Typography;
 
@@ -67,17 +69,44 @@ export default function SodPolicyPage() {
 
   const { data: sodPolicies = [], isLoading: sodLoading } = useQuery({
     queryKey: ['sod-policies'],
-    queryFn: async () => {
-      const r = await api.get('/sod-policies');
-      // 后端返回结构 {value: [], Count: N} → 提取 value
-      const body = r.data;
-      return body?.value ?? body?.data ?? body ?? [];
-    },
+    queryFn: async () => (await api.get('/sod-policies')).data ?? [],
   });
 
   const { data: retentionPolicies = [], isLoading: retLoading } = useQuery({
     queryKey: ['retention-policies'],
-    queryFn: async () => (await api.get('/retention-policies')).data,
+    queryFn: async () => (await api.get('/retention-policies')).data ?? [],
+  });
+
+  // SoD 策略更新(版本化,需 MFA)
+  const [sodMfaOpen, setSodMfaOpen] = useState(false);
+  const [sodPending, setSodPending] = useState<any>(null);
+  const updateSodMut = useMutation({
+    mutationFn: async ({ mfaToken }: { mfaToken: string }) =>
+      (await api.patch(`/sod-policies/${editingSod!.id}`, sodPending, { headers: { 'x-mfa-token': mfaToken } })).data,
+    onSuccess: () => {
+      message.success('SoD 策略已更新(版本化,审计留痕)');
+      setSodMfaOpen(false);
+      setSodPending(null);
+      setEditingSod(null);
+      qc.invalidateQueries({ queryKey: ['sod-policies'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '更新失败'),
+  });
+
+  // 留样期更新(需 MFA)
+  const [retMfaOpen, setRetMfaOpen] = useState(false);
+  const [retPending, setRetPending] = useState<any>(null);
+  const updateRetMut = useMutation({
+    mutationFn: async ({ mfaToken }: { mfaToken: string }) =>
+      (await api.patch(`/retention-policies/${editingRetention!.entityType}`, retPending, { headers: { 'x-mfa-token': mfaToken } })).data,
+    onSuccess: () => {
+      message.success('留样期已更新(版本化,审计留痕)');
+      setRetMfaOpen(false);
+      setRetPending(null);
+      setEditingRetention(null);
+      qc.invalidateQueries({ queryKey: ['retention-policies'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '更新失败'),
   });
 
   const sodCols = [
@@ -128,7 +157,14 @@ export default function SodPolicyPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <PageHeader title="SoD 互斥 + 留样期策略" subtitle="CNAS-CL01:2018 §7.5.2/§7.8.4 · 实验室主任维护" />
+      <PageHeader title="SoD 互斥 + 留样期策略" subtitle="CNAS-CL01:2018 §7.5.2/§7.8.4 · 实验室主任维护 · 变更需 MFA 二次验证" />
+
+      <Alert
+        type="info"
+        showIcon
+        message="合规配置(SoD 模式 / 留样期)更新属 CNAS 评审敏感操作,需 MFA 二次验证;策略变更走版本化(关闭旧+创建新),审计链完整留痕。"
+        style={{ marginBottom: 0 }}
+      />
 
       <Row gutter={16}>
         <Col span={12}>
@@ -151,10 +187,8 @@ export default function SodPolicyPage() {
         </Col>
       </Row>
 
-      <Modal title="更新 SoD 策略" open={!!editingSod} onCancel={() => setEditingSod(null)} onOk={() => sodForm.submit()} width={500}>
-        <Form form={sodForm} layout="vertical" onFinish={(v) => api.patch(`/sod-policies/${editingSod!.id}`, v).then(() => {
-          message.success('已更新'); setEditingSod(null); qc.invalidateQueries({ queryKey: ['sod-policies'] });
-        })}>
+      <Modal title="更新 SoD 策略" open={!!editingSod && !sodMfaOpen} onCancel={() => { setEditingSod(null); sodForm.resetFields(); }} onOk={() => sodForm.submit()} width={500}>
+        <Form form={sodForm} layout="vertical" onFinish={(v) => { setSodPending(v); setSodMfaOpen(true); }}>
           <Form.Item label="模式" name="mode" rules={[{ required: true }]}>
             <Select options={MODE_OPTIONS} />
           </Form.Item>
@@ -165,10 +199,8 @@ export default function SodPolicyPage() {
         </Form>
       </Modal>
 
-      <Modal title="更新留样期" open={!!editingRetention} onCancel={() => setEditingRetention(null)} onOk={() => retForm.submit()} width={500}>
-        <Form form={retForm} layout="vertical" onFinish={(v) => api.patch(`/retention-policies/${editingRetention!.entityType}`, v).then(() => {
-          message.success('已更新'); setEditingRetention(null); qc.invalidateQueries({ queryKey: ['retention-policies'] });
-        })}>
+      <Modal title="更新留样期" open={!!editingRetention && !retMfaOpen} onCancel={() => { setEditingRetention(null); retForm.resetFields(); }} onOk={() => retForm.submit()} width={500}>
+        <Form form={retForm} layout="vertical" onFinish={(v) => { setRetPending(v); setRetMfaOpen(true); }}>
           <Form.Item label="保存期(月,-1=永久)" name="retentionMonths" rules={[{ required: true }]}>
             <InputNumber min={-1} style={{ width: '100%' }} />
           </Form.Item>
@@ -178,6 +210,22 @@ export default function SodPolicyPage() {
           <Form.Item label="说明" name="description"><Input.TextArea rows={2} /></Form.Item>
         </Form>
       </Modal>
+
+      <MfaChallengeModal
+        open={sodMfaOpen}
+        title="MFA 二次验证 · 更新 SoD 策略"
+        description="SoD 模式变更影响报告流转约束,需二次验证(CNAS §7.8.4)。"
+        onCancel={() => setSodMfaOpen(false)}
+        onConfirm={(mfaToken) => updateSodMut.mutateAsync({ mfaToken })}
+      />
+
+      <MfaChallengeModal
+        open={retMfaOpen}
+        title="MFA 二次验证 · 更新留样期"
+        description="留样期变更影响记录保留时长,需二次验证(CNAS §7.5.2)。"
+        onCancel={() => setRetMfaOpen(false)}
+        onConfirm={(mfaToken) => updateRetMut.mutateAsync({ mfaToken })}
+      />
     </div>
   );
 }

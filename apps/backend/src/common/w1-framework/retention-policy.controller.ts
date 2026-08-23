@@ -9,6 +9,8 @@ import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { User, UserRole } from '@prisma/client';
 import { RetentionPolicyService } from './retention-policy.service';
 
@@ -26,6 +28,7 @@ export class RetentionPolicyController {
   }
 
   @Patch(':entityType')
+  @MfaProtected(MFA_SCENES.SOD_POLICY_CHANGE)
   @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
   @ApiOperation({ summary: '更新留样期(创建新版本,实验室主任)' })
   update(

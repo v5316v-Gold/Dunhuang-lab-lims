@@ -55,6 +55,8 @@ export const MFA_SCENES = {
   MANAGEMENT_REVIEW_APPROVE: 'MANAGEMENT_REVIEW_APPROVE',
   // 审计链
   AUDIT_CHAIN_EXPORT: 'AUDIT_CHAIN_EXPORT',
+  // 策略变更(SoD / 留样期) — 涉及合规边界,需 MFA 二次确认
+  SOD_POLICY_CHANGE: 'CONFIG:SOD_POLICY_CHANGE',
 } as const;
 
 export type MfaScene = (typeof MFA_SCENES)[keyof typeof MFA_SCENES];

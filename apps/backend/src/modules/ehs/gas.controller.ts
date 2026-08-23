@@ -54,6 +54,12 @@ export class GasController {
     return this.gasService.summary();
   }
 
+  @Get('scan/:code')
+  @ApiOperation({ summary: '扫码查询气体(按 code 模糊匹配)' })
+  scan(@Param('code') code: string) {
+    return this.gasService.scanByCode(code);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '气体详情' })
   findGasById(@Param('id', new ParseUUIDPipe()) id: string) {

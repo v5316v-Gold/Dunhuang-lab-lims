@@ -464,4 +464,14 @@ export class GasService {
       checkedAt: new Date().toISOString(),
     };
   }
+
+  /** 扫码查询:按 code 模糊匹配,排除已软删 */
+  async scanByCode(code: string) {
+    if (!code || !code.trim()) return [];
+    return this.prisma.gas.findMany({
+      where: { code: { contains: code.trim() }, deletedAt: null },
+      orderBy: { code: 'asc' },
+      take: 20,
+    });
+  }
 }

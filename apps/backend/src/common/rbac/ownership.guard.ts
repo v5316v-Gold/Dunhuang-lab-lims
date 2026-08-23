@@ -42,7 +42,7 @@ export class OwnershipGuard implements CanActivate {
     // 管理员可访问所有资源
     // ⚠️ bug fix: 原写 'user.role === "ADMIN" || "QUALITY_MANAGER"' 实际是字符串字面量 ||
     //   任何 user 都会 bypass!必须用显式比较
-    if (user.role === 'ADMIN' || user.role === 'QUALITY_MANAGER') {
+    if (user.role === 'ADMIN' || user.role === 'QUALITY_MANAGER' || user.role === 'LAB_DIRECTOR') {
       return true;
     }
 

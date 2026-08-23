@@ -52,6 +52,12 @@ export class ContainerController {
     return this.containerService.summary();
   }
 
+  @Get('scan/:code')
+  @ApiOperation({ summary: '扫码查询容器(按 code 模糊匹配)' })
+  scan(@Param('code') code: string) {
+    return this.containerService.scanByCode(code);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '容器详情(含最近使用记录)' })
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {

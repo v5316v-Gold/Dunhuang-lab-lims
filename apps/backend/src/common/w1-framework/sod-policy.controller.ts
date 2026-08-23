@@ -11,6 +11,8 @@ import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { User, UserRole } from '@prisma/client';
 
 import { SodPolicyService, SodMode } from './sod-policy.service';
@@ -43,6 +45,7 @@ export class SodPolicyController {
   }
 
   @Patch(':id')
+  @MfaProtected(MFA_SCENES.SOD_POLICY_CHANGE)
   @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
   @ApiOperation({ summary: '更新 SoD 策略(版本化:关闭旧 + 创建新,实验室主任)' })
   update(@Param('id') id: string, @Body() dto: UpdateSodPolicyDto, @CurrentUser() user: User) {

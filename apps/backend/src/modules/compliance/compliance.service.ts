@@ -45,8 +45,6 @@ export class ComplianceService {
       SUPERVISION_CREATED: AuditEventType.SUPERVISION_RECORDED,
       BLIND_SAMPLE_CREATED: AuditEventType.INSTRUMENT_DATA_RECEIVED,
       BLIND_SAMPLE_ASSESSED: AuditEventType.QC_MEASUREMENT_RECORDED,
-      PT_CREATED: AuditEventType.INSTRUMENT_DATA_RECEIVED,
-      PT_RESULT_RECORDED: AuditEventType.QC_MEASUREMENT_RECORDED,
       TEMP_AUTH_GRANTED: AuditEventType.PERSONNEL_AUTHORIZED,
       TEMP_AUTH_REVOKED: AuditEventType.PERSONNEL_SUSPENDED,
     };
@@ -144,17 +142,25 @@ export class ComplianceService {
   // ================== 内部审核 ==================
   async createInternalAudit(dto: any, userId: string) {
     const auditNo = await this.nextNo('internalAudit', 'IA', 'auditNo');
-    const r = await this.prisma.internalAudit.create({
-      data: {
-        auditNo,
-        title: dto.title,
-        scope: dto.scope,
-        auditDate: new Date(dto.auditDate ?? Date.now()),
-        auditorIds: dto.auditorIds ?? [],
-        status: 'PLANNED',
-        createdById: userId,
-      },
-    });
+    let r;
+    try {
+      r = await this.prisma.internalAudit.create({
+        data: {
+          auditNo,
+          title: dto.title,
+          scope: dto.scope,
+          auditDate: new Date(dto.auditDate ?? Date.now()),
+          auditorIds: dto.auditorIds ?? [],
+          status: 'PLANNED',
+          createdById: userId,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('编号重复,请稍后重试');
+      }
+      throw e;
+    }
     await this.audit('INTERNAL_AUDIT_CREATED', { auditNo: r.auditNo });
     return r;
   }
@@ -177,19 +183,27 @@ export class ComplianceService {
   // ================== 管理评审 ==================
   async createManagementReview(dto: any, userId: string) {
     const reviewNo = await this.nextNo('managementReview', 'MR', 'reviewNo');
-    const r = await this.prisma.managementReview.create({
-      data: {
-        reviewNo,
-        title: dto.title,
-        periodFrom: new Date(dto.periodFrom),
-        periodTo: new Date(dto.periodTo),
-        reviewDate: new Date(dto.reviewDate ?? Date.now()),
-        attendees: dto.attendees ?? [],
-        inputs: dto.inputs,
-        status: 'PLANNED',
-        createdById: userId,
-      },
-    });
+    let r;
+    try {
+      r = await this.prisma.managementReview.create({
+        data: {
+          reviewNo,
+          title: dto.title,
+          periodFrom: new Date(dto.periodFrom),
+          periodTo: new Date(dto.periodTo),
+          reviewDate: new Date(dto.reviewDate ?? Date.now()),
+          attendees: dto.attendees ?? [],
+          inputs: dto.inputs,
+          status: 'PLANNED',
+          createdById: userId,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('编号重复,请稍后重试');
+      }
+      throw e;
+    }
     await this.audit('MGMT_REVIEW_CREATED', { reviewNo: r.reviewNo });
     return r;
   }
@@ -210,18 +224,26 @@ export class ComplianceService {
   // ================== 监督记录 ==================
   async createSupervision(dto: any, userId: string) {
     const supNo = await this.nextNo('supervisionRecord', 'SUP', 'supNo');
-    const r = await this.prisma.supervisionRecord.create({
-      data: {
-        supNo,
-        supervisorId: dto.supervisorId,
-        superviseeId: dto.superviseeId,
-        supDate: new Date(dto.supDate ?? Date.now()),
-        content: dto.content,
-        result: dto.result ?? 'PASS',
-        correctiveAction: dto.correctiveAction,
-        createdById: userId,
-      },
-    });
+    let r;
+    try {
+      r = await this.prisma.supervisionRecord.create({
+        data: {
+          supNo,
+          supervisorId: dto.supervisorId,
+          superviseeId: dto.superviseeId,
+          supDate: new Date(dto.supDate ?? Date.now()),
+          content: dto.content,
+          result: dto.result ?? 'PASS',
+          correctiveAction: dto.correctiveAction,
+          createdById: userId,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('编号重复,请稍后重试');
+      }
+      throw e;
+    }
     await this.audit('SUPERVISION_CREATED', { supNo: r.supNo, result: r.result });
     return r;
   }
@@ -241,15 +263,23 @@ export class ComplianceService {
   // ================== 盲样考核 ==================
   async createBlindSample(dto: any, userId: string) {
     const blindNo = await this.nextNo('blindSample', 'BL', 'blindNo');
-    const r = await this.prisma.blindSample.create({
-      data: {
-        blindNo,
-        sampleCode: dto.sampleCode,
-        assignedToId: dto.assignedToId,
-        trueValue: new Prisma.Decimal(dto.trueValue),
-        createdById: userId,
-      },
-    });
+    let r;
+    try {
+      r = await this.prisma.blindSample.create({
+        data: {
+          blindNo,
+          sampleCode: dto.sampleCode,
+          assignedToId: dto.assignedToId,
+          trueValue: new Prisma.Decimal(dto.trueValue),
+          createdById: userId,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('编号重复,请稍后重试');
+      }
+      throw e;
+    }
     await this.audit('BLIND_SAMPLE_CREATED', { blindNo: r.blindNo });
     return r;
   }
@@ -283,49 +313,6 @@ export class ComplianceService {
       orderBy: { createdAt: 'desc' },
       include: { assignedTo: { select: { name: true } } },
     });
-    return { items, total: items.length };
-  }
-
-  // ================== 能力验证 PT ==================
-  async createProficiencyTest(dto: any, userId: string) {
-    const ptNo = await this.nextNo('proficiencyTest', 'PT', 'ptNo');
-    const r = await this.prisma.proficiencyTest.create({
-      data: {
-        ptNo,
-        organizer: dto.organizer,
-        item: dto.item,
-        method: dto.method,
-        startDate: new Date(dto.startDate),
-        createdById: userId,
-      },
-    });
-    await this.audit('PT_CREATED', { ptNo: r.ptNo });
-    return r;
-  }
-
-  /** 录入 PT 结果(zScore + 判定) */
-  async recordPTResult(id: string, dto: { zScore: string | number; endDate?: string; reportFileId?: string; remarks?: string }) {
-    const pt = await this.prisma.proficiencyTest.findUnique({ where: { id } });
-    if (!pt) throw new NotFoundException(`PT ${id} 不存在`);
-    const z = Math.abs(Number(dto.zScore));
-    // 判定: |z| ≤ 2 满意; 2 < |z| < 3 可疑; ≥ 3 不满意
-    const result = z <= 2 ? 'SATISFACTORY' : z < 3 ? 'QUESTIONABLE' : 'UNSATISFACTORY';
-    const r = await this.prisma.proficiencyTest.update({
-      where: { id },
-      data: {
-        zScore: new Prisma.Decimal(dto.zScore),
-        result,
-        endDate: dto.endDate ? new Date(dto.endDate) : new Date(),
-        reportFileId: dto.reportFileId,
-        remarks: dto.remarks,
-      },
-    });
-    await this.audit('PT_RESULT_RECORDED', { ptNo: pt.ptNo, zScore: dto.zScore, result });
-    return r;
-  }
-
-  async listProficiencyTests() {
-    const items = await this.prisma.proficiencyTest.findMany({ where: { deletedAt: null }, orderBy: { startDate: 'desc' } });
     return { items, total: items.length };
   }
 

@@ -250,4 +250,14 @@ export class WasteService {
       alert: storedKg > 50 ? '危废暂存超过 50kg,请尽快转移' : null,
     };
   }
+
+  /** 扫码查询:按 code 模糊匹配(WasteRecord 无 deletedAt 字段,按 code 唯一索引查询) */
+  async scanByCode(code: string) {
+    if (!code || !code.trim()) return [];
+    return this.prisma.wasteRecord.findMany({
+      where: { code: { contains: code.trim() } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
 }

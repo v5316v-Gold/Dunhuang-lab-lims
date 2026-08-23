@@ -44,20 +44,16 @@ export default function ScanPage() {
         const r = await api.get(`/precious-metal/bar/scan/${code}`);
         detailData = r.data;
       } else if (detected.type === 'GAS') {
-        const r = await api.get(`/gas`);
-        detailData = r.data.items?.find((g: any) => g.code === code);
+        const r = await api.get(`/gas/scan/${code}`);
+        detailData = r.data;
       } else if (detected.type === 'CONTAINER') {
-        const r = await api.get(`/container`);
-        detailData = r.data.items?.find((c: any) => c.code === code);
-        if (detailData) {
-          const r2 = await api.get(`/container/${detailData.id}`);
-          detailData = r2.data;
-        }
+        const r = await api.get(`/container/scan/${code}`);
+        detailData = r.data;
       } else if (detected.type === 'WASTE') {
-        const r = await api.get(`/waste`);
-        detailData = r.data.data?.find((w: any) => w.code === code);
+        const r = await api.get(`/waste/scan/${code}`);
+        detailData = r.data;
       } else if (detected.type === 'SAMPLING') {
-        const r = await api.get(`/precious-metal/sampling/list`);
+        const r = await api.get(`/precious-metal/sampling/list`, { params: { page: 1, pageSize: 200 } });
         detailData = r.data.items?.find((s: any) => s.recordNo === code);
       }
       setResult({ type: detected.title, data: detailData });

@@ -95,13 +95,12 @@ export default function SampleReceivePage() {
     }
   };
 
-  // 保存并跳转列表
+  // 保存成功 → "提交并返回列表":成功后不自动跳转,由用户主动选择继续录入或返回
   const onFinish = async (values: FormValues) => {
     const data = await submitSample(values);
     if (!data) return;
     setSuccess({ sampleNo: data.sampleNo, id: data.id });
-    message.success(`✅ 接收成功,样品编号: ${data.sampleNo}`);
-    setTimeout(() => navigate('/samples'), 1200);
+    message.success(`✅ 接收成功,样品编号: ${data.sampleNo} — 可继续录入下一份或返回列表`);
   };
 
   // 保存并继续录入下一份(现场批量收样)

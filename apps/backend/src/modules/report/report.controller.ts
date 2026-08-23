@@ -3,7 +3,7 @@
 // =====================================================
 
 import {
-  Res, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+  Res, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole, ReportStatus } from '@prisma/client';
 
@@ -75,10 +75,13 @@ export class ReportController {
   @ApiOperation({ summary: '推进报告状态(状态机,MFA 强制,W2: 含 AUTHORIZE 批准)' })
   transition(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { action: 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'AUTHORIZE' | 'ISSUE'; comments?: string },
+    @Body() body: { action: 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'AUTHORIZE' | 'ISSUE'; comments: string },
     @CurrentUser() user: User,
   ) {
-    return this.reportService.transition(id, body.action, user.id, body.comments);
+    if (!body.comments?.trim()) {
+      throw new BadRequestException('操作评论必填');
+    }
+    return this.reportService.transition(id, body.action, user.id, body.comments.trim());
   }
 
   // P0-Fix-2: 电子签名强制 MFA(21 CFR Part 11 §11.200 单独身份认证)
