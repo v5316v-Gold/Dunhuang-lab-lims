@@ -72,8 +72,9 @@ ALTER TABLE "reference_material_usages" ADD CONSTRAINT "reference_material_usage
 -- AddForeignKey
 ALTER TABLE "reference_material_usages" ADD CONSTRAINT "reference_material_usages_element_result_id_fkey" FOREIGN KEY ("element_result_id") REFERENCES "element_results"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "reference_material_usages" ADD CONSTRAINT "reference_material_usages_uncertainty_report_id_fkey" FOREIGN KEY ("uncertainty_report_id") REFERENCES "uncertainty_reports"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- uncertainty_report_id FK 暂时移除(uncertainty_reports 表在后续 migration 才建),
+-- 等所有 migration 完成后通过新修复 migration 单独补这个 FK
+-- ALTER TABLE "reference_material_usages" ADD CONSTRAINT "reference_material_usages_uncertainty_report_id_fkey" FOREIGN KEY ("uncertainty_report_id") REFERENCES "uncertainty_reports"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "reference_material_usages" ADD CONSTRAINT "reference_material_usages_used_by_id_fkey" FOREIGN KEY ("used_by_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

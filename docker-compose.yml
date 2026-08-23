@@ -6,8 +6,6 @@
 # 日志: docker compose logs -f
 # ==========================================================
 
-version: '3.9'
-
 x-pg-env: &pg-env
   POSTGRES_DB: dunhuang_lims
   POSTGRES_USER: dunhuang
