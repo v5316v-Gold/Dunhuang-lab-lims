@@ -6,10 +6,10 @@
 
 import { useState } from 'react';
 import {
-  Button, Form, Table, Tag, Space, Modal, App, Alert, Select,
+  Button, Form, Table, Tag, Space, Modal, App, Alert, Select, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, ReloadOutlined, FileTextOutlined, EyeOutlined,
+  PlusOutlined, ReloadOutlined, FileTextOutlined, EyeOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -76,6 +76,16 @@ export default function RawRecordList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '生成失败'),
   });
 
+  // 删除草稿(仅 DRAFT;锁定/签署为合规红线)
+  const removeMut = useMutation({
+    mutationFn: async (sheetId: string) => (await api.delete(`/raw-records/${sheetId}`)).data,
+    onSuccess: () => {
+      message.success('草稿记录单已删除');
+      qc.invalidateQueries({ queryKey: ['raw-records'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
   const columns = [
     {
       title: '记录单号', dataIndex: 'sheetNo', width: 150,
@@ -92,9 +102,20 @@ export default function RawRecordList() {
       render: (v: string) => new Date(v).toLocaleString('zh-CN', { hour12: false }),
     },
     {
-      title: '操作', width: 90, fixed: 'right' as const,
+      title: '操作', width: 150, fixed: 'right' as const,
       render: (_: any, r: RawRecordSheet) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/raw-records/${r.id}`)}>详情</Button>
+        <Space size={4}>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/raw-records/${r.id}`)}>详情</Button>
+          {r.status === 'DRAFT' && (
+            <Popconfirm
+              title="删除草稿记录单"
+              description="仅草稿可删除;锁定/已签署记录为合规红线,不可删除。"
+              onConfirm={() => removeMut.mutate(r.id)}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending}>删除</Button>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ];

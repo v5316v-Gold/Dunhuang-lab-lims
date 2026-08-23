@@ -9,7 +9,7 @@ import {
   Button, Card, Descriptions, Space, Tag, Timeline, message, Spin, Empty, Modal, Form, Input, InputNumber, Select, Alert, Popconfirm,
 } from 'antd';
 import {
-  ArrowLeftOutlined, EditOutlined, InboxOutlined, DeleteOutlined, FileAddOutlined, FileTextOutlined,
+  ArrowLeftOutlined, EditOutlined, InboxOutlined, DeleteOutlined, FileAddOutlined, FileTextOutlined, UndoOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { MfaChallengeModal } from '../../components/MfaChallengeModal';
@@ -62,10 +62,22 @@ export function SampleDetail() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [disposeOpen, setDisposeOpen] = useState(false);
   const [mfaOpen, setMfaOpen] = useState(false);
+  const [rollbackOpen, setRollbackOpen] = useState(false);
+  const [rollbackForm] = Form.useForm();
   const [disposeForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const [archiveForm] = Form.useForm();
   const [users, setUsers] = useState<any[]>([]);
+
+  /** 允许回退的目标状态(与后端 ROLLBACK_MAP 一致) */
+  const ROLLBACK_MAP: Record<string, string> = {
+    BATCHED: 'RECEIVED',
+    IN_TEST: 'BATCHED',
+    TESTED: 'IN_TEST',
+    REPORT_DRAFT: 'TESTED',
+    REPORT_REVIEW: 'REPORT_DRAFT',
+    REPORT_APPROVED: 'REPORT_REVIEW',
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +171,21 @@ export function SampleDetail() {
     }
   };
 
+  // 状态回退(撤销上一步,原因必填)
+  const submitRollback = async () => {
+    const values = await rollbackForm.validateFields().catch(() => null);
+    if (!values) return;
+    try {
+      await api.post(`/samples/${id}/rollback`, { reason: values.reason });
+      message.success('状态已回退一步(审计已留痕)');
+      setRollbackOpen(false);
+      rollbackForm.resetFields();
+      await load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '回退失败');
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
@@ -227,6 +254,11 @@ export function SampleDetail() {
             {detail.status === 'ARCHIVED' && (
               <Button danger icon={<DeleteOutlined />} onClick={() => { loadUsers(); disposeForm.resetFields(); setDisposeOpen(true); }}>
                 留样销毁
+              </Button>
+            )}
+            {ROLLBACK_MAP[detail.status] && (
+              <Button icon={<UndoOutlined />} onClick={() => { rollbackForm.resetFields(); setRollbackOpen(true); }}>
+                回退一步
               </Button>
             )}
           </Space>
@@ -375,6 +407,29 @@ export function SampleDetail() {
         onCancel={() => setMfaOpen(false)}
         onConfirm={submitDispose}
       />
+
+      {/* 回退弹窗 */}
+      <Modal
+        title={`回退状态(${meta.label} → ${STATUS_META[ROLLBACK_MAP[detail.status]]?.label ?? ''})`}
+        open={rollbackOpen}
+        onCancel={() => setRollbackOpen(false)}
+        onOk={submitRollback}
+        okText="确认回退"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="回退为敏感操作,将撤销上一步状态并审计留痕;已归档/已生成报告的样品不可回退。"
+          style={{ marginBottom: 16 }}
+        />
+        <Form form={rollbackForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="回退原因" name="reason" rules={[{ required: true, message: '回退原因必填' }]}>
+            <Input.TextArea rows={3} placeholder="如:状态误操作,样品尚未开始检测" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   Form,
   Input,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Table,
@@ -21,11 +22,13 @@ import {
 } from 'antd';
 import {
   AppstoreOutlined,
+  DeleteOutlined,
   EyeOutlined,
   PlusOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
+  StopOutlined,
   TeamOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
@@ -203,6 +206,27 @@ export function PersonnelList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '授权失败'),
   });
 
+  // 删除人员(软删,仅无培训/能力记录)
+  const removeMut = useMutation({
+    mutationFn: async (id: string) => (await api.delete(`/personnel/${id}`)).data,
+    onSuccess: () => {
+      message.success('人员档案已删除');
+      qc.invalidateQueries({ queryKey: ['personnel-list'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
+  // 撤销能力授权(立即失效)
+  const revokeMut = useMutation({
+    mutationFn: async (competencyId: string) => (await api.post(`/personnel/competencies/${competencyId}/revoke`)).data,
+    onSuccess: () => {
+      message.success('能力授权已撤销(立即失效)');
+      qc.invalidateQueries({ queryKey: ['personnel-detail'] });
+      qc.invalidateQueries({ queryKey: ['personnel-matrix'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '撤销失败'),
+  });
+
   // ---------- 列 ----------
   const columns = [
     { title: '工号', dataIndex: 'employeeNo', width: 100 },
@@ -249,6 +273,13 @@ export function PersonnelList() {
           >
             授权
           </Button>
+          <Popconfirm
+            title="删除人员档案"
+            description="仅无培训/能力记录的人员可删除(软删)。"
+            onConfirm={() => removeMut.mutate(r.id)}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending}>删除</Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -476,6 +507,18 @@ export function PersonnelList() {
                 { title: '授权日期', dataIndex: 'certifiedAt', width: 110, render: (v: string) => v?.substring(0, 10) },
                 { title: '有效期', dataIndex: 'expiresAt', width: 110, render: (v: string) => v?.substring(0, 10) },
                 { title: '备注', dataIndex: 'remarks', ellipsis: true, render: (v?: string) => v ?? '—' },
+                {
+                  title: '', width: 70,
+                  render: (_: any, c: Competency) => (
+                    <Popconfirm
+                      title="撤销能力授权"
+                      description={`撤销 ${c.method} 授权?立即失效。`}
+                      onConfirm={() => revokeMut.mutate(c.id)}
+                    >
+                      <Button size="small" danger icon={<StopOutlined />} loading={revokeMut.isPending}>撤销</Button>
+                    </Popconfirm>
+                  ),
+                },
               ]}
             />
           </>

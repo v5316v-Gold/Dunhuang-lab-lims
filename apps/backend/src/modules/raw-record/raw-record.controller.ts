@@ -3,7 +3,7 @@
 // GET/POST(生成)/POST :id/lock / POST :id/sign / GET :id/pdf
 // =====================================================
 
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, UseGuards, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsString } from 'class-validator';
 import { User, UserRole } from '@prisma/client';
@@ -60,5 +60,12 @@ export class RawRecordController {
   @ApiOperation({ summary: '三签(OPERATOR/REVIEWER/APPROVER,SoD 互斥)' })
   sign(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SignDto, @CurrentUser() user: User) {
     return this.service.sign(id, dto.role, user.id);
+  }
+
+  @Delete(':id')
+  @RequireRole(UserRole.ADMIN, UserRole.SENIOR_ANALYST)
+  @ApiOperation({ summary: '删除草稿记录单(仅 DRAFT;锁定/签署为合规红线不可删)' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.service.remove(id, user.id);
   }
 }

@@ -76,6 +76,28 @@ export class PersonnelService {
     return this.prisma.competency.create({ data: { personnelId, ...data } });
   }
 
+  /** 删除人员档案(仅无培训/能力记录,软删) */
+  async removePersonnel(id: string) {
+    const p = await this.findOne(id);
+    if ((p.trainings?.length ?? 0) > 0 || (p.competencies?.length ?? 0) > 0) {
+      throw new NotFoundException('该人员存在培训/能力记录,不可删除;如不再任职请修改状态或撤销授权');
+    }
+    return this.prisma.personnel.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: 'INACTIVE' as any },
+    });
+  }
+
+  /** 撤销能力授权(立即失效) */
+  async revokeCompetency(id: string) {
+    const c = await this.prisma.competency.findUnique({ where: { id } });
+    if (!c) throw new NotFoundException(`能力记录 ${id} 不存在`);
+    return this.prisma.competency.update({
+      where: { id },
+      data: { expiresAt: new Date(), remarks: c.remarks ? `${c.remarks};已于 ${new Date().toISOString()} 撤销` : `已于 ${new Date().toISOString()} 撤销` },
+    });
+  }
+
 
   /**
    * Phase 3 填充(F4): 培训状态(最近培训 + 是否有有效能力)

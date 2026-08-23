@@ -151,6 +151,17 @@ export class RawRecordSheetService {
     ].join('\n');
   }
 
+  /** 删除草稿记录单(仅 DRAFT;LOCKED/SIGNED 为合规红线,不可删) */
+  async remove(id: string, userId: string): Promise<any> {
+    const sheet = await this.findOne(id);
+    if (sheet.status !== 'DRAFT') {
+      throw new BadRequestException(`仅草稿(DRAFT)记录单可删除(当前 ${sheet.status});已锁定/已签署记录为合规红线,不可删除`);
+    }
+    const result = await this.prisma.rawRecordSheet.delete({ where: { id } });
+    this.logger.warn(`记录单 ${sheet.sheetNo} 已被删除(草稿,操作人 ${userId})`);
+    return result;
+  }
+
   async findOne(id: string) {
     const sheet = await this.prisma.rawRecordSheet.findUnique({
       where: { id },

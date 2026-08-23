@@ -15,6 +15,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Table,
@@ -22,6 +23,7 @@ import {
 } from 'antd';
 import {
   AlertOutlined,
+  DeleteOutlined,
   EyeOutlined,
   GoldOutlined,
   PlusOutlined,
@@ -176,6 +178,38 @@ export function ReagentsList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '领用失败'),
   });
 
+  // 删除试剂(软删,仅无批次)
+  const removeMut = useMutation({
+    mutationFn: async (id: string) => (await api.delete(`/reagents/${id}`)).data,
+    onSuccess: () => {
+      message.success('试剂已删除');
+      qc.invalidateQueries({ queryKey: ['reagent-list'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
+  // 作废批次(仅未领用)
+  const voidLotMut = useMutation({
+    mutationFn: async (lotId: string) => (await api.post(`/reagents/lots/${lotId}/void`)).data,
+    onSuccess: () => {
+      message.success('批次已作废');
+      qc.invalidateQueries({ queryKey: ['reagent-lots'] });
+      qc.invalidateQueries({ queryKey: ['reagent-detail'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '作废失败'),
+  });
+
+  // 撤销领用(回补库存)
+  const undoUsageMut = useMutation({
+    mutationFn: async (usageId: string) => (await api.post(`/reagents/usages/${usageId}/undo`)).data,
+    onSuccess: () => {
+      message.success('领用已撤销,库存已回补');
+      qc.invalidateQueries({ queryKey: ['reagent-lots'] });
+      qc.invalidateQueries({ queryKey: ['reagent-detail'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '撤销失败'),
+  });
+
   // ---------- 列 ----------
   const columns = [
     {
@@ -233,6 +267,13 @@ export function ReagentsList() {
           >
             领用
           </Button>
+          <Popconfirm
+            title="删除试剂"
+            description="仅无批次的试剂可删除(软删)。"
+            onConfirm={() => removeMut.mutate(r.id)}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending}>删除</Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -462,6 +503,18 @@ export function ReagentsList() {
                   },
                 },
                 { title: '供应商', dataIndex: 'supplier', ellipsis: true, render: (v?: string) => v ?? '—' },
+                {
+                  title: '', width: 70,
+                  render: (_: any, lot: ReagentLot) => (
+                    <Popconfirm
+                      title="作废批次"
+                      description="仅未领用过的批次可作废(删除);已领用需先撤销领用。"
+                      onConfirm={() => voidLotMut.mutate(lot.id)}
+                    >
+                      <Button size="small" danger icon={<DeleteOutlined />} loading={voidLotMut.isPending}>作废</Button>
+                    </Popconfirm>
+                  ),
+                },
               ]}
             />
           </>

@@ -2,7 +2,7 @@
 // 试剂服务 - 试剂/批次/库存/预警
 // =====================================================
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Reagent, ReagentType } from '@prisma/client';
 import Decimal from 'decimal.js';
 
@@ -152,5 +152,43 @@ export class ReagentService {
       expiryDate: lot.expiryDate,
       alertType: lot.expiryDate <= inThirtyDays ? 'EXPIRING' : 'LOW_STOCK',
     }));
+  }
+
+  /** 删除试剂主数据(仅无批次,软删) */
+  async remove(id: string) {
+    const r = await this.prisma.reagent.findUnique({
+      where: { id },
+      include: { _count: { select: { lots: true } } },
+    });
+    if (!r || r.deletedAt) throw new BadRequestException(`试剂 ${id} 不存在`);
+    if (r._count.lots > 0) {
+      throw new BadRequestException('该试剂存在批次记录,不可删除;请先作废批次');
+    }
+    return this.prisma.reagent.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  /** 作废试剂批次(仅未领用过;已领用需先撤销领用) */
+  async voidLot(lotId: string) {
+    const lot = await this.prisma.reagentLot.findUnique({ where: { id: lotId } });
+    if (!lot) throw new BadRequestException(`批次 ${lotId} 不存在`);
+    const usageCount = await this.prisma.reagentUsage.count({ where: { reagentLotId: lotId } });
+    if (usageCount > 0) {
+      throw new BadRequestException('该批次已有领用记录,不可作废;请先撤销领用记录');
+    }
+    return this.prisma.reagentLot.delete({ where: { id: lotId } });
+  }
+
+  /** 撤销试剂领用(删除记录 + 回补批次剩余量) */
+  async undoUsage(usageId: string) {
+    const u = await this.prisma.reagentUsage.findUnique({ where: { id: usageId } });
+    if (!u) throw new BadRequestException(`领用记录 ${usageId} 不存在`);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.reagentUsage.delete({ where: { id: usageId } });
+      await tx.reagentLot.update({
+        where: { id: u.reagentLotId },
+        data: { remainingQty: { increment: u.quantity } },
+      });
+      return { undone: true, usageId, lotId: u.reagentLotId, restoredQty: u.quantity };
+    });
   }
 }

@@ -6,14 +6,15 @@
 
 import { useMemo, useState } from 'react';
 import {
-  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, App, Alert, Card, Col, Row, Statistic, Typography,
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, App, Alert, Card, Col, Row, Statistic, Typography, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, ReloadOutlined, CheckCircleOutlined, SafetyCertificateOutlined,
+  PlusOutlined, ReloadOutlined, CheckCircleOutlined, SafetyCertificateOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable } from '../../components/DataTable';
+import { MfaChallengeModal } from '../../components/MfaChallengeModal';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 const { Text } = Typography;
@@ -127,6 +128,22 @@ export default function ProficiencyTestList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '录入失败'),
   });
 
+  // 删除 PT(仅未录结果,MFA)
+  const [delTarget, setDelTarget] = useState<ProficiencyTest | null>(null);
+  const [delMfaOpen, setDelMfaOpen] = useState(false);
+  const removeMut = useMutation({
+    mutationFn: async ({ mfaToken }: { mfaToken: string }) =>
+      (await api.delete(`/proficiency-tests/${delTarget!.id}`, { headers: { 'x-mfa-token': mfaToken } })).data,
+    onSuccess: () => {
+      message.success('PT 计划已删除');
+      setDelMfaOpen(false);
+      setDelTarget(null);
+      qc.invalidateQueries({ queryKey: ['pts'] });
+      qc.invalidateQueries({ queryKey: ['pt-summary'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
   const columns = [
     { title: '编号', dataIndex: 'ptNo', width: 140, render: (v: string) => <span style={{ fontFamily: 'monospace', color: '#D4AF37' }}>{v}</span> },
     { title: '组织方', dataIndex: 'organizer', width: 160, ellipsis: true },
@@ -146,14 +163,25 @@ export default function ProficiencyTestList() {
         : <Tag>待评</Tag>,
     },
     {
-      title: '操作', width: 100, fixed: 'right' as const,
+      title: '操作', width: 160, fixed: 'right' as const,
       render: (_: any, r: ProficiencyTest) => (
-        <Button
-          size="small"
-          icon={<CheckCircleOutlined />}
-          disabled={r.zScore != null}
-          onClick={() => { setEditing(r); resultForm.setFieldsValue({ zScore: '', remarks: '' }); setResultOpen(true); }}
-        >录入</Button>
+        <Space size={4}>
+          <Button
+            size="small"
+            icon={<CheckCircleOutlined />}
+            disabled={r.zScore != null}
+            onClick={() => { setEditing(r); resultForm.setFieldsValue({ zScore: '', remarks: '' }); setResultOpen(true); }}
+          >录入</Button>
+          {r.zScore == null && (
+            <Popconfirm
+              title="删除 PT 计划(需 MFA)"
+              description="仅未录结果的 PT 可删除。"
+              onConfirm={() => { setDelTarget(r); setDelMfaOpen(true); }}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ];
@@ -288,6 +316,14 @@ export default function ProficiencyTestList() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <MfaChallengeModal
+        open={delMfaOpen}
+        title="MFA 二次验证 · 删除 PT"
+        description="删除 PT 计划为敏感操作,需二次验证。"
+        onCancel={() => setDelMfaOpen(false)}
+        onConfirm={(mfaToken) => removeMut.mutateAsync({ mfaToken })}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 // GET/POST /proficiency-tests + 结果录入 + 年度汇总
 // =====================================================
 
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsNumberString, IsOptional, IsString } from 'class-validator';
 import { User, UserRole } from '@prisma/client';
@@ -11,6 +11,8 @@ import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
 import { RequireRole } from '../../common/auth/decorators/require-role.decorator';
 import { CurrentUser } from '../../common/auth/decorators/current-user.decorator';
+import { MfaProtected } from '../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../common/auth/decorators/require-mfa.decorator';
 import { ProficiencyTestService } from './proficiency-test.service';
 
 class CreatePtDto {
@@ -70,5 +72,13 @@ export class ProficiencyTestController {
       result: dto.result,
       remarks: dto.remarks,
     });
+  }
+
+  @Delete(':id')
+  @MfaProtected(MFA_SCENES.REPORT_ISSUE)
+  @RequireRole(UserRole.ADMIN, UserRole.LAB_DIRECTOR, UserRole.QUALITY_MANAGER)
+  @ApiOperation({ summary: '删除 PT(仅未录入结果可软删,MFA 强制)' })
+  delete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.service.delete(id, user.id);
   }
 }

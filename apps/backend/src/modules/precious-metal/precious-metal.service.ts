@@ -265,6 +265,33 @@ export class PreciousMetalService {
     return bar;
   }
 
+  /** 作废条码(仅 ACTIVE,原因必填) */
+  async voidBar(id: string, reason?: string) {
+    if (!reason?.trim()) throw new BadRequestException('作废原因必填');
+    const bar = await this.prisma.preciousMetalBar.findUnique({ where: { id } });
+    if (!bar || bar.deletedAt) throw new NotFoundException(`条码 ${id} 不存在`);
+    if (bar.status !== 'ACTIVE') throw new BadRequestException(`仅 ACTIVE 条码可作废(当前 ${bar.status})`);
+    const result = await this.prisma.preciousMetalBar.update({
+      where: { id },
+      data: { status: 'VOIDED', remarks: bar.remarks ? `${bar.remarks};作废:${reason.trim()}` : `作废:${reason.trim()}` },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_VOIDED, {
+      entity: 'precious_metal_bar', barId: id, barCode: bar.barCode, reason: reason.trim(),
+    });
+    return result;
+  }
+
+  /** 删除取样记录(仅未关联条码,软删) */
+  async removeSampling(id: string) {
+    const s = await this.prisma.samplingRecord.findUnique({ where: { id } });
+    if (!s || s.deletedAt) throw new NotFoundException(`取样记录 ${id} 不存在`);
+    const barCount = await this.prisma.preciousMetalBar.count({ where: { sampleId: s.sampleId ?? undefined } });
+    if (barCount > 0) throw new BadRequestException('该取样已生成条码,不可删除;如条码有误请走作废流程');
+    const result = await this.prisma.samplingRecord.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, { entity: 'sampling', samplingId: id });
+    return result;
+  }
+
   async findAllBars(params: {
     metalType?: MetalType;
     qualityGrade?: BarQualityGrade;

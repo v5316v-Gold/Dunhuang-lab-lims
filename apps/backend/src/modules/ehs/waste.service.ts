@@ -208,6 +208,24 @@ export class WasteService {
         return result;
       }
 
+  /** 作废登记(仅 STORED 误录可作废,原因必填,审计留痕) */
+  async voidRecord(id: string, reason: string, userId: string) {
+    if (!reason?.trim()) throw new BadRequestException('作废原因必填');
+    const r = await this.prisma.wasteRecord.findUnique({ where: { id } });
+    if (!r) throw new BadRequestException(`危废记录 ${id} 不存在`);
+    if (r.status !== 'STORED') {
+      throw new BadRequestException(`仅暂存(STORED)记录可作废(当前 ${r.status});已转移/处置的不可作废`);
+    }
+    const result = await this.prisma.wasteRecord.update({
+      where: { id },
+      data: { status: 'VOID' } as any,
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_VOIDED, {
+      entity: 'waste', wasteId: id, code: r.code, reason: reason.trim(), operatorId: userId,
+    });
+    return result;
+  }
+
   /** 危废合规摘要(CNAS 评审用) */
   async summary() {
     const all = await (this.prisma as any).wasteRecord.findMany({ select: { status: true, type: true, weightKg: true, hazardClass: true } });

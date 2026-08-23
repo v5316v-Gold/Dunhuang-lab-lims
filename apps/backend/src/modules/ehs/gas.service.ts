@@ -289,6 +289,49 @@ export class GasService {
     return result;
   }
 
+  /** 退货:已验收 → RETURNED,回扣库存 */
+  async returnPurchase(id: string, reason?: string) {
+    const purchase = await this.prisma.gasPurchase.findUnique({ where: { id } });
+    if (!purchase) throw new NotFoundException(`采购单 ${id} 不存在`);
+    if (purchase.status !== GasPurchaseStatus.INSPECTED) {
+      throw new BadRequestException(`仅已验收(INSPECTED)采购单可退货(当前 ${purchase.status})`);
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.gasPurchase.update({
+        where: { id },
+        data: { status: GasPurchaseStatus.RETURNED, remarks: reason ? `${purchase.remarks ?? ''}\n退货:${reason}` : purchase.remarks },
+      });
+      const gas = await tx.gas.findUnique({ where: { id: purchase.gasId } });
+      if (gas) {
+        const newStock = new Prisma.Decimal(gas.currentStock).minus(purchase.quantity);
+        await tx.gas.update({
+          where: { id: gas.id },
+          data: { currentStock: newStock.isNegative() ? new Prisma.Decimal(0) : newStock },
+        });
+      }
+      await this.securityAudit.system(AuditEventType.RECORD_UNDONE, {
+        entity: 'gas_purchase', purchaseId: id, quantity: purchase.quantity.toString(), reason: reason ?? '',
+      });
+      return updated;
+    });
+  }
+
+  /** 删除气体主数据(仅无采购/领用,软删) */
+  async removeGas(id: string) {
+    const gas = await this.prisma.gas.findUnique({ where: { id } });
+    if (!gas || gas.deletedAt) throw new NotFoundException(`气体 ${id} 不存在`);
+    const [purchaseCount, usageCount] = await Promise.all([
+      this.prisma.gasPurchase.count({ where: { gasId: id } }),
+      this.prisma.gasUsage.count({ where: { gasId: id } }),
+    ]);
+    if (purchaseCount > 0 || usageCount > 0) {
+      throw new BadRequestException('该气体存在采购/领用记录,不可删除;不再使用请标记 INACTIVE');
+    }
+    const result = await this.prisma.gas.update({ where: { id }, data: { deletedAt: new Date(), status: 'RETIRED' } });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, { entity: 'gas', gasId: id, code: gas.code });
+    return result;
+  }
+
   /** ============ GasUsage 使用记录 ============ */
 
   async recordUsage(dto: CreateGasUsageDto, userId: string) {

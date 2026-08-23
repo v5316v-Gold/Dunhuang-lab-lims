@@ -3,7 +3,7 @@
 // =====================================================
 
 import {
-  Res, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+  Res, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole, ReportStatus } from '@prisma/client';
 
@@ -92,5 +92,20 @@ export class ReportController {
     @CurrentUser() user: User,
   ) {
     return this.reportService.sign(id, user.id, user.role, body.signatureData, body.certificateSerial);
+  }
+
+  @Post(':id/void')
+  @MfaProtected(MFA_SCENES.REPORT_ISSUE)
+  @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '作废报告(ISSUED → SUPERSEDED,CNAS §7.8.8)' })
+  voidReport(@Param('id', ParseUUIDPipe) id: string, @Body() body: { reason: string }, @CurrentUser() user: User) {
+    return this.reportService.voidReport(id, body.reason, user.id);
+  }
+
+  @Delete(':id')
+  @RequireRole(UserRole.SENIOR_ANALYST, UserRole.ADMIN)
+  @ApiOperation({ summary: '删除报告草稿(仅 DRAFT/REJECTED 且无签名)' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.reportService.remove(id, user.id);
   }
 }

@@ -26,12 +26,14 @@ import {
   InputNumber,
   Descriptions,
   App,
+  Popconfirm,
 } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExperimentOutlined,
   PlusOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import ReactECharts from 'echarts-for-react';
@@ -125,11 +127,37 @@ export default function QcDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [violationDetail, setViolationDetail] = useState<QcSummary['violations'][number] | null>(null);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<any>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['qc-summary', days],
     queryFn: async () => (await api.get(`/qc/summary`, { params: { days } })).data as QcSummary,
   });
+
+  // 作废 QC 测量值(误录纠正)
+  const submitVoid = async () => {
+    if (!voidTarget) return;
+    if (!voidReason.trim()) {
+      message.warning('作废原因必填');
+      return;
+    }
+    setVoiding(true);
+    try {
+      await api.post(`/qc/measurements/${voidTarget.id}/void`, { reason: voidReason.trim() });
+      message.success('测量值已作废(数据保留 voidedAt,审计留痕)');
+      setVoidOpen(false);
+      setVoidTarget(null);
+      setVoidReason('');
+      qc.invalidateQueries({ queryKey: ['qc-summary'] });
+    } catch (e: any) {
+      message.error(e?.response?.data?.message ?? '作废失败');
+    } finally {
+      setVoiding(false);
+    }
+  };
 
   const createMut = useMutation({
     mutationFn: async (values: any) => {
@@ -419,6 +447,23 @@ export default function QcDashboard() {
                       </Tag>
                     ),
                 },
+                {
+                  title: '操作',
+                  width: 90,
+                  fixed: 'right' as const,
+                  render: (_: any, r: QcSummary['recent'][number]) =>
+                    (r as any).voidedAt ? (
+                      <Tag>已作废</Tag>
+                    ) : (
+                      <Popconfirm
+                        title="作废测量值"
+                        description="误录纠正,数据保留并标记作废(ALCOA+)。"
+                        onConfirm={() => { setVoidTarget(r); setVoidReason(''); setVoidOpen(true); }}
+                      >
+                        <Button size="small" danger icon={<DeleteOutlined />}>作废</Button>
+                      </Popconfirm>
+                    ),
+                },
               ]}
             />
           ) : (
@@ -512,6 +557,26 @@ export default function QcDashboard() {
               </Descriptions.Item>
             </Descriptions>
           )}
+        </Modal>
+
+        {/* 作废测量值 Modal */}
+        <Modal
+          title="作废 QC 测量值"
+          open={voidOpen}
+          onCancel={() => setVoidOpen(false)}
+          onOk={submitVoid}
+          confirmLoading={voiding}
+          okText="确认作废"
+          okButtonProps={{ danger: true }}
+          cancelText="取消"
+        >
+          <Input.TextArea
+            rows={3}
+            placeholder="作废原因(必填),如:误录,应为另一元素"
+            value={voidReason}
+            onChange={(e) => setVoidReason(e.target.value)}
+            style={{ marginTop: 8 }}
+          />
         </Modal>
         </div>
   );

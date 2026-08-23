@@ -3,7 +3,7 @@
 // =====================================================
 
 import {
-  Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe,
+  Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe,
   Post, Query, UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -80,6 +80,18 @@ export class PreciousMetalController {
       page: page ? parseInt(page) : undefined,
       pageSize: pageSize ? parseInt(pageSize) : undefined,
     });
+  }
+
+  @Post('bar/:id/void')
+  @ApiOperation({ summary: '作废条码(ACTIVE → VOIDED,原因必填)' })
+  voidBar(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: { reason?: string }) {
+    return this.preciousMetalService.voidBar(id, body?.reason);
+  }
+
+  @Delete('sampling/:id')
+  @ApiOperation({ summary: '删除取样记录(仅未关联条码,软删)' })
+  removeSampling(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.preciousMetalService.removeSampling(id);
   }
 
   // ============ 合规摘要 ============

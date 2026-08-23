@@ -328,11 +328,56 @@ export class ReportService implements OnModuleInit {
   }
 
   /**
+   * 作废报告(ISSUED → SUPERSEDED,原因必填,审计留痕,CNAS §7.8.8 报告修改)
+   */
+  async voidReport(id: string, reason: string, userId: string): Promise<Report> {
+    if (!reason?.trim()) throw new BadRequestException('作废原因必填');
+    const report = await this.prisma.report.findUnique({ where: { id } });
+    if (!report) throw new NotFoundException(`报告 ${id} 不存在`);
+    if (report.status !== 'ISSUED') {
+      throw new BadRequestException(`仅已签发(ISSUED)报告可作废(当前 ${report.status})`);
+    }
+    const updated = await this.prisma.report.update({
+      where: { id },
+      data: { status: 'SUPERSEDED' },
+    });
+    await this.securityAudit.system(AuditEventType.REPORT_WITHDRAWN, {
+      reportId: id, reportNo: report.reportNo, reason: reason.trim(), operatorId: userId,
+    }).catch(() => undefined);
+    return updated;
+  }
+
+  /**
+   * 删除报告草稿(仅 DRAFT 且无签名,软删)
+   */
+  async remove(id: string, userId: string) {
+    const report = await this.prisma.report.findUnique({
+      where: { id },
+      include: { _count: { select: { signatures: true } } },
+    });
+    if (!report) throw new NotFoundException(`报告 ${id} 不存在`);
+    if (report.status !== 'DRAFT' && report.status !== 'REJECTED') {
+      throw new BadRequestException(`仅草稿/已驳回报告可删除(当前 ${report.status});已签发报告请走作废流程`);
+    }
+    if (report._count.signatures > 0) {
+      throw new BadRequestException('报告已存在电子签名,不可删除');
+    }
+    const updated = await this.prisma.report.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+      entity: 'report', reportId: id, reportNo: report.reportNo, status: report.status, operatorId: userId,
+    }).catch(() => undefined);
+    return updated;
+  }
+
+  /**
    * 列表
    */
   async findAll(filter: { status?: ReportStatus; sampleId?: string; page?: number; pageSize?: number }) {
     const { page = 1, pageSize = 20, ...where } = filter;
-    const where_: any = {};
+    const where_: any = { deletedAt: null };
     if (where.status) where_.status = where.status;
     if (where.sampleId) where_.sampleId = where.sampleId;
 

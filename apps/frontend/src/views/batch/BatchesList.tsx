@@ -17,8 +17,9 @@ import {
   message,
   Typography,
   Tooltip,
+  Popconfirm,
 } from 'antd';
-import {  PlusOutlined, EyeOutlined, FireOutlined, ExperimentOutlined, ClusterOutlined } from '@ant-design/icons';
+import {  PlusOutlined, EyeOutlined, FireOutlined, ExperimentOutlined, ClusterOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../data/api';
@@ -125,6 +126,19 @@ export default function BatchesListPage() {
     },
   });
 
+  // 删除空批次(仅 PENDING 无样品)
+  const removeMut = useMutation({
+    mutationFn: async (batchId: string) => (await api.delete(`/batches/${batchId}`)).data,
+    onSuccess: (b) => {
+      message.success(`批次 ${b.batchNo} 已删除`);
+      qc.invalidateQueries({ queryKey: ['batches'] });
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message ?? '删除失败';
+      message.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    },
+  });
+
   const columns = [
     {
       title: '批次编号',
@@ -191,19 +205,30 @@ export default function BatchesListPage() {
     },
     {
       title: '操作',
-      width: 90,
+      width: 150,
       fixed: 'right' as const,
       render: (_: any, r: Batch) => (
-        <Tooltip title="查看详情">
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/batches/${r.id}`)}
-          >
-            详情
-          </Button>
-        </Tooltip>
+        <Space size={4}>
+          <Tooltip title="查看详情">
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => navigate(`/batches/${r.id}`)}
+            >
+              详情
+            </Button>
+          </Tooltip>
+          {r.status === 'PENDING' && (r._count?.samples ?? 0) === 0 && (
+            <Popconfirm
+              title="删除空批次"
+              description={`确认删除批次 ${r.batchNo}?仅 PENDING 且无样品可删除。`}
+              onConfirm={() => removeMut.mutate(r.id)}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending}>删除</Button>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ];

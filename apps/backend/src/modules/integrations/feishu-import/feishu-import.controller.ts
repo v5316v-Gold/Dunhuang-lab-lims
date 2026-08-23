@@ -6,6 +6,8 @@
 import {
   Body, Controller, Get, Param, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
+import { MfaProtected } from '../../../common/auth/decorators/mfa-api.decorator';
+import { MFA_SCENES } from '../../../common/auth/decorators/require-mfa.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
@@ -79,6 +81,14 @@ export class FeishuImportController {
     @CurrentUser() user: User,
   ) {
     return this.service.confirmImport(batchId, user.id, dto.dryRun);
+  }
+
+  @Post(':id/rollback')
+  @MfaProtected(MFA_SCENES.REPORT_ISSUE)
+  @RequireRole(UserRole.ADMIN, UserRole.LAB_DIRECTOR, UserRole.QUALITY_MANAGER)
+  @ApiOperation({ summary: '撤销导入(仅 CONFIRMED 批次,在事务内逐条软删/物理删,失败整批回滚,MFA 强制)' })
+  rollback(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.service.rollbackImport(id, user.id);
   }
 
   @Get()

@@ -48,6 +48,13 @@ export class QcController {
     return this.qcService.recordMeasurement({ ...body, operatorId: user.id });
   }
 
+  @Post('measurements/:id/void')
+  @RequireRole(UserRole.QUALITY_MANAGER, UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '作废 QC 测量值(误录纠正,数据保留 voidedAt,ALCOA+)' })
+  voidMeasurement(@Param('id') id: string, @Body() body: { reason: string }, @CurrentUser() user: User) {
+    return this.qcService.voidMeasurement(id, body.reason, user.id);
+  }
+
   @Get('trend')
   @ApiOperation({ summary: 'QC 趋势数据' })
   trend(@Query('element') element: string, @Query('days') days?: number) {

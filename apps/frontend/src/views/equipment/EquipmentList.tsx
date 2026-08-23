@@ -24,6 +24,7 @@ import {
 } from 'antd';
 import {
   CalendarOutlined,
+  DeleteOutlined,
   EyeOutlined,
   FileProtectOutlined,
   PlusOutlined,
@@ -154,6 +155,23 @@ export function EquipmentList() {
   const [retireTarget, setRetireTarget] = useState<EquipmentRow | null>(null);
   const [mfaOpen, setMfaOpen] = useState(false);
 
+  // 作废记录(校准/维护/核查)
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<{ equipmentId: string; type: string; recId: string } | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+
+  const submitVoidRecord = async () => {
+    if (!voidTarget) return;
+    if (!voidReason.trim()) {
+      message.warning('作废原因必填');
+      return;
+    }
+    voidRecordMut.mutate({ equipmentId: voidTarget.equipmentId, type: voidTarget.type, recId: voidTarget.recId, reason: voidReason.trim() });
+    setVoidOpen(false);
+    setVoidTarget(null);
+    setVoidReason('');
+  };
+
   // ---------- Queries ----------
   const listQuery = useQuery({
     queryKey: ['equipment-list', typeFilter, statusFilter, page],
@@ -225,6 +243,27 @@ export function EquipmentList() {
       qc.invalidateQueries({ queryKey: ['equipment-list'] });
     },
     onError: (e: any) => message.error(e?.response?.data?.message ?? '登记失败'),
+  });
+
+  // 删除设备(软删,仅无记录)
+  const removeMut = useMutation({
+    mutationFn: async (id: string) => (await api.delete(`/equipment/${id}`)).data,
+    onSuccess: () => {
+      message.success('设备已删除');
+      qc.invalidateQueries({ queryKey: ['equipment-list'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
+  // 作废校准/维护/核查记录(误录纠正)
+  const voidRecordMut = useMutation({
+    mutationFn: async ({ equipmentId, type, recId, reason }: { equipmentId: string; type: string; recId: string; reason: string }) =>
+      (await api.post(`/equipment/${equipmentId}/${type}/${recId}/void`, { reason })).data,
+    onSuccess: () => {
+      message.success('记录已作废(审计留痕)');
+      qc.invalidateQueries({ queryKey: ['equipment-detail'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '作废失败'),
   });
 
   const retireMut = useMutation({
@@ -340,6 +379,13 @@ export function EquipmentList() {
               </Button>
             </Popconfirm>
           )}
+          <Popconfirm
+            title="删除设备"
+            description="仅无校准/维护/核查记录的设备可删除(软删)。"
+            onConfirm={() => removeMut.mutate(r.id)}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending}>删除</Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -525,6 +571,12 @@ export function EquipmentList() {
                   render: (v?: string) => (v ? <Tag color={/pass|合格|通过/i.test(v) ? 'success' : 'error'}>{v}</Tag> : '—'),
                 },
                 { title: '下次到期', dataIndex: 'nextDueDate', width: 110, render: (v: string) => v?.substring(0, 10) },
+                {
+                  title: '', width: 60,
+                  render: (_: any, rec: Calibration) => (
+                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => { setVoidTarget({ equipmentId: detailQuery.data.id, type: 'calibrations', recId: rec.id }); setVoidReason(''); setVoidOpen(true); }} />
+                  ),
+                },
               ]}
               style={{ marginBottom: 16 }}
             />
@@ -545,6 +597,12 @@ export function EquipmentList() {
                   dataIndex: 'nextDueDate',
                   width: 110,
                   render: (v?: string) => v?.substring(0, 10) ?? '—',
+                },
+                {
+                  title: '', width: 60,
+                  render: (_: any, rec: Maintenance) => (
+                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => { setVoidTarget({ equipmentId: detailQuery.data.id, type: 'maintenances', recId: rec.id }); setVoidReason(''); setVoidOpen(true); }} />
+                  ),
                 },
               ]}
               style={{ marginBottom: 16 }}
@@ -570,11 +628,37 @@ export function EquipmentList() {
                 },
                 { title: '结果描述', dataIndex: 'result', ellipsis: true, render: (v?: string) => v ?? '—' },
                 { title: '备注', dataIndex: 'remarks', ellipsis: true, render: (v?: string) => v ?? '—' },
+                {
+                  title: '', width: 60,
+                  render: (_: any, rec: PeriodicCheck) => (
+                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => { setVoidTarget({ equipmentId: detailQuery.data.id, type: 'periodic-checks', recId: rec.id }); setVoidReason(''); setVoidOpen(true); }} />
+                  ),
+                },
               ]}
             />
           </>
         )}
       </Drawer>
+
+      {/* 作废记录 Modal(校准/维护/核查) */}
+      <Modal
+        title="作废记录(误录纠正)"
+        open={voidOpen}
+        onCancel={() => setVoidOpen(false)}
+        onOk={submitVoidRecord}
+        confirmLoading={voidRecordMut.isPending}
+        okText="确认作废"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+      >
+        <Input.TextArea
+          rows={3}
+          placeholder="作废原因(必填)"
+          value={voidReason}
+          onChange={(e) => setVoidReason(e.target.value)}
+          style={{ marginTop: 8 }}
+        />
+      </Modal>
 
       {/* 校准 Modal */}
       <Modal

@@ -6,10 +6,11 @@ import { useState } from 'react';
 import {
   Button, Form, Input, Select, Table, Tag, Space, Modal, App, Popconfirm,
 } from 'antd';
-import {  PlusOutlined, ReloadOutlined, SafetyOutlined } from '@ant-design/icons';
+import {  PlusOutlined, ReloadOutlined, SafetyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable, statusTag } from '../../components/DataTable';
+import { MfaChallengeModal } from '../../components/MfaChallengeModal';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 interface Supervision {
@@ -40,6 +41,8 @@ export default function SupervisionList() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Supervision | null>(null);
   const [form] = Form.useForm();
+  const [delTarget, setDelTarget] = useState<Supervision | null>(null);
+  const [delMfaOpen, setDelMfaOpen] = useState(false);
 
   const { data: list, isLoading } = useQuery({
     queryKey: ['supervisions'],
@@ -63,6 +66,20 @@ export default function SupervisionList() {
       qc.invalidateQueries({ queryKey: ['supervisions'] });
     },
     onError: (e: any) => message.error(e?.response?.data?.message ?? '创建失败'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async ({ id, mfaToken }: { id: string; mfaToken: string }) =>
+      (await api.delete(`/compliance/supervision/${id}`, {
+        headers: { 'x-mfa-token': mfaToken },
+      })).data,
+    onSuccess: (data) => {
+      message.success(`监督记录 ${data.supNo} 已删除`);
+      setDelTarget(null);
+      setDelMfaOpen(false);
+      qc.invalidateQueries({ queryKey: ['supervisions'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
   });
 
   const openCreate = () => {
@@ -91,6 +108,20 @@ export default function SupervisionList() {
     {
       title: '整改', dataIndex: 'correctiveAction', width: 200, ellipsis: true,
       render: (v: string) => v ? <span style={{ color: '#fa8c16' }}>{v}</span> : <span style={{ color: '#999' }}>-</span>,
+    },
+    {
+      title: '操作', width: 90, fixed: 'right' as const,
+      render: (_: any, r: Supervision) => (
+        <Popconfirm
+          title="删除监督记录(需 MFA 二次验证)"
+          description={`确认删除 ${r.supNo}?删除后不可恢复,审计链留痕。`}
+          okText="确认删除"
+          okButtonProps={{ danger: true }}
+          onConfirm={() => { setDelTarget(r); setDelMfaOpen(true); }}
+        >
+          <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+        </Popconfirm>
+      ),
     },
   ];
 

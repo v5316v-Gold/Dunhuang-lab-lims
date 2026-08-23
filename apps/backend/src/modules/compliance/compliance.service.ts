@@ -54,6 +54,93 @@ export class ComplianceService {
     await this.securityAudit.system(mapped as any, { event, ...details });
   }
 
+  // ================== 撤销 / 删除(ALCOA+ 留痕) ==================
+
+  /**
+   * 删除内部审核 — 仅 PLANNED 可删,IN_PROGRESS/CLOSED 拒绝
+   */
+  async deleteInternalAudit(id: string, userId: string) {
+    const r = await this.prisma.internalAudit.findUnique({ where: { id } });
+    if (!r) throw new NotFoundException(`内审 ${id} 不存在`);
+    if (r.deletedAt) throw new BadRequestException('该内审已删除');
+    if (r.status !== 'PLANNED') {
+      throw new BadRequestException('仅计划中(PLANNED)的内审可删除,已开始或已关闭的不可删除');
+    }
+    const updated = await this.prisma.internalAudit.update({
+      where: { id }, data: { deletedAt: new Date() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+      recordType: 'InternalAudit',
+      recordId: id,
+      auditNo: r.auditNo,
+      operatorId: userId,
+    });
+    return updated;
+  }
+
+  /**
+   * 删除管理评审 — 仅 PLANNED 可删
+   */
+  async deleteManagementReview(id: string, userId: string) {
+    const r = await this.prisma.managementReview.findUnique({ where: { id } });
+    if (!r) throw new NotFoundException(`管理评审 ${id} 不存在`);
+    if (r.deletedAt) throw new BadRequestException('该管理评审已删除');
+    if (r.status !== 'PLANNED') {
+      throw new BadRequestException('仅计划中(PLANNED)的管理评审可删除,已关闭的不可删除');
+    }
+    const updated = await this.prisma.managementReview.update({
+      where: { id }, data: { deletedAt: new Date() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+      recordType: 'ManagementReview',
+      recordId: id,
+      reviewNo: r.reviewNo,
+      operatorId: userId,
+    });
+    return updated;
+  }
+
+  /**
+   * 删除监督记录 — 无状态机约束,任意状态可软删
+   */
+  async deleteSupervision(id: string, userId: string) {
+    const r = await this.prisma.supervisionRecord.findUnique({ where: { id } });
+    if (!r) throw new NotFoundException(`监督记录 ${id} 不存在`);
+    if (r.deletedAt) throw new BadRequestException('该监督记录已删除');
+    const updated = await this.prisma.supervisionRecord.update({
+      where: { id }, data: { deletedAt: new Date() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+      recordType: 'SupervisionRecord',
+      recordId: id,
+      supNo: r.supNo,
+      operatorId: userId,
+    });
+    return updated;
+  }
+
+  /**
+   * 删除盲样 — 仅未评(measuredValue 为空)可删
+   */
+  async deleteBlindSample(id: string, userId: string) {
+    const r = await this.prisma.blindSample.findUnique({ where: { id } });
+    if (!r) throw new NotFoundException(`盲样 ${id} 不存在`);
+    if (r.deletedAt) throw new BadRequestException('该盲样已删除');
+    if (r.measuredValue != null) {
+      throw new BadRequestException('该盲样已录入考核结果,不可删除');
+    }
+    const updated = await this.prisma.blindSample.update({
+      where: { id }, data: { deletedAt: new Date() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+      recordType: 'BlindSample',
+      recordId: id,
+      blindNo: r.blindNo,
+      operatorId: userId,
+    });
+    return updated;
+  }
+
   // ================== 内部审核 ==================
   async createInternalAudit(dto: any, userId: string) {
     const auditNo = await this.nextNo('internalAudit', 'IA', 'auditNo');

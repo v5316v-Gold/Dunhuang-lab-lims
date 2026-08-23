@@ -5,11 +5,12 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Form, Input, Modal, Tag, Space, App, Select, Tooltip, Badge } from 'antd';
-import { PlusOutlined, FileDoneOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Form, Input, Modal, Tag, Space, App, Select, Tooltip, Badge, Popconfirm } from 'antd';
+import { PlusOutlined, FileDoneOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, ReloadOutlined, StopOutlined, DeleteOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable, statusTag } from '../../components/DataTable';
+import { MfaChallengeModal } from '../../components/MfaChallengeModal';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 interface ReportRow {
@@ -59,6 +60,33 @@ export function ReportsList() {
       navigate(`/reports/${created.id}`);
     },
     onError: (e: any) => message.error(e?.response?.data?.message ?? '创建失败'),
+  });
+
+  // 删除草稿(仅 DRAFT/REJECTED 且无签名)
+  const removeMut = useMutation({
+    mutationFn: async (reportId: string) => (await api.delete(`/reports/${reportId}`)).data,
+    onSuccess: () => {
+      message.success('报告草稿已删除');
+      qc.invalidateQueries({ queryKey: ['reports'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
+  // 作废报告(ISSUED → SUPERSEDED,原因必填 + MFA)
+  const [voidTarget, setVoidTarget] = useState<ReportRow | null>(null);
+  const [voidMfaOpen, setVoidMfaOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const voidMut = useMutation({
+    mutationFn: async ({ mfaToken }: { mfaToken: string }) =>
+      (await api.post(`/reports/${voidTarget!.id}/void`, { reason: voidReason }, { headers: { 'x-mfa-token': mfaToken } })).data,
+    onSuccess: () => {
+      message.success('报告已作废(SUPERSEDED,审计留痕)');
+      setVoidMfaOpen(false);
+      setVoidTarget(null);
+      setVoidReason('');
+      qc.invalidateQueries({ queryKey: ['reports'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '作废失败'),
   });
 
   // 获取 PDF blob(带 JWT,axios 拦截器自动注入 token)
@@ -167,6 +195,24 @@ export function ReportsList() {
                   <Button size="small" icon={<FilePdfOutlined />} onClick={() => navigate(`/reports/${row.id}`)}>
                     详情/审核
                   </Button>
+                  {row.status === 'ISSUED' && (
+                    <Popconfirm
+                      title="作废报告"
+                      description={`作废 ${row.reportNo}?作废后报告状态变为已作废(SUPERSEDED),不可恢复。`}
+                      onConfirm={() => { setVoidTarget(row); setVoidReason(''); setVoidMfaOpen(true); }}
+                    >
+                      <Button size="small" danger icon={<StopOutlined />}>作废</Button>
+                    </Popconfirm>
+                  )}
+                  {(row.status === 'DRAFT' || row.status === 'REJECTED') && (
+                    <Popconfirm
+                      title="删除报告草稿"
+                      description="删除后不可恢复(仅草稿可删除)。"
+                      onConfirm={() => removeMut.mutate(row.id)}
+                    >
+                      <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending}>删除</Button>
+                    </Popconfirm>
+                  )}
                 </Space>
               );
             },
@@ -194,6 +240,39 @@ export function ReportsList() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* 作废原因弹窗 */}
+      <Modal
+        title={`作废报告(${voidTarget?.reportNo ?? ''})`}
+        open={!!voidTarget && !voidMfaOpen}
+        onCancel={() => setVoidTarget(null)}
+        onOk={() => {
+          if (!voidReason.trim()) {
+            message.warning('作废原因必填');
+            return;
+          }
+          setVoidMfaOpen(true);
+        }}
+        okText="下一步(MFA 验证)"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+      >
+        <Input.TextArea
+          rows={3}
+          placeholder="作废原因(必填),如:报告内容错误,重新出具"
+          value={voidReason}
+          onChange={(e) => setVoidReason(e.target.value)}
+          style={{ marginTop: 8 }}
+        />
+      </Modal>
+
+      <MfaChallengeModal
+        open={voidMfaOpen}
+        title="MFA 二次验证 · 作废报告"
+        description="作废已签发报告为敏感操作(CNAS §7.8.8),需二次验证。"
+        onCancel={() => setVoidMfaOpen(false)}
+        onConfirm={(mfaToken) => voidMut.mutateAsync({ mfaToken })}
+      />
     </div>
   );
 }

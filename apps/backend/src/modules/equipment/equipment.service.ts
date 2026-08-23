@@ -4,7 +4,7 @@
 // P0-Fix-3:接入 SecurityAuditService,所有变更写审计
 // =====================================================
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Equipment, EquipmentType, EquipmentStatus } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -155,6 +155,103 @@ export class EquipmentService {
       name: eq.name,
     });
     return retired;
+  }
+
+  /**
+   * 软删除设备(校验:无校准/维护/期间核查记录,否则禁止)
+   * 作废/反向操作:ALCOA+ 留痕(原文保留,deletedAt 记录时间)
+   */
+  async softDelete(id: string, userId: string) {
+    const eq = await this.prisma.equipment.findUnique({ where: { id } });
+    if (!eq || eq.deletedAt) throw new NotFoundException(`设备 ${id} 不存在`);
+    // 校验关联
+    const [calCount, maintCount, checkCount] = await Promise.all([
+      this.prisma.calibration.count({ where: { equipmentId: id } }),
+      this.prisma.maintenance.count({ where: { equipmentId: id } }),
+      this.prisma.periodicCheck.count({ where: { equipmentId: id } }),
+    ]);
+    if (calCount + maintCount + checkCount > 0) {
+      throw new BadRequestException(
+        `设备存在 ${calCount} 条校准、${maintCount} 条维护、${checkCount} 条期间核查记录,无法直接删除;请先作废对应记录`,
+      );
+    }
+    const removed = await this.prisma.equipment.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+      entity: 'equipment',
+      equipmentId: id,
+      equipmentNo: eq.equipmentNo,
+      name: eq.name,
+      operatorId: userId,
+    });
+    return removed;
+  }
+
+  /**
+   * 作废校准记录 — Calibration 模型无 status / deletedAt 字段,
+   * 按 ALCOA+ 留痕:仅写审计,原记录保留可追溯。
+   */
+  async voidCalibration(equipmentId: string, calId: string, reason: string | undefined, userId: string) {
+    const eq = await this.findOne(equipmentId);
+    const cal = await this.prisma.calibration.findUnique({ where: { id: calId } });
+    if (!cal || cal.equipmentId !== equipmentId) {
+      throw new NotFoundException(`校准记录 ${calId} 不存在或不属于该设备`);
+    }
+    await this.securityAudit.system(AuditEventType.RECORD_VOIDED, {
+      entity: 'calibration',
+      equipmentId,
+      equipmentNo: eq.equipmentNo,
+      calibrationId: calId,
+      certificateNo: cal.certificateNo,
+      calibrationOrg: cal.calibrationOrg,
+      reason: reason ?? null,
+      operatorId: userId,
+    });
+    return { id: calId, voided: true, entity: 'calibration' };
+  }
+
+  /** 作废维护记录(同上,无 status/deletedAt) */
+  async voidMaintenance(equipmentId: string, maintId: string, reason: string | undefined, userId: string) {
+    const eq = await this.findOne(equipmentId);
+    const maint = await this.prisma.maintenance.findUnique({ where: { id: maintId } });
+    if (!maint || maint.equipmentId !== equipmentId) {
+      throw new NotFoundException(`维护记录 ${maintId} 不存在或不属于该设备`);
+    }
+    await this.securityAudit.system(AuditEventType.RECORD_VOIDED, {
+      entity: 'maintenance',
+      equipmentId,
+      equipmentNo: eq.equipmentNo,
+      maintenanceId: maintId,
+      maintenanceType: maint.maintenanceType,
+      reason: reason ?? null,
+      operatorId: userId,
+    });
+    return { id: maintId, voided: true, entity: 'maintenance' };
+  }
+
+  /**
+   * 作废期间核查 — PeriodicCheck 有 status 字段(PENDING/PASSED/FAILED/OVERDUE)
+   * 不存在 VOID 枚举,模型也无 deletedAt。按 ALCOA+ 留痕,只记审计事件。
+   */
+  async voidPeriodicCheck(equipmentId: string, checkId: string, reason: string | undefined, userId: string) {
+    const eq = await this.findOne(equipmentId);
+    const check = await this.prisma.periodicCheck.findUnique({ where: { id: checkId } });
+    if (!check || check.equipmentId !== equipmentId) {
+      throw new NotFoundException(`期间核查记录 ${checkId} 不存在或不属于该设备`);
+    }
+    await this.securityAudit.system(AuditEventType.RECORD_VOIDED, {
+      entity: 'periodic_check',
+      equipmentId,
+      equipmentNo: eq.equipmentNo,
+      periodicCheckId: checkId,
+      checkDate: check.checkDate,
+      status: check.status,
+      reason: reason ?? null,
+      operatorId: userId,
+    });
+    return { id: checkId, voided: true, entity: 'periodic_check' };
   }
 
   /**

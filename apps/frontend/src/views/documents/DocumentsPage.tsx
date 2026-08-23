@@ -5,13 +5,14 @@
 // =====================================================
 
 import { useState } from 'react';
-import { Button, Card, Space, Table, Tag, Typography, message, Modal, Upload } from 'antd';
+import { Button, Card, Space, Table, Tag, Typography, message, Modal, Upload, Popconfirm } from 'antd';
 import {
   UploadOutlined,
   DownloadOutlined,
   FileWordOutlined,
   EyeOutlined,
   InboxOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../data/api';
@@ -89,6 +90,17 @@ export default function DocumentsPage() {
     }
   };
 
+  // 删除文档(DB 记录 + MinIO 对象)
+  const handleRemove = async (row: FileRow) => {
+    try {
+      await api.delete(`/files/${row.id}`);
+      message.success('文档已删除');
+      qc.invalidateQueries({ queryKey: ['files'] });
+    } catch (e: any) {
+      message.error('删除失败:' + (e?.response?.data?.message ?? e?.message));
+    }
+  };
+
   const columns = [
     {
       title: '文件名',
@@ -130,7 +142,7 @@ export default function DocumentsPage() {
     },
     {
       title: '操作',
-      width: 150,
+      width: 210,
       render: (_: unknown, r: FileRow) => (
         <Space>
           <Button
@@ -144,6 +156,13 @@ export default function DocumentsPage() {
           <Button size="small" icon={<DownloadOutlined />} onClick={() => download(r)}>
             下载
           </Button>
+          <Popconfirm
+            title="删除文档"
+            description="将删除数据库记录与 MinIO 对象,不可恢复。"
+            onConfirm={() => handleRemove(r)}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+          </Popconfirm>
         </Space>
       ),
     },

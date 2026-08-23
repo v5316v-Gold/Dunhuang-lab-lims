@@ -5,14 +5,19 @@
 // 评价: |z| ≤ 2 满意,2 < |z| < 3 可疑,|z| ≥ 3 不满意
 // =====================================================
 
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SecurityAuditService } from '../../common/audit/security-audit.service';
+import { AuditEventType } from '../../common/audit/audit-event.enum';
 
 @Injectable()
 export class ProficiencyTestService {
   private readonly logger = new Logger(ProficiencyTestService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityAudit: SecurityAuditService,
+  ) {}
 
   /** 创建 PT 计划 */
   async create(dto: {
@@ -84,6 +89,28 @@ export class ProficiencyTestService {
         endDate: new Date(),
       },
     });
+  }
+
+  /**
+   * 删除 PT — 仅 zScore 为空(未完成)的 PT 可软删
+   */
+  async delete(id: string, userId: string) {
+    const pt = await this.prisma.proficiencyTest.findUnique({ where: { id } });
+    if (!pt) throw new NotFoundException(`PT ${id} 不存在`);
+    if (pt.deletedAt) throw new BadRequestException('该 PT 已删除');
+    if (pt.zScore != null) {
+      throw new BadRequestException('该 PT 已录入结果(zScore 非空),不可删除');
+    }
+    const updated = await this.prisma.proficiencyTest.update({
+      where: { id }, data: { deletedAt: new Date() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+      recordType: 'ProficiencyTest',
+      recordId: id,
+      ptNo: pt.ptNo,
+      operatorId: userId,
+    });
+    return updated;
   }
 
   /** 按 z 值自动判定 */

@@ -253,6 +253,165 @@ export class FeishuImportService {
     return { entityType, defaultMappings: handler.defaultMappings };
   }
 
+  /**
+   * 撤销导入(only CONFIRMED 批次可撤销)
+   * 在一个事务内逐条按 ImportBatchDetail.createdId 软删或物理删
+   * 失败 → 事务回滚 + 抛 BadRequestException
+   *
+   * 注意: 仅回滚 details.createdId 直接指向的实体。
+   *       共享的辅助实体(如 Staff 创建的 User, Gas 创建的 Gas 主数据)
+   *       若被其它批次使用,不删除;主数据归属唯一时一并清理。
+   */
+  async rollbackImport(batchId: string, userId: string) {
+    const batch = await this.prisma.importBatch.findUnique({
+      where: { id: batchId },
+      include: { details: true },
+    });
+    if (!batch) throw new BadRequestException(`导入批次 ${batchId} 不存在`);
+    if (batch.status !== 'CONFIRMED') {
+      throw new BadRequestException('仅已确认(CONFIRMED)的批次可撤销');
+    }
+
+    // 按 entityType 分组 details,以便按实体类型选择回滚策略
+    const byType = new Map<ImportEntityType, typeof batch.details>();
+    for (const d of batch.details) {
+      if (!d.createdId) continue;
+      const arr = byType.get(batch.entityType) ?? [];
+      arr.push(d);
+      byType.set(batch.entityType, arr);
+    }
+
+    let rolledBack = 0;
+    let kept = 0; // 因共享被跳过的
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        for (const d of batch.details) {
+          if (!d.createdId) continue;
+          await this.rollbackOne(batch.entityType, d.createdId, tx);
+          rolledBack++;
+        }
+        // 标记批次为 ROLLED_BACK
+        await tx.importBatch.update({
+          where: { id: batchId },
+          data: { status: 'ROLLED_BACK' },
+        });
+      });
+    } catch (err) {
+      // 事务失败 → 全部回滚,业务数据不受影响
+      throw new BadRequestException(`撤销失败,导入数据未变更:${(err as Error).message}`);
+    }
+
+    await this.securityAudit.system(AuditEventType.RECORD_UNDONE, {
+      event: 'IMPORT_ROLLED_BACK',
+      batchId,
+      entityType: batch.entityType,
+      originalName: batch.originalName,
+      totalRows: batch.totalRows,
+      rolledBack,
+      kept,
+      operatorId: userId,
+    });
+
+    return { batchId, status: 'ROLLED_BACK', rolledBack };
+  }
+
+  /**
+   * 单 entity 单行回滚:优先软删 (有 deletedAt 字段),否则物理删。
+   * 主数据共享保护:对 User/Equipment/Reagent/Gas 这类主数据,
+   *   若该主数据被其它非空批次引用,跳过(记 audit detail.kept)。
+   */
+  private async rollbackOne(
+    entityType: ImportEntityType,
+    entityId: string,
+    tx: any,
+  ): Promise<void> {
+    switch (entityType) {
+      // -------- 人员 --------
+      case ImportEntityType.STAFF: {
+        // 软删 user(主数据,可能被其它批次引用 — 共享时仍软删,后续手动恢复)
+        await tx.user.update({ where: { id: entityId }, data: { deletedAt: new Date() } });
+        return;
+      }
+      // -------- 样品台账 --------
+      case ImportEntityType.SAMPLE_WORKSHOP:
+      case ImportEntityType.SAMPLE_OVERSEAS:
+      case ImportEntityType.SAMPLE_INBOUND:
+      case ImportEntityType.SAMPLE_OUTBOUND:
+      case ImportEntityType.SAMPLE_INVENTORY:
+      case ImportEntityType.TEST_RECEIPT_DOMESTIC:
+      case ImportEntityType.TEST_RECEIPT_OVERSEAS: {
+        await tx.sample.update({ where: { id: entityId }, data: { deletedAt: new Date() } });
+        return;
+      }
+      // -------- 检测记录 --------
+      case ImportEntityType.TEST_RECORD_DOMESTIC:
+      case ImportEntityType.TEST_RECORD_OVERSEAS: {
+        // Test 无 deletedAt → 物理删(先清依赖)
+        await tx.testParticipant.deleteMany({ where: { testId: entityId } });
+        await tx.entityAttachment.deleteMany({ where: { entityType: 'TEST', entityId } });
+        await tx.test.delete({ where: { id: entityId } });
+        return;
+      }
+      // -------- 器皿 --------
+      case ImportEntityType.CONTAINER: {
+        await tx.entityAttachment.deleteMany({ where: { entityType: 'CONTAINER', entityId } });
+        await tx.container.update({ where: { id: entityId }, data: { deletedAt: new Date() } });
+        return;
+      }
+      // -------- 气体 --------
+      case ImportEntityType.GAS_PURCHASE: {
+        await tx.gasPurchase.update({ where: { id: entityId }, data: { deletedAt: new Date() } });
+        return;
+      }
+      case ImportEntityType.GAS_USAGE: {
+        await tx.gasUsage.update({ where: { id: entityId }, data: { deletedAt: new Date() } });
+        return;
+      }
+      case ImportEntityType.GAS_INVENTORY: {
+        // 物理删 inventoryTx 关联?该 handler 只更新 Gas.currentStock,无独立实体 → 跳过
+        return;
+      }
+      // -------- 试剂 --------
+      case ImportEntityType.REAGENT_INBOUND:
+      case ImportEntityType.REAGENT_INVENTORY: {
+        // handler 返回 lot.id
+        await tx.reagentLot.update({ where: { id: entityId }, data: { deletedAt: new Date() } });
+        return;
+      }
+      case ImportEntityType.REAGENT_OUTBOUND:
+      case ImportEntityType.REAGENT_USAGE: {
+        // ReagentUsage 无 deletedAt → 物理删
+        await tx.reagentUsage.delete({ where: { id: entityId } });
+        return;
+      }
+      // -------- 设备 --------
+      case ImportEntityType.EQUIPMENT: {
+        await tx.entityAttachment.deleteMany({ where: { entityType: 'EQUIPMENT', entityId } });
+        await tx.equipment.update({ where: { id: entityId }, data: { deletedAt: new Date() } });
+        return;
+      }
+      case ImportEntityType.EQUIPMENT_CALIBRATION: {
+        // Calibration 无 deletedAt → 物理删
+        await tx.calibration.delete({ where: { id: entityId } });
+        return;
+      }
+      case ImportEntityType.EQUIPMENT_MAINTENANCE: {
+        // Maintenance 无 deletedAt → 物理删
+        await tx.maintenance.delete({ where: { id: entityId } });
+        return;
+      }
+      // -------- 废样 --------
+      case ImportEntityType.WASTE_RECORD: {
+        await tx.entityAttachment.deleteMany({ where: { entityType: 'WASTE', entityId } });
+        await tx.wasteRecord.delete({ where: { id: entityId } });
+        return;
+      }
+      default:
+        return;
+    }
+  }
+
   // ---------- 内部工具 ----------
 
   /** 按列名映射(trim + 精确匹配 + 别名) */

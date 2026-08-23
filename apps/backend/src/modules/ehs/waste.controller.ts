@@ -71,4 +71,14 @@ export class WasteController {
   ) {
     return this.wasteService.dispose(id, body);
   }
+
+  @Post(':id/void')
+  @ApiOperation({ summary: '作废登记(仅 STORED 误录可作废,原因必填)' })
+  voidRecord(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { reason: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.wasteService.voidRecord(id, body.reason, user.id);
+  }
 }

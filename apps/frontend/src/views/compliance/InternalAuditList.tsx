@@ -8,7 +8,7 @@ import {
   Button, Form, Input, Select, Table, Tag, Space, Modal, App, Alert, InputNumber, Collapse, Typography, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, CheckSquareOutlined, FileProtectOutlined,
+  PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, CheckSquareOutlined, FileProtectOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -49,6 +49,8 @@ export default function InternalAuditList() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [createForm] = Form.useForm();
   const [closeForm] = Form.useForm();
+  const [delTarget, setDelTarget] = useState<InternalAudit | null>(null);
+  const [delMfaOpen, setDelMfaOpen] = useState(false);
 
   const { data: list, isLoading } = useQuery({
     queryKey: ['internal-audits', statusFilter],
@@ -101,6 +103,20 @@ export default function InternalAuditList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '关闭失败'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: async ({ id, mfaToken }: { id: string; mfaToken: string }) =>
+      (await api.delete(`/compliance/internal-audit/${id}`, {
+        headers: { 'x-mfa-token': mfaToken },
+      })).data,
+    onSuccess: (data) => {
+      message.success(`内审 ${data.auditNo} 已删除`);
+      setDelTarget(null);
+      setDelMfaOpen(false);
+      qc.invalidateQueries({ queryKey: ['internal-audits'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
   const columns = [
     {
       title: '编号', dataIndex: 'auditNo', width: 140,
@@ -128,21 +144,35 @@ export default function InternalAuditList() {
       },
     },
     {
-      title: '操作', width: 100, fixed: 'right' as const,
-      render: (_: any, r: InternalAudit) =>
-        r.status !== 'CLOSED' ? (
-          <Popconfirm
-            title="关闭内审(需 MFA 二次验证)"
-            description="关闭后将记录审核发现与不符合项数量,不可再改。"
-            onConfirm={() => { setCloseTarget(r); closeForm.resetFields(); setMfaOpen(true); }}
-          >
-            <Button size="small" type="primary" icon={<CheckSquareOutlined />}>关闭</Button>
-          </Popconfirm>
-        ) : (
-          <Button size="small" type="link" onClick={() => {
-            Modal.info({ title: `内审发现(${r.auditNo})`, width: 620, content: <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{r.findings ?? '(无记录)'}</Paragraph> });
-          }}>查看发现</Button>
-        ),
+      title: '操作', width: 180, fixed: 'right' as const,
+      render: (_: any, r: InternalAudit) => (
+        <Space size={4}>
+          {r.status === 'PLANNED' && (
+            <Popconfirm
+              title="删除内审(需 MFA 二次验证)"
+              description={`确认删除计划 ${r.auditNo}?删除后不可恢复,审计链留痕。`}
+              okText="确认删除"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => { setDelTarget(r); setDelMfaOpen(true); }}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+            </Popconfirm>
+          )}
+          {r.status !== 'CLOSED' ? (
+            <Popconfirm
+              title="关闭内审(需 MFA 二次验证)"
+              description="关闭后将记录审核发现与不符合项数量,不可再改。"
+              onConfirm={() => { setCloseTarget(r); closeForm.resetFields(); setMfaOpen(true); }}
+            >
+              <Button size="small" type="primary" icon={<CheckSquareOutlined />}>关闭</Button>
+            </Popconfirm>
+          ) : (
+            <Button size="small" type="link" onClick={() => {
+              Modal.info({ title: `内审发现(${r.auditNo})`, width: 620, content: <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{r.findings ?? '(无记录)'}</Paragraph> });
+            }}>查看发现</Button>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -172,7 +202,7 @@ export default function InternalAuditList() {
         loading={isLoading}
         size="small"
         pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 条` }}
-        scroll={{ x: 1050 }}
+        scroll={{ x: 1130 }}
       />
 
       {/* 创建内审 */}
@@ -239,6 +269,14 @@ export default function InternalAuditList() {
         description="关闭内审需二次验证(CNAS §8.8 敏感操作)。"
         onCancel={() => setMfaOpen(false)}
         onConfirm={(mfaToken) => closeMut.mutateAsync({ mfaToken })}
+      />
+
+      <MfaChallengeModal
+        open={delMfaOpen}
+        title="MFA 二次验证 · 删除内审"
+        description={`删除计划中的内审(${delTarget?.auditNo ?? ''})不可恢复,审计链留痕。`}
+        onCancel={() => setDelMfaOpen(false)}
+        onConfirm={(mfaToken) => deleteMut.mutateAsync({ id: delTarget!.id, mfaToken })}
       />
 
       {/* 内审检查表(15 条款) */}

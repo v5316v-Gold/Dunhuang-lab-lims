@@ -8,7 +8,7 @@ import {
   Button, Form, Input, Select, Table, Tag, Space, Modal, App, Alert, Descriptions, Typography, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, CheckSquareOutlined, FundProjectionScreenOutlined,
+  PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, CheckSquareOutlined, FundProjectionScreenOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -52,6 +52,8 @@ export default function ManagementReviewList() {
   const [inputsOpen, setInputsOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [closeForm] = Form.useForm();
+  const [delTarget, setDelTarget] = useState<ManagementReview | null>(null);
+  const [delMfaOpen, setDelMfaOpen] = useState(false);
 
   const { data: list, isLoading } = useQuery({
     queryKey: ['management-reviews'],
@@ -105,6 +107,20 @@ export default function ManagementReviewList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '关闭失败'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: async ({ id, mfaToken }: { id: string; mfaToken: string }) =>
+      (await api.delete(`/compliance/management-review/${id}`, {
+        headers: { 'x-mfa-token': mfaToken },
+      })).data,
+    onSuccess: (data) => {
+      message.success(`管理评审 ${data.reviewNo} 已删除`);
+      setDelTarget(null);
+      setDelMfaOpen(false);
+      qc.invalidateQueries({ queryKey: ['management-reviews'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
   const columns = [
     {
       title: '编号', dataIndex: 'reviewNo', width: 140,
@@ -139,6 +155,17 @@ export default function ManagementReviewList() {
       title: '操作', width: 150, fixed: 'right' as const,
       render: (_: any, r: ManagementReview) => (
         <Space size={4}>
+          {r.status === 'PLANNED' && (
+            <Popconfirm
+              title="删除管理评审(需 MFA 二次验证)"
+              description={`确认删除计划 ${r.reviewNo}?删除后不可恢复,审计链留痕。`}
+              okText="确认删除"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => { setDelTarget(r); setDelMfaOpen(true); }}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+            </Popconfirm>
+          )}
           {r.status !== 'CLOSED' ? (
             <Popconfirm
               title="关闭管理评审(需 MFA 二次验证)"
@@ -190,7 +217,7 @@ export default function ManagementReviewList() {
         loading={isLoading}
         size="small"
         pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 条` }}
-        scroll={{ x: 1050 }}
+        scroll={{ x: 1130 }}
       />
 
       {/* 创建管理评审 */}
@@ -261,6 +288,14 @@ export default function ManagementReviewList() {
         description="关闭管理评审需二次验证(CNAS §8.9 敏感操作)。"
         onCancel={() => setMfaOpen(false)}
         onConfirm={(mfaToken) => closeMut.mutateAsync({ mfaToken })}
+      />
+
+      <MfaChallengeModal
+        open={delMfaOpen}
+        title="MFA 二次验证 · 删除管理评审"
+        description={`删除计划中的管理评审(${delTarget?.reviewNo ?? ''})不可恢复,审计链留痕。`}
+        onCancel={() => setDelMfaOpen(false)}
+        onConfirm={(mfaToken) => deleteMut.mutateAsync({ id: delTarget!.id, mfaToken })}
       />
 
       {/* 12 项评审输入自动汇总 */}

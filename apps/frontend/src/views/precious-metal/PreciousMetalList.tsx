@@ -6,10 +6,10 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Tabs,
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Tabs, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, AlertOutlined, QrcodeOutlined, ScanOutlined, GoldOutlined, EnvironmentOutlined, IdcardOutlined,
+  PlusOutlined, AlertOutlined, QrcodeOutlined, ScanOutlined, GoldOutlined, EnvironmentOutlined, IdcardOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -117,6 +117,44 @@ export function PreciousMetalList() {
   const [samplingForm] = Form.useForm();
   const [barForm] = Form.useForm();
   const [scanForm] = Form.useForm();
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidTargetId, setVoidTargetId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+
+  // 作废条码(原因必填)
+  const handleVoidBar = (id: string) => {
+    setVoidTargetId(id);
+    setVoidReason('');
+    setVoidOpen(true);
+  };
+
+  const submitVoidBar = async () => {
+    if (!voidTargetId) return;
+    if (!voidReason.trim()) {
+      message.warning('作废原因必填');
+      return;
+    }
+    try {
+      await api.post(`/precious-metal/bar/${voidTargetId}/void`, { reason: voidReason.trim() });
+      message.success('条码已作废(VOIDED,审计留痕)');
+      setVoidOpen(false);
+      setVoidTargetId(null);
+      load();
+    } catch (e: any) {
+      message.error('作废失败:' + (e?.response?.data?.message ?? e?.message));
+    }
+  };
+
+  // 删除取样记录(仅未关联条码)
+  const handleRemoveSampling = async (id: string) => {
+    try {
+      await api.delete(`/precious-metal/sampling/${id}`);
+      message.success('取样记录已删除');
+      load();
+    } catch (e: any) {
+      message.error('删除失败:' + (e?.response?.data?.message ?? e?.message));
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -269,6 +307,20 @@ export function PreciousMetalList() {
       width: 160,
       render: (v: string) => v?.substring(0, 19).replace('T', ' '),
     },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      render: (_: any, r: SamplingRow) => (
+        <Popconfirm
+          title="删除取样记录"
+          description="仅未关联条码的取样可删除(软删)。"
+          onConfirm={() => handleRemoveSampling(r.id)}
+        >
+          <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+        </Popconfirm>
+      ),
+    },
   ];
 
   const barColumns = [
@@ -343,7 +395,22 @@ export function PreciousMetalList() {
       dataIndex: 'status',
       key: 'status',
       width: 90,
-      render: (v: string) => <Tag color={v === 'ACTIVE' ? 'green' : 'red'}>{v}</Tag>,
+      render: (v: string) => <Tag color={v === 'ACTIVE' ? 'green' : 'red'}>{v === 'VOIDED' ? '已作废' : v}</Tag>,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 110,
+      render: (_: any, r: BarRow) =>
+        r.status === 'ACTIVE' ? (
+          <Popconfirm
+            title="作废条码"
+            description={`作废 ${r.barCode}?作废后不可恢复(重打需新建)。`}
+            onConfirm={() => handleVoidBar(r.id)}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>作废</Button>
+          </Popconfirm>
+        ) : null,
     },
   ];
 
@@ -586,6 +653,25 @@ export function PreciousMetalList() {
             </Row>
           </div>
         )}
+      </Modal>
+
+      {/* 作废条码 */}
+      <Modal
+        title="作废条码"
+        open={voidOpen}
+        onCancel={() => setVoidOpen(false)}
+        onOk={submitVoidBar}
+        okText="确认作废"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+      >
+        <Input.TextArea
+          rows={3}
+          placeholder="作废原因(必填),如:条码打印错误,需重新生成"
+          value={voidReason}
+          onChange={(e) => setVoidReason(e.target.value)}
+          style={{ marginTop: 8 }}
+        />
       </Modal>
 
       {/* 合规摘要 */}

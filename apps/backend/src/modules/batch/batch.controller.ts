@@ -2,7 +2,7 @@
 // 批次管理 API
 // =====================================================
 
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
 
@@ -75,5 +75,26 @@ export class BatchController {
     @Body() body: BatchActionDto & { process?: ProcessParameterDto },
   ) {
     return this.batchService.transition(id, body, body.process);
+  }
+
+  @Post(':id/rollback')
+  @RequireRole(UserRole.SENIOR_ANALYST, UserRole.ADMIN)
+  @ApiOperation({ summary: '批次回退上一工序(原因必填,审计留痕)' })
+  rollback(@Param('id', ParseUUIDPipe) id: string, @Body() body: { reason: string }, @CurrentUser() user: User) {
+    return this.batchService.rollback(id, body.reason, user.id);
+  }
+
+  @Post(':id/samples/remove')
+  @RequireRole(UserRole.SENIOR_ANALYST, UserRole.ADMIN)
+  @ApiOperation({ summary: '从批次移除样品(批次未开始检测前)' })
+  removeSamples(@Param('id', ParseUUIDPipe) id: string, @Body() body: { sampleIds: string[] }, @CurrentUser() user: User) {
+    return this.batchService.removeSamples(id, body.sampleIds, user.id);
+  }
+
+  @Delete(':id')
+  @RequireRole(UserRole.SENIOR_ANALYST, UserRole.ADMIN)
+  @ApiOperation({ summary: '删除空批次(仅 PENDING 且无样品)' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.batchService.remove(id, user.id);
   }
 }

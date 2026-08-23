@@ -3,7 +3,7 @@
 // =====================================================
 
 import {
-  Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe,
+  Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe,
   Post, Query, UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -95,6 +95,22 @@ export class GasController {
       throw new BadRequestException('passed 必须为 boolean');
     }
     return this.gasService.inspectPurchase(id, user.id, body.passed, body.remarks);
+  }
+
+  @Post('purchase/:id/return')
+  @ApiOperation({ summary: '气体采购退货(已验收 → RETURNED,回扣库存)' })
+  returnPurchase(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { reason?: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.gasService.returnPurchase(id, body?.reason);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '删除气体主数据(仅无采购/领用,软删)' })
+  removeGas(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.gasService.removeGas(id);
   }
 
   // ============ GasUsage 使用记录 ============

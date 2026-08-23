@@ -6,9 +6,9 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider } from 'antd';
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Popconfirm } from 'antd';
 import { 
-  PlusOutlined, AlertOutlined, CheckCircleOutlined, WarningOutlined, RocketOutlined, ExperimentOutlined, CloudOutlined } from '@ant-design/icons';
+  PlusOutlined, AlertOutlined, CheckCircleOutlined, WarningOutlined, RocketOutlined, ExperimentOutlined, CloudOutlined, DeleteOutlined, RollbackOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable, statusTag } from '../../components/DataTable';
@@ -182,6 +182,29 @@ export function GasList() {
     }
   };
 
+  // 退货(已验收 → RETURNED,回扣库存)
+  const handleReturn = async (id: string) => {
+    try {
+      await api.post(`/gas/purchase/${id}/return`, { reason: '质量问题退货' });
+      message.success('已退货,库存已回扣');
+      loadPurchases();
+      load(1, pageSize);
+    } catch (e: any) {
+      message.error('退货失败:' + (e?.response?.data?.message ?? e?.message));
+    }
+  };
+
+  // 删除气体主数据(软删,仅无采购/领用)
+  const handleRemoveGas = async (id: string) => {
+    try {
+      await api.delete(`/gas/${id}`);
+      message.success('气体主数据已删除');
+      load(1, pageSize);
+    } catch (e: any) {
+      message.error('删除失败:' + (e?.response?.data?.message ?? e?.message));
+    }
+  };
+
   const handleRecordUsage = async () => {
     try {
       const values = await usageForm.validateFields();
@@ -254,7 +277,7 @@ export function GasList() {
     {
       title: '操作',
       key: 'action',
-      width: 220,
+      width: 280,
       fixed: 'right' as const,
       render: (_: any, r: GasRow) => (
         <Space size="small">
@@ -278,6 +301,13 @@ export function GasList() {
           >
             采购
           </Button>
+          <Popconfirm
+            title="删除气体主数据"
+            description="仅无采购/领用记录的气体可删除(软删)。"
+            onConfirm={() => handleRemoveGas(r.id)}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+          </Popconfirm>
         </Space>
       ) },
   ];
@@ -298,7 +328,7 @@ export function GasList() {
     {
       title: '操作',
       key: 'action',
-      width: 180,
+      width: 220,
       render: (_: any, r: PurchaseRow) =>
         r.status === 'ORDERED' || r.status === 'SHIPPED' || r.status === 'RECEIVED' ? (
           <Space size="small">
@@ -309,6 +339,14 @@ export function GasList() {
               拒收
             </Button>
           </Space>
+        ) : r.status === 'INSPECTED' ? (
+          <Popconfirm
+            title="退货"
+            description="退货将回扣库存,状态变为已退货。"
+            onConfirm={() => handleReturn(r.id)}
+          >
+            <Button size="small" danger icon={<RollbackOutlined />}>退货</Button>
+          </Popconfirm>
         ) : (
           <Tag color="default">已处理</Tag>
         ) },

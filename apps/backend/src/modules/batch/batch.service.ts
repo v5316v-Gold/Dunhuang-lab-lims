@@ -8,6 +8,8 @@ import { AssayMethod, BatchStatus, SampleBatch } from '@prisma/client';
 import { createActor } from 'xstate';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SecurityAuditService } from '../../common/audit/security-audit.service';
+import { AuditEventType } from '../../common/audit/audit-event.enum';
 
 import { fireAssayBatchMachine, icpBatchMachine } from './batch.state-machine';
 import { AddSamplesToBatchDto, BatchActionDto, CreateBatchDto, ProcessParameterDto } from './dto/batch.dto';
@@ -22,7 +24,10 @@ function resolveMachine(method: AssayMethod) {
 
 @Injectable()
 export class BatchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityAudit: SecurityAuditService,
+  ) {}
 
   /**
    * 创建批次
@@ -237,6 +242,83 @@ export class BatchService {
   }
 
   /**
+   * 删除空批次(仅 PENDING 且无样品,软删)
+   */
+  async remove(batchId: string, userId: string) {
+    const batch = await this.findOne(batchId);
+    if (batch.status !== BatchStatus.PENDING) {
+      throw new BadRequestException(`仅 PENDING 批次可删除(当前 ${batch.status})`);
+    }
+    if ((batch.samples?.length ?? 0) > 0) {
+      throw new BadRequestException('批次内仍有样品,请先移除样品或整批驳回');
+    }
+    const result = await this.prisma.sampleBatch.update({
+      where: { id: batchId },
+      data: { deletedAt: new Date() },
+    });
+    if (this.securityAudit) {
+      await this.securityAudit.system(AuditEventType.RECORD_DELETED, {
+        entity: 'batch', batchId, batchNo: batch.batchNo, operatorId: userId,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * 批次回退上一工序(原因必填,审计留痕)
+   * 火试金: MIXING→PENDING, FUSING→MIXING, CUPELLING→FUSING, PARTING→CUPELLING, ANNEALING→PARTING, WEIGHING→ANNEALING, CALCULATING→WEIGHING
+   */
+  async rollback(batchId: string, reason: string, userId: string) {
+    if (!reason?.trim()) throw new BadRequestException('回退原因必填');
+    const batch = await this.findOne(batchId);
+    const ROLLBACK_MAP: Record<string, string> = {
+      MIXING: 'PENDING',
+      FUSING: 'MIXING',
+      CUPELLING: 'FUSING',
+      PARTING: 'CUPELLING',
+      ANNEALING: 'PARTING',
+      WEIGHING: 'ANNEALING',
+      CALCULATING: 'WEIGHING',
+      COMPLETED: 'CALCULATING',
+    };
+    const target = ROLLBACK_MAP[batch.status];
+    if (!target) {
+      throw new BadRequestException(`当前状态 ${batch.status} 不允许回退(仅 PENDING/REJECTED/COMPLETED 之外可回退一步)`);
+    }
+    const result = await this.prisma.sampleBatch.update({
+      where: { id: batchId },
+      data: { status: target as BatchStatus },
+    });
+    if (this.securityAudit) {
+      await this.securityAudit.system(AuditEventType.RECORD_ROLLED_BACK, {
+        entity: 'batch', batchId, batchNo: batch.batchNo,
+        fromStatus: batch.status, toStatus: target, reason: reason.trim(), operatorId: userId,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * 从批次移除样品(批次未开始检测前)
+   */
+  async removeSamples(batchId: string, sampleIds: string[], userId: string) {
+    const batch = await this.findOne(batchId);
+    if (batch.status !== BatchStatus.PENDING && batch.status !== BatchStatus.MIXING) {
+      throw new BadRequestException(`批次已 ${batch.status},样品已进入检测流程,不可移除(可整批驳回)`);
+    }
+    await this.prisma.sample.updateMany({
+      where: { id: { in: sampleIds }, batchId },
+      data: { batchId: null, status: 'RECEIVED' },
+    });
+    if (this.securityAudit) {
+      await this.securityAudit.system(AuditEventType.RECORD_ROLLED_BACK, {
+        entity: 'batch-samples', batchId, batchNo: batch.batchNo, sampleIds, operatorId: userId,
+      });
+    }
+    return this.findOne(batchId);
+  }
+
+  /**
    * 查询批次详情
    */
   async findOne(id: string) {
@@ -278,7 +360,7 @@ export class BatchService {
    */
   async findAll(filter: { method?: AssayMethod | string; status?: BatchStatus | string; page?: number; pageSize?: number }) {
     const { page = 1, pageSize = 20, ...where } = filter;
-    const where_: any = {};
+    const where_: any = { deletedAt: null };
     if (where.method) where_.method = where.method;
     if (where.status) where_.status = where.status;
 

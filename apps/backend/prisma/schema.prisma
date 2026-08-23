@@ -67,6 +67,7 @@ enum WasteStatus {
   NEUTRALIZED
   DISPOSED
   REJECTED
+  VOID
 }
 
 
@@ -810,6 +811,8 @@ model QcMeasurement {
   passed        Boolean
   operatorId    String?    @map("operator_id") @db.Uuid
   measuredAt    DateTime   @default(now()) @map("measured_at") @db.Timestamptz
+  voidedAt      DateTime?  @map("voided_at") @db.Timestamptz   // 作废时间(数据保留,ALCOA+)
+  voidReason    String?    @map("void_reason") @db.VarChar(500) // 作废原因
 
   test          Test?             @relation(fields: [testId], references: [id], onDelete: SetNull)
   reference     ReferenceMaterial? @relation(fields: [referenceId], references: [id])
@@ -852,6 +855,7 @@ model Report {
   updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
   issuedAt     DateTime?    @map("issued_at") @db.Timestamptz
   createdById  String?      @map("created_by_id") @db.Uuid
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz   // 草稿软删(ALCOA+ 留痕)
 
   // === W1 SoD 6 角色签名人(CNAS-CL01:2018 §7.8.4) ===
   // 检测员在 Test.operatorId(不重复);此处记录报告流程各阶段执行人

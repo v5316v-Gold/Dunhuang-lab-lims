@@ -6,7 +6,7 @@
 // =====================================================
 
 import {
-  Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors, Res,
+  Body, Controller, Delete, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors, Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -87,5 +87,11 @@ export class FileController {
   @ApiOperation({ summary: '文件详情' })
   findOne(@Param('id') id: string) {
     return this.fileService.getFileById(id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '删除文件(DB 记录 + MinIO 对象)' })
+  remove(@Param('id') id: string) {
+    return this.fileService.removeFile(id);
   }
 }

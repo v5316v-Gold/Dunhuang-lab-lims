@@ -17,7 +17,7 @@ import { allowedEvents, SampleEvent, transitionSample } from './sample.state-mac
 import { CreateSampleDto, SampleFilterDto, UpdateSampleDto } from './dto/sample.dto';
 
 
-/** 状态机提示(错误信息用) */
+  /** 状态机提示(错误信息用) */
 function allowedEventHint(status: string): string {
   try {
     return allowedEvents(status as never).join(' | ');
@@ -25,6 +25,16 @@ function allowedEventHint(status: string): string {
     return '无';
   }
 }
+
+/** 允许回退的状态映射(每状态限回退一步;ARCHIVED/DISPOSED/REJECTED 不可回退) */
+const ROLLBACK_MAP: Record<string, string> = {
+  BATCHED: 'RECEIVED',
+  IN_TEST: 'BATCHED',
+  TESTED: 'IN_TEST',
+  REPORT_DRAFT: 'TESTED',
+  REPORT_REVIEW: 'REPORT_DRAFT',
+  REPORT_APPROVED: 'REPORT_REVIEW',
+};
 
 @Injectable()
 export class SampleService {
@@ -314,6 +324,49 @@ export class SampleService {
       await this.securityAudit.system(
         AuditEventType.SAMPLE_DISPOSED,
         { sampleNo: sample.sampleNo, method, approvedBy: approveById },
+      );
+    }
+    return result;
+  }
+
+  /**
+   * 状态回退(撤销上一步操作,原因必填,审计留痕)
+   * 合规约束: ARCHIVED/DISPOSED/REJECTED 不可回退;
+   *           TESTED 及之后回退前校验无关联报告
+   */
+  async rollback(id: string, reason: string, userId: string) {
+    if (!reason?.trim()) throw new BadRequestException('回退原因必填');
+    const sample = await this.prisma.sample.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { reports: true } },
+        tests: { select: { id: true, status: true, purityPct: true } },
+      },
+    });
+    if (!sample || sample.deletedAt) throw new NotFoundException(`样品 ${id} 不存在`);
+
+    const target = ROLLBACK_MAP[sample.status];
+    if (!target) {
+      throw new BadRequestException(`当前状态 ${sample.status} 不允许回退(已归档/已处置/已拒收不可回退)`);
+    }
+
+    // 已有报告/检测结果时禁止回退到检测前
+    const hasResult = sample.tests.some((t) => t.status === 'COMPLETED' || t.purityPct != null);
+    if ((sample.status === 'TESTED' || sample.status.startsWith('REPORT')) && (sample._count.reports > 0 || hasResult)) {
+      throw new BadRequestException('已存在报告/检测结果,不能回退;如确有误请走报告作废或不符合项流程');
+    }
+
+    const result = await this.prisma.sample.update({
+      where: { id },
+      data: { status: target as any },
+    });
+    if (this.securityAudit) {
+      await this.securityAudit.system(
+        AuditEventType.RECORD_ROLLED_BACK,
+        {
+          entity: 'sample', sampleId: id, sampleNo: sample.sampleNo,
+          fromStatus: sample.status, toStatus: target, reason: reason.trim(), operatorId: userId,
+        },
       );
     }
     return result;

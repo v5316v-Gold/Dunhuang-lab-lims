@@ -79,6 +79,17 @@ export class SampleController {
     return this.sampleService.disposeRetention(id, body.approveById, body.method);
   }
 
+  @Post(':id/rollback')
+  @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '样品状态回退一步(原因必填,审计留痕)' })
+  rollback(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { reason: string },
+    @CurrentUser() user: User,
+  ) {
+    return this.sampleService.rollback(id, body.reason, user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '查询样品详情(含检测/报告)' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {

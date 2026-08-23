@@ -243,4 +243,22 @@ export class QcService {
     ]);
     return { items, total, page, pageSize };
   }
+
+  /**
+   * 作废 QC 测量值(误录纠正;数据保留 + voidedAt 标记,ALCOA+)
+   */
+  async voidMeasurement(id: string, reason: string, userId: string) {
+    if (!reason?.trim()) throw new BadRequestException('作废原因必填');
+    const m = await this.prisma.qcMeasurement.findUnique({ where: { id } });
+    if (!m) throw new BadRequestException(`QC 测量 ${id} 不存在`);
+    if (m.voidedAt) throw new BadRequestException('该测量值已作废');
+    const result = await this.prisma.qcMeasurement.update({
+      where: { id },
+      data: { voidedAt: new Date(), voidReason: reason.trim() },
+    });
+    await this.securityAudit.system(AuditEventType.RECORD_VOIDED, {
+      entity: 'qc_measurement', measurementId: id, element: m.element, reason: reason.trim(), operatorId: userId,
+    });
+    return result;
+  }
 }

@@ -27,6 +27,7 @@ import {
   Spin,
   Divider,
   Tabs,
+  Popconfirm,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -38,6 +39,8 @@ import {
   ExperimentOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
+  UndoOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../data/api';
@@ -202,6 +205,8 @@ export default function BatchDetailPage() {
   const [selectedSampleIds, setSelectedSampleIds] = useState<string[]>([]);
   const [confirmAction, setConfirmAction] = useState<{ action: string; label: string } | null>(null);
   const [fireAssayOpen, setFireAssayOpen] = useState(false);
+  const [rollbackOpen, setRollbackOpen] = useState(false);
+  const [rollbackForm] = Form.useForm();
 
   // 批次详情
   const { data: batch, isLoading, error } = useQuery<BatchDetail>({
@@ -266,6 +271,36 @@ export default function BatchDetailPage() {
     },
     onError: (err: any) => {
       const msg = err.response?.data?.message ?? '加入失败';
+      message.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    },
+  });
+
+  // 回退上一工序
+  const rollbackMut = useMutation({
+    mutationFn: async (reason: string) =>
+      (await api.post(`/batches/${id}/rollback`, { reason })).data,
+    onSuccess: (b) => {
+      message.success(`批次已回退到 ${BATCH_STATUS_LABEL[b.status as BatchStatus] ?? b.status}`);
+      setRollbackOpen(false);
+      rollbackForm.resetFields();
+      qc.invalidateQueries({ queryKey: ['batch', id] });
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message ?? '回退失败';
+      message.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    },
+  });
+
+  // 从批次移除样品(批次未开始检测前)
+  const removeSampleMut = useMutation({
+    mutationFn: async (sampleId: string) =>
+      (await api.post(`/batches/${id}/samples/remove`, { sampleIds: [sampleId] })).data,
+    onSuccess: () => {
+      message.success('样品已从批次移除(恢复为已接收)');
+      qc.invalidateQueries({ queryKey: ['batch', id] });
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message ?? '移除失败';
       message.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     },
   });
@@ -366,6 +401,16 @@ export default function BatchDetailPage() {
               >
                 驳回
               </Button>
+            )}
+            {/* 回退上一工序(仅中间状态,原因必填) */}
+            {!isCompleted && !isRejected && batch.status !== 'PENDING' && (
+              <Popconfirm
+                title="回退上一工序"
+                description="回退将撤销上一步工序状态(审计留痕),工艺参数保留。"
+                onConfirm={() => setRollbackOpen(true)}
+              >
+                <Button icon={<UndoOutlined />}>回退工序</Button>
+              </Popconfirm>
             )}
             <Button
               icon={<PlusOutlined />}
@@ -521,6 +566,25 @@ export default function BatchDetailPage() {
                             <Tag color={SAMPLE_STATUS_COLOR[s]}>
                               {SAMPLE_STATUS_LABEL[s] ?? s}
                             </Tag>
+                          ),
+                        },
+                        {
+                          title: '操作',
+                          width: 110,
+                          fixed: 'right' as const,
+                          render: (_: any, s: { id: string; sampleNo: string }) => (
+                            <Space size={4}>
+                              <Button type="link" size="small" onClick={() => navigate(`/samples/${s.id}`)}>详情</Button>
+                              {(batch.status === 'PENDING' || batch.status === 'MIXING') && (
+                                <Popconfirm
+                                  title="从批次移除样品"
+                                  description={`移除 ${s.sampleNo}?样品将恢复为「已接收」。`}
+                                  onConfirm={() => removeSampleMut.mutate(s.id)}
+                                >
+                                  <Button size="small" danger icon={<DeleteOutlined />} loading={removeSampleMut.isPending}>移除</Button>
+                                </Popconfirm>
+                              )}
+                            </Space>
                           ),
                         },
                       ]}
@@ -764,6 +828,30 @@ export default function BatchDetailPage() {
             )}
           </Space>
         )}
+      </Modal>
+
+      {/* 回退工序弹窗 */}
+      <Modal
+        title="回退上一工序"
+        open={rollbackOpen}
+        onCancel={() => setRollbackOpen(false)}
+        onOk={() => rollbackForm.submit()}
+        confirmLoading={rollbackMut.isPending}
+        okText="确认回退"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="回退将撤销上一步工序状态(如 熔融→混料),工艺参数保留并审计留痕;不可连续回退。"
+          style={{ marginBottom: 16 }}
+        />
+        <Form form={rollbackForm} layout="vertical" style={{ marginTop: 16 }} onFinish={(v) => rollbackMut.mutate(v.reason)}>
+          <Form.Item label="回退原因" name="reason" rules={[{ required: true, message: '回退原因必填' }]}>
+            <Input.TextArea rows={3} placeholder="如:工艺参数录入错误,需退回上一步修正" />
+          </Form.Item>
+        </Form>
       </Modal>
 
       {/* 火试金称重录入弹窗(WEIGHING 状态专用) */}

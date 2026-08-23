@@ -2,7 +2,7 @@
 // 试剂 API
 // =====================================================
 
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
 
@@ -73,5 +73,26 @@ export class ReagentController {
   @ApiOperation({ summary: '查询试剂所有批次(含领用记录)' })
   findLots(@Param('id', ParseUUIDPipe) id: string) {
     return this.reagentService.findLots(id);
+  }
+
+  @Delete(':id')
+  @RequireRole(UserRole.REAGENT_MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: '删除试剂主数据(仅无批次,软删)' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.reagentService.remove(id);
+  }
+
+  @Post('lots/:lotId/void')
+  @RequireRole(UserRole.REAGENT_MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: '作废试剂批次(仅未领用过,删除;已领用需先撤销领用)' })
+  voidLot(@Param('lotId', ParseUUIDPipe) lotId: string) {
+    return this.reagentService.voidLot(lotId);
+  }
+
+  @Post('usages/:usageId/undo')
+  @RequireRole(UserRole.REAGENT_MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: '撤销试剂领用(删除记录 + 回补批次剩余量)' })
+  undoUsage(@Param('usageId', ParseUUIDPipe) usageId: string) {
+    return this.reagentService.undoUsage(usageId);
   }
 }

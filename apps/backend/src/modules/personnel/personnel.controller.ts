@@ -2,7 +2,7 @@
 // 人员 API
 // =====================================================
 
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
 
@@ -66,5 +66,19 @@ export class PersonnelController {
   @ApiOperation({ summary: '能力矩阵' })
   competencyMatrix() {
     return this.personnelService.getCompetencyMatrix();
+  }
+
+  @Delete(':id')
+  @RequireRole(UserRole.LAB_DIRECTOR, UserRole.ADMIN)
+  @ApiOperation({ summary: '删除人员档案(仅无培训/能力记录,软删)' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.personnelService.removePersonnel(id);
+  }
+
+  @Post('competencies/:id/revoke')
+  @RequireRole(UserRole.LAB_DIRECTOR, UserRole.QUALITY_MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: '撤销能力授权(立即失效,expiresAt=now)' })
+  revokeCompetency(@Param('id', ParseUUIDPipe) id: string) {
+    return this.personnelService.revokeCompetency(id);
   }
 }

@@ -184,4 +184,16 @@ export class FileUploadService {
     const f = await this.prisma.fileAttachment.findFirst({ where: { sha256 } });
     return { valid: !!f, file: f };
   }
+
+  /** 删除文件(DB 记录 + MinIO 对象;对象删除失败不阻断) */
+  async removeFile(id: string) {
+    const f = await this.getFileById(id);
+    try {
+      await this.minio.delete('certificates', f.storagePath);
+    } catch (e) {
+      this.logger.warn(`MinIO 对象删除失败(继续): ${f.storagePath} — ${(e as Error).message}`);
+    }
+    await this.prisma.fileAttachment.delete({ where: { id } });
+    return { deleted: true, id, originalName: f.originalName, sha256: f.sha256 };
+  }
 }

@@ -6,10 +6,10 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Radio,
+  Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Radio, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, AlertOutlined, TruckOutlined, FireOutlined, GoldOutlined,
+  PlusOutlined, AlertOutlined, TruckOutlined, FireOutlined, GoldOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -82,6 +82,10 @@ export function WasteList() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [disposeOpen, setDisposeOpen] = useState(false);
   const [currentRecord, setCurrentRecord] = useState<WasteRow | null>(null);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<WasteRow | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
 
   const [filterType, setFilterType] = useState<string | undefined>();
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
@@ -116,6 +120,28 @@ export function WasteList() {
       setSummaryOpen(true);
     } catch {
       message.error('加载合规摘要失败');
+    }
+  };
+
+  // 作废登记(仅 STORED 误录,原因必填)
+  const submitVoid = async () => {
+    if (!voidTarget) return;
+    if (!voidReason.trim()) {
+      message.warning('作废原因必填');
+      return;
+    }
+    setVoiding(true);
+    try {
+      await api.post(`/waste/${voidTarget.id}/void`, { reason: voidReason.trim() });
+      message.success('危废登记已作废(VOID,审计留痕)');
+      setVoidOpen(false);
+      setVoidTarget(null);
+      setVoidReason('');
+      load(1, pageSize);
+    } catch (e: any) {
+      message.error('作废失败:' + (e?.response?.data?.message ?? e?.message));
+    } finally {
+      setVoiding(false);
     }
   };
 
@@ -274,6 +300,15 @@ export function WasteList() {
             >
               处置
             </Button>
+          )}
+          {r.status === 'STORED' && (
+            <Popconfirm
+              title="作废登记"
+              description={`作废 ${r.code}?仅误录的暂存记录可作废(VOID,审计留痕)。`}
+              onConfirm={() => { setVoidTarget(r); setVoidReason(''); setVoidOpen(true); }}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />}>作废</Button>
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -466,6 +501,26 @@ export function WasteList() {
             <InputNumber min={0} step={0.001} style={{ width: '100%' }} placeholder="可选,如 0.0123" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 作废登记 */}
+      <Modal
+        title={`作废危废登记(${voidTarget?.code ?? ''})`}
+        open={voidOpen}
+        onCancel={() => setVoidOpen(false)}
+        onOk={submitVoid}
+        confirmLoading={voiding}
+        okText="确认作废"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+      >
+        <Input.TextArea
+          rows={3}
+          placeholder="作废原因(必填),如:登记信息错误,重复登记"
+          value={voidReason}
+          onChange={(e) => setVoidReason(e.target.value)}
+          style={{ marginTop: 8 }}
+        />
       </Modal>
 
       {/* 合规摘要 */}

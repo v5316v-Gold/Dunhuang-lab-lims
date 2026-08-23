@@ -3,7 +3,7 @@
 // =====================================================
 
 import {
-  Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe,
+  Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe,
   Post, Put, Query, UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -66,6 +66,12 @@ export class ContainerController {
     @CurrentUser() user: User,
   ) {
     return this.containerService.update(id, dto, user.id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '删除容器(仅无领用记录,软删)' })
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.containerService.remove(id);
   }
 
   // ============ ContainerUsage 领用/归还 ============

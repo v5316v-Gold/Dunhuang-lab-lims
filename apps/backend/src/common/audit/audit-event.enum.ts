@@ -124,6 +124,12 @@ export const AuditEventType = {
   // P1-5 检测仪器 mTLS 上报
   INSTRUMENT_DATA_RECEIVED: 'INSTRUMENT:DATA_RECEIVED',
   INSTRUMENT_DATA_REJECTED: 'INSTRUMENT:DATA_REJECTED',
+
+  // ===== 业务事件 — 反向操作(撤销/删除/作废,ALCOA+ 留痕) =====
+  RECORD_DELETED: 'DATA:RECORD_DELETED',          // 软删除
+  RECORD_VOIDED: 'DATA:RECORD_VOIDED',            // 作废(标记 VOID)
+  RECORD_ROLLED_BACK: 'DATA:RECORD_ROLLED_BACK',  // 状态回退
+  RECORD_UNDONE: 'DATA:RECORD_UNDONE',            // 撤销(领用撤销等)
 } as const;
 
 export type AuditEventTypeValue = (typeof AuditEventType)[keyof typeof AuditEventType];

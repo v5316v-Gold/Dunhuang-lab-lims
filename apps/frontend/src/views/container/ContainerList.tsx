@@ -6,10 +6,10 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Button, Card, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Radio,
+  Button, Card, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Radio, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, AlertOutlined, ContainerOutlined, ExportOutlined, ImportOutlined,
+  PlusOutlined, AlertOutlined, ContainerOutlined, ExportOutlined, ImportOutlined, EditOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -31,6 +31,8 @@ interface ContainerRow {
   calibrationDate?: string;
   nextCalDate?: string;
   responsible?: { id: string; name: string };
+  responsibleUserId?: string;
+  remarks?: string;
 }
 
 interface UsageRow {
@@ -92,6 +94,8 @@ export function ContainerList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [borrowOpen, setBorrowOpen] = useState(false);
   const [currentRecord, setCurrentRecord] = useState<ContainerRow | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<ContainerRow | null>(null);
 
   const [usages, setUsages] = useState<UsageRow[]>([]);
 
@@ -101,6 +105,34 @@ export function ContainerList() {
 
   const [createForm] = Form.useForm();
   const [borrowForm] = Form.useForm();
+  const [editForm] = Form.useForm();
+
+  // 编辑容器(接后端 PUT /container/:id)
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    try {
+      const values = await editForm.validateFields();
+      await api.put(`/container/${editing.id}`, values);
+      message.success('容器信息已更新');
+      setEditOpen(false);
+      setEditing(null);
+      load(1, pageSize);
+    } catch (e: any) {
+      if (e?.errorFields) return;
+      message.error('更新失败:' + (e?.response?.data?.message ?? e?.message));
+    }
+  };
+
+  // 删除容器(软删,仅无领用记录)
+  const handleRemoveContainer = async (id: string) => {
+    try {
+      await api.delete(`/container/${id}`);
+      message.success('容器已删除');
+      load(1, pageSize);
+    } catch (e: any) {
+      message.error('删除失败:' + (e?.response?.data?.message ?? e?.message));
+    }
+  };
 
   const load = async (p = page, ps = pageSize) => {
     setLoading(true);
@@ -261,24 +293,46 @@ export function ContainerList() {
     {
       title: '操作',
       key: 'action',
-      width: 130,
+      width: 240,
       fixed: 'right' as const,
       render: (_: any, r: ContainerRow) => {
         const canBorrow = r.status === 'IN_STOCK' || r.status === 'IN_USE';
-        return canBorrow ? (
-          <Button
-            size="small"
-            type="primary"
-            icon={<ExportOutlined />}
-            onClick={() => {
-              setCurrentRecord(r);
-              setBorrowOpen(true);
-            }}
-          >
-            领用
-          </Button>
-        ) : (
-          <Tag color="default">{STATUS_LABEL[r.status]?.label}</Tag>
+        return (
+          <Space size={4}>
+            {canBorrow && (
+              <Button
+                size="small"
+                type="primary"
+                icon={<ExportOutlined />}
+                onClick={() => {
+                  setCurrentRecord(r);
+                  setBorrowOpen(true);
+                }}
+              >
+                领用
+              </Button>
+            )}
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setEditing(r);
+                editForm.setFieldsValue({
+                  name: r.name, location: r.location, remarks: r.remarks, responsibleUserId: r.responsibleUserId,
+                });
+                setEditOpen(true);
+              }}
+            >
+              编辑
+            </Button>
+            <Popconfirm
+              title="删除容器"
+              description="仅无领用记录的容器可删除(软删)。"
+              onConfirm={() => handleRemoveContainer(r.id)}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+            </Popconfirm>
+          </Space>
         );
       },
     },
@@ -452,6 +506,28 @@ export function ContainerList() {
           </Row>
           <Form.Item label="存放位置" name="location">
             <Input placeholder="容器柜 B-03" />
+          </Form.Item>
+          <Form.Item label="备注" name="remarks">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 编辑容器 */}
+      <Modal
+        title={`编辑容器(${editing?.code ?? ''})`}
+        open={editOpen}
+        onCancel={() => setEditOpen(false)}
+        onOk={handleSaveEdit}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Form form={editForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="名称" name="name">
+            <Input />
+          </Form.Item>
+          <Form.Item label="存放位置" name="location">
+            <Input />
           </Form.Item>
           <Form.Item label="备注" name="remarks">
             <Input.TextArea rows={2} />

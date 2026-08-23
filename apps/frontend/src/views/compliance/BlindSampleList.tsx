@@ -6,7 +6,7 @@ import { useState } from 'react';
 import {
   Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, App, Popconfirm, Progress, Alert,
 } from 'antd';
-import {  PlusOutlined, ReloadOutlined, CheckCircleOutlined, SafetyOutlined } from '@ant-design/icons';
+import {  PlusOutlined, ReloadOutlined, CheckCircleOutlined, SafetyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable, statusTag } from '../../components/DataTable';
@@ -72,6 +72,16 @@ export default function BlindSampleList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '考核失败'),
   });
 
+  // 删除盲样(仅未评)
+  const removeMut = useMutation({
+    mutationFn: async (id: string) => (await api.delete(`/compliance/blind-sample/${id}`)).data,
+    onSuccess: () => {
+      message.success('盲样考核已删除');
+      qc.invalidateQueries({ queryKey: ['blind-samples'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
   const columns = [
     { title: '编号', dataIndex: 'blindNo', width: 130, render: (v: string) => <span style={{ fontFamily: 'monospace', color: '#D4AF37' }}>{v}</span> },
     { title: '盲样码', dataIndex: 'sampleCode', width: 100 },
@@ -97,14 +107,24 @@ export default function BlindSampleList() {
       render: (_: any, r: BlindSample) => r.passed === undefined ? <Tag>未评</Tag> : r.passed ? <Tag color="green">通过</Tag> : <Tag color="red">不通过</Tag>,
     },
     {
-      title: '操作', width: 90, fixed: 'right' as const,
+      title: '操作', width: 160, fixed: 'right' as const,
       render: (_: any, r: BlindSample) => (
-        <Button
-          size="small"
-          icon={<CheckCircleOutlined />}
-          onClick={() => { setEditing(r); assessForm.setFieldsValue({ measuredValue: '', remarks: '' }); setAssessOpen(true); }}
-          disabled={r.measuredValue != null}
-        >录入</Button>
+        <Space size={4}>
+          <Button
+            size="small"
+            icon={<CheckCircleOutlined />}
+            onClick={() => { setEditing(r); assessForm.setFieldsValue({ measuredValue: '', remarks: '' }); setAssessOpen(true); }}
+          >{r.measuredValue != null ? '重评' : '录入'}</Button>
+          {r.measuredValue == null && (
+            <Popconfirm
+              title="删除盲样"
+              description="仅未评盲样可删除。"
+              onConfirm={() => removeMut.mutate(r.id)}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending}>删除</Button>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ];

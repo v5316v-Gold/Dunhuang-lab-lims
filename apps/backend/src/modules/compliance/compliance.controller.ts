@@ -3,7 +3,7 @@
 // P2-6: 管评输入汇总 + 内审检查表 + NCR/CAPA 联动
 // =====================================================
 
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../../common/auth/guards/rbac.guard';
@@ -53,6 +53,11 @@ export class ComplianceController {
   @ApiOperation({ summary: '关闭内审(CNAS §8.8 必审,MFA 强制)' })
   closeIA(@Param('id') id: string, @Body() body: any) { return this.svc.closeInternalAudit(id, body); }
 
+  @Delete('internal-audit/:id')
+  @MfaProtected(MFA_SCENES.INTERNAL_AUDIT_APPROVE)
+  @ApiOperation({ summary: '删除内审(仅 PLANNED 可软删,MFA 强制)' })
+  deleteIA(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.deleteInternalAudit(id, u.id); }
+
   // ---- 管理评审 ----
   @Post('management-review')
   @ApiOperation({ summary: '创建管理评审' })
@@ -67,6 +72,11 @@ export class ComplianceController {
   @ApiOperation({ summary: '关闭管理评审(CNAS §8.9 必审,MFA 强制)' })
   closeMR(@Param('id') id: string, @Body() body: any) { return this.svc.closeManagementReview(id, body); }
 
+  @Delete('management-review/:id')
+  @MfaProtected(MFA_SCENES.MANAGEMENT_REVIEW_APPROVE)
+  @ApiOperation({ summary: '删除管理评审(仅 PLANNED 可软删,MFA 强制)' })
+  deleteMR(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.deleteManagementReview(id, u.id); }
+
   // ---- 监督记录 ----
   @Post('supervision')
   @ApiOperation({ summary: '创建监督记录' })
@@ -75,6 +85,11 @@ export class ComplianceController {
   @Get('supervision')
   @ApiOperation({ summary: '监督记录列表' })
   listSup() { return this.svc.listSupervisions(); }
+
+  @Delete('supervision/:id')
+  @MfaProtected(MFA_SCENES.PERSONNEL_SUSPENDED)
+  @ApiOperation({ summary: '删除监督记录(软删,MFA 强制)' })
+  deleteSup(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.deleteSupervision(id, u.id); }
 
   // ---- 盲样考核 ----
   @Post('blind-sample')
@@ -88,6 +103,11 @@ export class ComplianceController {
   @Get('blind-sample')
   @ApiOperation({ summary: '盲样考核列表' })
   listBlind() { return this.svc.listBlindSamples(); }
+
+  @Delete('blind-sample/:id')
+  @MfaProtected(MFA_SCENES.REPORT_ISSUE)
+  @ApiOperation({ summary: '删除盲样考核(仅未评可软删,MFA 强制)' })
+  deleteBlind(@Param('id') id: string, @CurrentUser() u: User) { return this.svc.deleteBlindSample(id, u.id); }
 
   // ---- 能力验证 PT ----
   @Post('proficiency-test')

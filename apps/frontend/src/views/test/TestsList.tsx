@@ -9,7 +9,7 @@ import {
   Button, Form, Modal, Select, Table, Tag, Space, App, Tooltip, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, FileSearchOutlined, FileTextOutlined, EyeOutlined, LinkOutlined, EditOutlined,
+  PlusOutlined, FileSearchOutlined, FileTextOutlined, EyeOutlined, LinkOutlined, EditOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -85,6 +85,16 @@ export function TestsList() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '完成失败(请先录入元素结果)'),
   });
 
+  // 删除检测(仅未完成且无原始记录单)
+  const removeMut = useMutation({
+    mutationFn: async (testId: string) => (await api.delete(`/tests/${testId}`)).data,
+    onSuccess: () => {
+      message.success('检测任务已删除');
+      qc.invalidateQueries({ queryKey: ['tests'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '删除失败'),
+  });
+
   const create = async () => {
     const values = await form.validateFields();
     try {
@@ -154,6 +164,15 @@ export function TestsList() {
                 onClick={() => genRecordMut.mutate(r.id)}
               >记录单</Button>
             </Tooltip>
+          )}
+          {r.status !== 'COMPLETED' && r.status !== 'QC_FAILED' && (
+            <Popconfirm
+              title="删除检测任务"
+              description="删除后不可恢复;已完成的检测不可删除。"
+              onConfirm={() => removeMut.mutate(r.id)}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />} loading={removeMut.isPending} />
+            </Popconfirm>
           )}
           <Tooltip title="查看样品">
             <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/samples/${r.sampleId}`)} />

@@ -5,9 +5,9 @@
 
 import { useState } from 'react';
 import {
-  Button, Card, Col, Form, Modal, Row, Select, Space, Table, Tag, Typography, Upload, message,
+  Button, Card, Col, Form, Modal, Row, Select, Space, Table, Tag, Typography, Upload, message, Popconfirm,
 } from 'antd';
-import { UploadOutlined, DownloadOutlined, CheckOutlined, InboxOutlined, ReloadOutlined } from '@ant-design/icons';
+import { UploadOutlined, DownloadOutlined, CheckOutlined, InboxOutlined, ReloadOutlined, UndoOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -75,6 +75,16 @@ export default function DataImportPage() {
     onError: (e: any) => message.error(e?.response?.data?.message ?? '导入失败'),
   });
 
+  // 撤销导入批次(事务回滚本次导入的数据)
+  const rollbackMut = useMutation({
+    mutationFn: async (importId: string) => (await api.post(`/imports/${importId}/rollback`)).data,
+    onSuccess: (data) => {
+      message.success(`导入已撤销:回滚 ${data?.rolledBack ?? 0} 条记录`);
+      qc.invalidateQueries({ queryKey: ['import-history'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '撤销失败'),
+  });
+
   const columns = [
     { title: '实体类型', dataIndex: 'entityType', render: (v: string) => <Tag color="gold">{v}</Tag> },
     { title: '文件名', dataIndex: 'originalName' },
@@ -93,7 +103,18 @@ export default function DataImportPage() {
     {
       title: '操作',
       render: (_: unknown, r: ImportBatch) => (
-        <Button size="small" onClick={() => setDetailOpen(r)}>详情</Button>
+        <Space size={4}>
+          <Button size="small" onClick={() => setDetailOpen(r)}>详情</Button>
+          {r.status === 'CONFIRMED' && (
+            <Popconfirm
+              title="撤销导入"
+              description="将事务回滚本批次导入的全部记录(审计留痕)。"
+              onConfirm={() => rollbackMut.mutate(r.id)}
+            >
+              <Button size="small" danger icon={<UndoOutlined />} loading={rollbackMut.isPending}>撤销导入</Button>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ];
