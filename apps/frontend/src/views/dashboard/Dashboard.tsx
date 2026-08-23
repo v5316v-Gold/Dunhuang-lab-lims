@@ -88,10 +88,10 @@ export default function DashboardPage() {
 
   // P2 美化: 近 7 天收样趋势(从 analytics/trend 或 samples 拉,兜底空)
   const trend = useQuery({
-    queryKey: ['analytics', 'samples-trend'],
+    queryKey: ['analytics', 'sample-trend'],
     queryFn: async () => {
       try {
-        const { data } = await api.get<{ date: string; count: number }[]>('/analytics/samples-trend?days=7');
+        const { data } = await api.get<{ date: string; count: number }[]>('/analytics/sample-trend?days=7');
         return data ?? [];
       } catch {
         // 兜底: 用样例数据(若后端无此端点)
