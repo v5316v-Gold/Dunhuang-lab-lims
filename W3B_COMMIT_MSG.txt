@@ -1,0 +1,21 @@
+feat: W3-B 看板 KPI 物化预计算(9 项指标,定时刷新)
+
+后端:
+- KpiSnapshot 表(迁移 20260823_w3b_kpi_snapshots):metricKey/name/value/unit/period/computedAt
+- modules/dashboard/: KpiService + KpiController + DashboardModule
+  - @Cron(EVERY_5_MINUTES) 定时刷新 9 项 KPI 到快照表
+  - 指标:检测任务完成率 / 本月检测任务数 / 样品总数 / 本月签发报告数
+         QC 通过率 / 本月试剂取用 / 本月气体使用 / 30 天内到期(设备校准+RM复验+留样) / 未关闭不符合项
+  - GET /dashboard/kpis(读最新快照)+ POST /dashboard/kpis/refresh(手动,ADMIN/LAB_DIRECTOR)
+- app.module.ts: 注册 DashboardModule(含 ScheduleModule.forRoot)
+
+前端:
+- Dashboard.tsx: 新增"业务 KPI(物化快照)"卡片行(9 项,4 列布局)
+  - 到期预警项 >0 时红色高亮
+  - 空快照时提示等待刷新
+  - refetchInterval 60s
+
+验证:
+- 后端 tsc EXIT=0、前端 tsc EXIT=0、vite build 成功
+- 手动 refresh → 9 项 KPI 全部物化成功(完成率 66% / 本月检测 50 / 样品 45 / 签发 9 / QC 100% / 到期 2)
+- GET /dashboard/kpis 返回完整快照

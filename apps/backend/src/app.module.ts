@@ -37,6 +37,7 @@ import { FeishuImportModule } from './modules/integrations/feishu-import/feishu-
 import { PreciousMetalModule } from './modules/precious-metal/precious-metal.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EquipmentModule } from './modules/equipment/equipment.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { InstrumentDataModule } from './modules/instrument/instrument-data.module';
@@ -110,6 +111,7 @@ import { SopModule } from './modules/test/sop/sop.module';
     ReportModule,
     AuthorizedSignatoryModule,
     FeishuImportModule,
+    DashboardModule,
     ReagentModule,
     EhsModule,
     PreciousMetalModule,

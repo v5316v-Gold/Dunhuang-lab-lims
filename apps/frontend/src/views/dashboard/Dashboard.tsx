@@ -106,6 +106,13 @@ export default function DashboardPage() {
     refetchInterval: 30000,
   });
 
+  // W3-B: 物化 KPI 快照(每 5 分钟后端刷新)
+  const kpis = useQuery({
+    queryKey: ['dashboard-kpis'],
+    queryFn: async () => (await api.get('/dashboard/kpis')).data,
+    refetchInterval: 60000,
+  });
+
   if (isLoading) return <Spin size="large" />;
 
   // W1 合规率:已处置 / 总数
@@ -156,6 +163,26 @@ export default function DashboardPage() {
             <Statistic title="活跃用户" value={data?.totalUsers ?? 0} prefix={<TeamOutlined />} />
           </Card>
         </Col>
+      </Row>
+
+      {/* W3-B: 物化 KPI 快照(每 5 分钟刷新) */}
+      <h3 style={{ marginTop: 24, color: '#D4AF37' }}>业务 KPI(物化快照)</h3>
+      <Row gutter={[16, 16]}>
+        {kpis.data?.items?.map((k: any) => (
+          <Col xs={24} sm={12} lg={6} key={k.metricKey}>
+            <Card style={{ background: 'var(--bg-card, #1E2430)', borderColor: 'rgba(212,175,55,0.2)' }}>
+              <Statistic
+                title={k.metricName}
+                value={k.value}
+                suffix={k.unit}
+                valueStyle={{ color: k.metricKey === 'expiring_soon' && Number(k.value) > 0 ? '#CF4E3B' : '#D4AF37' }}
+              />
+            </Card>
+          </Col>
+        ))}
+        {kpis.data?.items?.length === 0 && (
+          <Col span={24}><Empty description="KPI 快照为空,等待定时刷新(每 5 分钟)或联系管理员手动触发" /></Col>
+        )}
       </Row>
 
       <h3 style={{ marginTop: 24, color: '#D4AF37' }}>W1-W4 合规模块</h3>

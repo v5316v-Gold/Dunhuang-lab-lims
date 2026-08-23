@@ -2186,3 +2186,21 @@ model EntityAttachment {
   @@map("entity_attachments")
 }
 
+// =====================================================
+// W3-B 看板 KPI 物化快照(定时刷新,前端只读)
+// =====================================================
+
+model KpiSnapshot {
+  id         BigInt   @id @default(autoincrement())
+  metricKey  String   @map("metric_key") @db.VarChar(50)
+  metricName String   @map("metric_name") @db.VarChar(100)
+  value      Decimal  @db.Decimal(15, 2)
+  unit       String   @default("") @db.VarChar(20)
+  period     String   @db.VarChar(20)   // 'day' | 'week' | 'month' | 'all'
+  computedAt DateTime @default(now()) @map("computed_at") @db.Timestamptz
+
+  @@index([metricKey, computedAt])
+  @@index([period, computedAt])
+  @@map("kpi_snapshots")
+}
+
