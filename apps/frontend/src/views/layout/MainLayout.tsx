@@ -97,15 +97,6 @@ const menuGroups = [
     ],
   },
   {
-    key: 'g-precious',
-    label: '贵金属业务',
-    icon: <QrcodeOutlined />,
-    children: [
-      { key: '/precious-metal', icon: <QrcodeOutlined />, label: <Link to="/precious-metal">贵金属业务</Link> },
-      { key: '/scan', icon: <ScanOutlined />, label: <Link to="/scan">扫码追溯</Link> },
-    ],
-  },
-  {
     key: 'g-quality',
     label: '质量合规',
     icon: <SafetyOutlined />,
@@ -118,6 +109,15 @@ const menuGroups = [
       { key: '/proficiency-tests', icon: <SafetyCertificateOutlined />, label: <Link to="/proficiency-tests">能力验证 PT</Link> },
       { key: '/raw-records', icon: <FileTextOutlined />, label: <Link to="/raw-records">原始记录单</Link> },
       { key: '/data-import', icon: <UploadOutlined />, label: <Link to="/data-import">数据导入</Link> },
+    ],
+  },
+  {
+    key: 'g-precious',
+    label: '贵金属业务',
+    icon: <QrcodeOutlined />,
+    children: [
+      { key: '/precious-metal', icon: <QrcodeOutlined />, label: <Link to="/precious-metal">贵金属业务</Link> },
+      { key: '/scan', icon: <ScanOutlined />, label: <Link to="/scan">扫码追溯</Link> },
     ],
   },
 ];
