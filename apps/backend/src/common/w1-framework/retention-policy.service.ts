@@ -111,8 +111,11 @@ export class RetentionPolicyService implements OnModuleInit {
   }
 
   private async getLabDirectorId(): Promise<string | null> {
+    // W1 框架阶段:无 LAB_DIRECTOR 时 fallback 到 ADMIN(允许系统管理员代为维护)
+    // 待实验室主任账号正式就位后,自动切换到 LAB_DIRECTOR 角色
     const u = await this.prisma.user.findFirst({
-      where: { role: 'LAB_DIRECTOR', status: 'ACTIVE' },
+      where: { role: { in: ['LAB_DIRECTOR', 'ADMIN'] }, status: 'ACTIVE' },
+      orderBy: { role: 'asc' }, // ADMIN first → LAB_DIRECTOR 后建时优先
       select: { id: true },
     });
     return u?.id ?? null;
