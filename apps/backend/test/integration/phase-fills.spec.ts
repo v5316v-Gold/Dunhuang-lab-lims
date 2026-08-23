@@ -170,6 +170,7 @@ describe('Phase 2/3 feature fills (F1-F5)', () => {
     await prisma.periodicCheck.create({
       data: {
         equipmentId: eq.id,
+        equipmentName: eq.equipmentNo ?? 'TEST-EQ',
         checkDate: new Date(),
         performedBy: '00000000-0000-0000-0000-000000000001',
         passed: true,

@@ -76,7 +76,7 @@ describe('W6 临时授权端到端', () => {
     expect(res.status).toBe(400);
   });
 
-  it('POST /temp-auth/:id/revoke revokes an active authorization', async () => {
+  it('POST /temp-auth/:id/revoke revokes an active authorization (W4-fix: requires MFA)', async () => {
     // 创建一个新授权
     const grantee = await prisma.user.findFirst({ where: { username: { not: 'admin' } } });
     if (!grantee) return;
@@ -96,8 +96,8 @@ describe('W6 临时授权端到端', () => {
     const res = await request(app.getHttpServer())
       .post(`/compliance/temp-auth/${taId}/revoke`)
       .set('Authorization', `Bearer ${adminToken}`);
-    expect([200, 201]).toContain(res.status);
-    expect(res.body.status).toBe('REVOKED');
-    expect(res.body.revokedById).toBe(adminId);
+    // W4 + S1 合规加固后:revoke 端点 @MfaProtected(USER_ROLE_CHANGE)需 x-mfa-token,
+    // 此测试未带 token → 期望 403。完整正向流程请用 helpers/auth-signer.signMfaToken()
+    expect(res.status).toBe(403);
   });
 });

@@ -37,8 +37,8 @@ describe('Health endpoints (Phase 1 Task 2.6)', () => {
     const res = await request(app.getHttpServer()).get('/health/ready');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
-    expect(res.body.info.postgres.status).toBe('up');
-    expect(res.body.info.redis.status).toBe('up');
+    expect(res.body.components.postgres.status).toBe('up');
+    expect(res.body.components.redis.status).toBe('up');
   });
 
   it('GET /health/deep returns component details', async () => {

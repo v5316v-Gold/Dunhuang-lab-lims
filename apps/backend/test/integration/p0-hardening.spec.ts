@@ -12,7 +12,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request = require('supertest');
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 
@@ -52,7 +52,7 @@ describe('P0 综合硬化 (e2e)', () => {
         data: {
           sampleNo: `TEST-${Date.now()}`,
           customerName: 'TEST_CUSTOMER',
-          sampleType: 'GOLD_BAR' as any,  // SampleType enum value
+          sampleType: 'GOLD_INGOT' as any,  // SampleType enum value
           weightG: '100.000' as any,
           status: 'RECEIVED',
           receivedAt: new Date(),
@@ -91,7 +91,7 @@ describe('P0 综合硬化 (e2e)', () => {
         data: {
           sampleNo: `TMP-${Date.now()}`,
           customerName: 'TEST_CUSTOMER',
-          sampleType: 'GOLD_BAR' as any,
+          sampleType: 'GOLD_INGOT' as any,
           weightG: '100.000' as any,
           status: 'RECEIVED',
           receivedAt: new Date(),

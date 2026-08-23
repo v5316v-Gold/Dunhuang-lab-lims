@@ -4,7 +4,7 @@
 // =====================================================
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AssayMethod, BatchStatus, SampleBatch } from '@prisma/client';
+import { AssayMethod, BatchStatus, Prisma, SampleBatch } from '@prisma/client';
 import { createActor } from 'xstate';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -17,8 +17,8 @@ import { AddSamplesToBatchDto, BatchActionDto, CreateBatchDto, ProcessParameterD
 type SupportedMethod = 'FIRE_ASSAY' | 'ICP_OES' | 'ICP_MS';
 
 function resolveMachine(method: AssayMethod) {
-  if (method === 'FIRE_ASSAY') return fireAssayBatchMachine;
-  if (method === 'ICP_OES' || method === 'ICP_MS') return icpBatchMachine;
+  if (method === AssayMethod.FIRE_ASSAY) return fireAssayBatchMachine;
+  if (method === AssayMethod.ICP_OES || method === AssayMethod.ICP_MS) return icpBatchMachine;
   throw new BadRequestException(`不支持的检测方法: ${method}`);
 }
 
@@ -31,21 +31,35 @@ export class BatchService {
 
   /**
    * 创建批次
+   * W4-TC-fix:并发测试多 beforeAll 并行创建 batch 时读到相同 lastSeq 导致 unique 冲突,
+   * 包 try/catch 遇 P2002 自动重试
    */
   async create(dto: CreateBatchDto, operatorId: string): Promise<SampleBatch> {
-    const batchNo = await this.generateBatchNo(dto.method);
-
-    return this.prisma.sampleBatch.create({
-      data: {
-        batchNo,
-        method: dto.method,
-        replicateCount: dto.replicateCount ?? 3,
-        furnaceNo: dto.furnaceNo,
-        qcSampleId: dto.qcSampleId,
-        operatorId,
-        status: BatchStatus.PENDING,
-      },
-    });
+    const MAX_RETRIES = 5;
+    let lastErr: unknown;
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      const batchNo = await this.generateBatchNo(dto.method);
+      try {
+        return await this.prisma.sampleBatch.create({
+          data: {
+            batchNo,
+            method: dto.method,
+            replicateCount: dto.replicateCount ?? 3,
+            furnaceNo: dto.furnaceNo,
+            qcSampleId: dto.qcSampleId,
+            operatorId,
+            status: BatchStatus.PENDING,
+          },
+        });
+      } catch (e) {
+        lastErr = e;
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          continue; // batchNo 冲突,重试生成下一个
+        }
+        throw e;
+      }
+    }
+    throw lastErr;
   }
 
   /**

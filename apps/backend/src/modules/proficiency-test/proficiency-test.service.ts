@@ -75,16 +75,23 @@ export class ProficiencyTestService {
    * 录入结果 + z 值评价
    * z = (measured - assigned) / sd;assigned 期望值,sd 能力评定标准差
    */
+  /**
+   * 录入结果 + z 值评价(spec 客户端只传 zScore,result 由后端根据 |z| 自动判定)
+   * |z| <= 2 → SATISFACTORY; |z| < 3 → QUESTIONABLE; |z| >= 3 → UNSATISFACTORY
+   */
   async recordResult(id: string, dto: {
-    zScore: number; result: 'SATISFACTORY' | 'QUESTIONABLE' | 'UNSATISFACTORY';
+    zScore: number; result?: 'SATISFACTORY' | 'QUESTIONABLE' | 'UNSATISFACTORY';
     remarks?: string;
   }) {
     const pt = await this.findOne(id);
+    const z = typeof dto.zScore === 'string' ? parseFloat(dto.zScore as unknown as string) : dto.zScore;
+    const result: 'SATISFACTORY' | 'QUESTIONABLE' | 'UNSATISFACTORY' = dto.result
+      ?? (Math.abs(z) <= 2 ? 'SATISFACTORY' : Math.abs(z) < 3 ? 'QUESTIONABLE' : 'UNSATISFACTORY');
     return this.prisma.proficiencyTest.update({
       where: { id },
       data: {
-        zScore: dto.zScore,
-        result: dto.result,
+        zScore: z.toFixed(4),
+        result,
         remarks: dto.remarks ?? pt.remarks,
         endDate: new Date(),
       },

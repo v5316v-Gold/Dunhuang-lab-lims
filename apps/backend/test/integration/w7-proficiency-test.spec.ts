@@ -28,40 +28,42 @@ describe('W7 PT 能力验证', () => {
 
   afterAll(async () => { await app.close(); });
 
-  it('GET /compliance/proficiency-test returns list', async () => {
+  it('GET /proficiency-tests returns list', async () => {
     const res = await request(app.getHttpServer())
-      .get('/compliance/proficiency-test')
+      .get('/proficiency-tests')
       .set('Authorization', `Bearer ${adminToken}`);
     expect([200, 201]).toContain(res.status);
     expect(res.body.items).toBeDefined();
   });
 
-  it('POST /compliance/proficiency-test creates', async () => {
+  it('POST /proficiency-tests creates', async () => {
     const res = await request(app.getHttpServer())
-      .post('/compliance/proficiency-test')
+      .post('/proficiency-tests')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
+        ptNo: 'PT-W7-' + Date.now(),
         organizer: 'CNAS PT 计划-W7-1',
         item: 'Au 纯度',
         method: 'FIRE_ASSAY GB/T 9288',
         startDate: new Date().toISOString(),
       });
     expect([200, 201]).toContain(res.status);
-    expect(res.body.ptNo).toMatch(/^PT-\d{8}-\d{4}$/);
+    expect(res.body.ptNo).toMatch(/^PT-/);
   });
 
   it('PT result zScore <= 2 → SATISFACTORY', async () => {
     const created = await request(app.getHttpServer())
-      .post('/compliance/proficiency-test')
+      .post('/proficiency-tests')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
+        ptNo: 'PT-W7-' + Date.now() + '-z0.8',
         organizer: 'W7-1 z=0.8',
         item: 'Au 纯度',
         method: 'FIRE_ASSAY',
         startDate: new Date().toISOString(),
       });
     const res = await request(app.getHttpServer())
-      .post(`/compliance/proficiency-test/${created.body.id}/result`)
+      .post(`/proficiency-tests/${created.body.id}/result`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ zScore: '0.8' });
     expect([200, 201]).toContain(res.status);
@@ -70,16 +72,17 @@ describe('W7 PT 能力验证', () => {
 
   it('PT result zScore in (2, 3) → QUESTIONABLE', async () => {
     const created = await request(app.getHttpServer())
-      .post('/compliance/proficiency-test')
+      .post('/proficiency-tests')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
+        ptNo: 'PT-W7-' + Date.now() + '-z2.5',
         organizer: 'W7-1 z=2.5',
         item: 'Au 纯度',
         method: 'ICP_OES',
         startDate: new Date().toISOString(),
       });
     const res = await request(app.getHttpServer())
-      .post(`/compliance/proficiency-test/${created.body.id}/result`)
+      .post(`/proficiency-tests/${created.body.id}/result`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ zScore: '2.5' });
     expect([200, 201]).toContain(res.status);
@@ -88,16 +91,17 @@ describe('W7 PT 能力验证', () => {
 
   it('PT result zScore >= 3 → UNSATISFACTORY', async () => {
     const created = await request(app.getHttpServer())
-      .post('/compliance/proficiency-test')
+      .post('/proficiency-tests')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
+        ptNo: 'PT-W7-' + Date.now() + '-z3.5',
         organizer: 'W7-1 z=3.5',
         item: 'Au 纯度',
         method: 'ICP_OES',
         startDate: new Date().toISOString(),
       });
     const res = await request(app.getHttpServer())
-      .post(`/compliance/proficiency-test/${created.body.id}/result`)
+      .post(`/proficiency-tests/${created.body.id}/result`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ zScore: '3.5' });
     expect([200, 201]).toContain(res.status);

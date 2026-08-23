@@ -71,7 +71,7 @@ describe('Phase 4 compliance hardening (signature/pdf/retention)', () => {
     await app.close();
   });
 
-  /** 辅助: 建样品+检测+报告到 APPROVED */
+  /** 辅助: 建样品+检测+报告到 APPROVED(直接 prisma 写状态绕开 API MFA 防护) */
   async function buildApprovedReport(): Promise<string> {
     const s = await request(app.getHttpServer())
       .post('/samples')
@@ -93,12 +93,8 @@ describe('Phase 4 compliance hardening (signature/pdf/retention)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ sampleId });
     const rid = r.body.id;
-    for (const action of ['SUBMIT', 'REVIEW_PASS', 'APPROVE']) {
-      await request(app.getHttpServer())
-        .post(`/reports/${rid}/transition`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ action });
-    }
+    // 直接 prisma 推进状态(避免 API 端 MFA 防护)
+    await prisma.report.update({ where: { id: rid }, data: { status: 'APPROVED' } });
     return rid;
   }
 

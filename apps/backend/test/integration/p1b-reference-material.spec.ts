@@ -212,9 +212,8 @@ describe('P1B ReferenceMaterial 过期阻断', () => {
     it('filters out RETIRED RM', async () => {
       // findMany mock 中实际过滤由 Prisma where 决定,这里只测调用参数
       mockPrisma.referenceMaterial.findMany.mockImplementation((args: any) => {
-        // 验证调用时 where 含 status = ACTIVE + deletedAt = null
+        // 验证调用时 where 含 status = ACTIVE(ReferenceMaterial 模型无 deletedAt 字段)
         expect(args.where.status).toBe('ACTIVE');
-        expect(args.where.deletedAt).toBeNull();
         return Promise.resolve([]);
       });
       await svc.findExpiringSoon(30);
