@@ -2,7 +2,9 @@ import { IsArray, IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID,
 import { Type } from 'class-transformer';
 
 export class CreateAuthorizedSignatoryDto {
-  @IsUUID()
+  // @IsUUID('all')  // admin seed 用全零 UUID 00000000-0000-0000-0000-000000000001,validator 默认 'all' 也拒绝
+  // 改为只校验非空字符串(W2 D4 + 历史 seed 数据兼容)
+  @IsString()
   @IsNotEmpty()
   userId!: string;
 
@@ -28,7 +30,7 @@ export class CreateAuthorizedSignatoryDto {
   @IsOptional()
   description?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   approvalDocFileId?: string;
 }

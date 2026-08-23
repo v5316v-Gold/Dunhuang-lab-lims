@@ -1,0 +1,19 @@
+feat: W2 D4 端到端完整流程验证(8 项验收通过)+ 授权签字人 DTO 兼容历史全零 UUID
+
+W2 D4 完成端到端流程验证:
+- 准备样品→批次→火试金开工→称重→检测完成(领域事件触发报告自动创建)
+- 5 段签发流程 SUBMIT→REVIEW_PASS→APPROVE→AUTHORIZE→ISSUE
+- AUTHORIZE 新事件验证:状态 APPROVED 不变 + authorizerId 字段记录(W2 D2 接入)
+- 5 个签名人字段(submitter/reviewer/approver/authorizer/issuer)全部生效
+- 授权签字人校验:无签字人 → 403,加入签字人 → 通过
+- 留样期从 RetentionPolicy 读取:sample.retentionUntil = issuedAt + 6 月
+
+修复:
+- apps/backend/src/modules/authorized-signatory/dto/authorized-signatory.dto.ts
+  userId/approvalDocFileId 改用 @IsString(原 @IsUUID() 拒绝 admin seed 的全零 UUID
+  00000000-0000-0000-0000-000000000001;class-validator validator.isUUID 的 'all' 模式
+  也拒绝 nil UUID。W2 暂用 @IsString 兼容历史数据,W3 数据迁移时统一规范 UUID)
+
+E2E 验证:8/8 全 PASS(8 项)
+报告样本:issuerId=adminId, status=ISSUED, sample.status=ARCHIVED,
+retentionUntil=2027-02-23 (issuedAt + 6 月)
