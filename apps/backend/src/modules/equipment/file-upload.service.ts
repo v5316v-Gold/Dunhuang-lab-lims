@@ -6,10 +6,17 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Prisma, FileCategory } from '@prisma/client';
+import WordExtractor from 'word-extractor';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { MinioService } from '../../infrastructure/minio/minio.service';
 import { SecurityAuditService } from '../../common/audit/security-audit.service';
 import { AuditEventType } from '../../common/audit/audit-event.enum';
+
+/** DOC/DOCX 文本提取结果 */
+export interface DocExtractResult {
+  text: string;
+  meta: { format: 'doc' | 'docx'; wordCount: number; paragraphCount: number };
+}
 
 @Injectable()
 export class FileUploadService {
@@ -22,8 +29,48 @@ export class FileUploadService {
   ) {}
 
   /**
-   * 上传文件 → MinIO + FileAttachment 记录
-   * @returns { id, sha256, category, storagePath }
+   * 判断是否为 Word 文档(.doc/.docx,按扩展名 + MIME 双保险)
+   */
+  static isWordDocument(mimeType: string, originalName: string): boolean {
+    const lower = originalName.toLowerCase();
+    const byMime =
+      mimeType === 'application/msword' ||
+      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.template' ||
+      mimeType === 'application/octet-stream';
+    return lower.endsWith('.doc') || lower.endsWith('.docx') || byMime;
+  }
+
+  /**
+   * 提取 Word 文档正文(word-extractor 支持 .doc(OLE)与 .docx(zip))
+   * 提取失败不阻断上传(返回 null,文件仍正常入库)
+   */
+  async extractDocText(buffer: Buffer, mimeType: string, originalName: string): Promise<DocExtractResult | null> {
+    if (!FileUploadService.isWordDocument(mimeType, originalName)) return null;
+    const isDocx = originalName.toLowerCase().endsWith('.docx');
+    try {
+      const extractor = new WordExtractor();
+      const doc = await extractor.extract(buffer);
+      const raw = doc.getBody() ?? '';
+      const text = raw.trim();
+      if (!text) return null;
+      return {
+        text,
+        meta: {
+          format: isDocx ? 'docx' : 'doc',
+          wordCount: text.split(/\s+/).filter(Boolean).length,
+          paragraphCount: text.split(/\n+/).filter(Boolean).length,
+        },
+      };
+    } catch (err) {
+      this.logger.warn(`DOC 文本提取失败 ${originalName}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 上传文件 → MinIO + FileAttachment 记录(Word 文档自动提取正文)
+   * @returns { id, sha256, category, storagePath, extractedText?, docMeta? }
    */
   async uploadFile(params: {
     originalName: string;
@@ -49,12 +96,23 @@ export class FileUploadService {
       return existing;
     }
 
-    // 3. 存 MinIO
+    // 3. Word 文档自动提取正文(识别)
+    let extractedText: string | null = null;
+    let docMeta: Prisma.InputJsonValue | undefined;
+    if (FileUploadService.isWordDocument(mimeType, originalName)) {
+      const extracted = await this.extractDocText(buffer, mimeType, originalName);
+      if (extracted) {
+        extractedText = extracted.text;
+        docMeta = extracted.meta as unknown as Prisma.InputJsonValue;
+      }
+    }
+
+    // 4. 存 MinIO
     const ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
     const storagePath = `uploads/${category}/${Date.now()}-${sha256.slice(0, 12)}.${ext}`;
     await this.minio.upload('certificates', storagePath, buffer, mimeType);
 
-    // 4. 写 FileAttachment 表
+    // 5. 写 FileAttachment 表
     const record = await this.prisma.fileAttachment.create({
       data: {
         fileName: storagePath,
@@ -66,6 +124,8 @@ export class FileUploadService {
         sha256,
         uploadedById,
         equipmentId,
+        extractedText,
+        docMeta,
       },
     });
 
@@ -75,9 +135,30 @@ export class FileUploadService {
       originalName,
       category,
       size: buffer.length,
+      extracted: extractedText ? { chars: extractedText.length } : undefined,
     });
 
     return record;
+  }
+
+  /** 文件列表(文档中心) */
+  async findAll(params: { category?: FileCategory; page?: number; pageSize?: number }) {
+    const page = params.page ? Number(params.page) : 1;
+    const pageSize = params.pageSize ? Number(params.pageSize) : 20;
+    const where: Prisma.FileAttachmentWhereInput = params.category
+      ? { category: params.category }
+      : {};
+    const [items, total] = await Promise.all([
+      this.prisma.fileAttachment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { uploadedBy: { select: { id: true, username: true, name: true } } },
+      }),
+      this.prisma.fileAttachment.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
   }
 
   /** 按 id 取文件(供下载) */
@@ -87,9 +168,14 @@ export class FileUploadService {
     return f;
   }
 
-  /** 读取文件内容(从 MinIO) */
-  async readFileBuffer(storagePath: string, category: string): Promise<Buffer> {
-    return this.minio.download(category as any, storagePath);
+  /**
+   * 读取文件内容(从 MinIO)
+   * ⚠️ 2026-08-23 修复: 原代码用 category → bucket 映射,但 upload 硬编码存到 'certificates' 桶,
+   *    category 只是 path 前缀(uploads/${category}/...),下载与 category 无关。
+   *    原实现对所有 category 都会 InvalidBucketNameError → 下载 500。
+   */
+  async readFileBuffer(storagePath: string): Promise<Buffer> {
+    return this.minio.download('certificates', storagePath);
   }
 
   /** 按 sha256 查(防伪验证:证书哈希比对) */

@@ -1010,6 +1010,7 @@ enum FileCategory {
   TRAINING_CERT
   METHOD_VALIDATION
   EMERGENCY_PLAN
+  DOCUMENT   // W: DOC/DOCX 文档(委托单/标准/作业指导书)
   OTHER
 }
 
@@ -1024,6 +1025,8 @@ model FileAttachment {
   sha256        String       @db.Char(64)
   uploadedById  String       @map("uploaded_by_id") @db.Uuid
   equipmentId   String?      @map("equipment_id") @db.Uuid
+  extractedText String?      @map("extracted_text") @db.Text    // DOC/DOCX 提取的正文
+  docMeta       Json?        @map("doc_meta")                   // {format, wordCount, paragraphCount}
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
 
   uploadedBy    User?        @relation("FileAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)

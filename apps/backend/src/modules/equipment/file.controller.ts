@@ -6,7 +6,7 @@
 // =====================================================
 
 import {
-  Body, Controller, Get, Param, Post, UploadedFile, UseGuards, UseInterceptors, Res,
+  Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors, Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -50,11 +50,33 @@ export class FileController {
     return this.fileService.verifyBySha256(sha256);
   }
 
+  @Get()
+  @ApiOperation({ summary: '文件列表(文档中心,分页)' })
+  findAll(@Query() filter: { category?: string; page?: number; pageSize?: number }) {
+    return this.fileService.findAll({
+      category: filter.category as any,
+      page: filter.page ? Number(filter.page) : undefined,
+      pageSize: filter.pageSize ? Number(filter.pageSize) : undefined,
+    });
+  }
+
+  @Get(':id/text')
+  @ApiOperation({ summary: '获取 DOC/DOCX 提取的正文文本(识别结果)' })
+  async getText(@Param('id') id: string) {
+    const file = await this.fileService.getFileById(id);
+    return {
+      id: file.id,
+      originalName: file.originalName,
+      extractedText: file.extractedText ?? '',
+      docMeta: file.docMeta ?? null,
+    };
+  }
+
   @Get('download/:id')
   @ApiOperation({ summary: 'W+4-2: 下载/查看文件(校准证书 PDF)' })
   async download(@Param('id') id: string, @Res() res: any) {
     const file = await this.fileService.getFileById(id);
-    const buffer = await this.fileService.readFileBuffer(file.storagePath, file.category as any);
+    const buffer = await this.fileService.readFileBuffer(file.storagePath);
     res.setHeader('Content-Type', file.mimeType ?? 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
     res.setHeader('X-File-SHA256', file.sha256);

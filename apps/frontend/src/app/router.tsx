@@ -32,6 +32,7 @@ const ReportDetailPage = lazy(() =>
 const QcDashboardPage = lazy(() => import('../views/qc/QcDashboard'));
 const AuditLogsPage = lazy(() => import('../views/audit/AuditLogs'));
 const CompliancePage = lazy(() => import('../views/compliance/ComplianceHub'));
+const DocumentsPage = lazy(() => import('../views/documents/DocumentsPage'));
 
 function Loading() {
   return (
@@ -74,6 +75,7 @@ export function AppRouter() {
           <Route path="gas" element={<GasList />} />
           <Route path="waste" element={<WasteList />} />
           <Route path="container" element={<ContainerList />} />
+          <Route path="documents" element={<DocumentsPage />} />
           <Route path="precious-metal" element={<PreciousMetalList />} />
           <Route path="scan" element={<ScanPage />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />

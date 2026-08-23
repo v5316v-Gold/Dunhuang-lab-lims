@@ -29,6 +29,7 @@ import {
   ClusterOutlined,
   FileSearchOutlined,
   FileDoneOutlined,
+  FileWordOutlined,
   ToolOutlined,
   TeamOutlined,
   CloudOutlined,
@@ -89,6 +90,7 @@ const menuGroups = [
       { key: '/gas', icon: <CloudOutlined />, label: <Link to="/gas">气体管理</Link> },
       { key: '/waste', icon: <GoldOutlined />, label: <Link to="/waste">危废管理</Link> },
       { key: '/container', icon: <ContainerOutlined />, label: <Link to="/container">容器管理</Link> },
+      { key: '/documents', icon: <FileWordOutlined />, label: <Link to="/documents">文档中心</Link> },
     ],
   },
   {

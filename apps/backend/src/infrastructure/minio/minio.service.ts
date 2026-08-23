@@ -54,6 +54,10 @@ export class MinioService implements OnModuleInit {
 
   /**
    * 上传文件
+   * ⚠️ 2026-08-23 修复: 移除 X-Amz-Server-Side-Encryption: AES256 头 —
+   *    本地 MinIO 未配置 KMS 时该头必失败(SSE 与 KMS 绑定),
+   *    导致所有文件上传 500(存量问题,自文件功能上线即存在)。
+   *    完整性由应用层 FileAttachment.sha256 保证。
    */
   async upload(
     bucket: BucketName,
@@ -64,7 +68,6 @@ export class MinioService implements OnModuleInit {
     const bucketName = this.buckets[bucket];
     await this.client.putObject(bucketName, path, buffer, buffer.length, {
       'Content-Type': mimeType,
-      'X-Amz-Server-Side-Encryption': 'AES256',
     });
     return path;
   }
