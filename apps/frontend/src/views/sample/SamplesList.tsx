@@ -65,7 +65,7 @@ export default function SamplesListPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [filters, setFilters] = useState<{ customerName?: string; sampleType?: SampleType; status?: SampleStatus }>({});
+  const [filters, setFilters] = useState<{ sampleNo?: string; customerName?: string; sampleType?: SampleType; status?: SampleStatus }>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ['samples', page, pageSize, filters],
@@ -121,10 +121,17 @@ export default function SamplesListPage() {
       />
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
+          placeholder="样品编号"
+          allowClear
+          prefix={<SearchOutlined />}
+          style={{ width: 180 }}
+          onChange={(e) => setFilters((f) => ({ ...f, sampleNo: e.target.value }))}
+        />
+        <Input
           placeholder="客户名称"
           allowClear
           prefix={<SearchOutlined />}
-          style={{ width: 200 }}
+          style={{ width: 180 }}
           onChange={(e) => setFilters((f) => ({ ...f, customerName: e.target.value }))}
         />
         <Select
@@ -138,7 +145,7 @@ export default function SamplesListPage() {
           placeholder="状态"
           allowClear
           style={{ width: 150 }}
-          options={Object.entries(statusColorMap).map(([k, v]) => ({ value: k, label: k }))}
+          options={Object.entries(statusLabelMap).map(([k, v]) => ({ value: k, label: v }))}
           onChange={(v) => setFilters((f) => ({ ...f, status: v as SampleStatus }))}
         />
       </Space>

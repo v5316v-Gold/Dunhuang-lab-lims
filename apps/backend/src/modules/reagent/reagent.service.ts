@@ -61,6 +61,28 @@ export class ReagentService {
     });
   }
 
+  /** 试剂详情(含批次) */
+  async findOne(id: string) {
+    const reagent = await this.prisma.reagent.findUnique({
+      where: { id },
+      include: {
+        lots: {
+          orderBy: { receivedDate: 'desc' },
+        },
+      },
+    });
+    if (!reagent || reagent.deletedAt) throw new NotFoundException(`试剂 ${id} 不存在`);
+    return reagent;
+  }
+
+  /** 试剂所有批次(扁平,用于批次/领用弹窗选择) */
+  async findLots(reagentId: string) {
+    return this.prisma.reagentLot.findMany({
+      where: { reagentId },
+      orderBy: { receivedDate: 'desc' },
+    });
+  }
+
   async recordUsage(reagentLotId: string, data: { quantity: string; testId?: string; operatorId: string; remarks?: string }) {
     const lot = await this.prisma.reagentLot.findUnique({ where: { id: reagentLotId } });
     if (!lot) throw new NotFoundException('批次不存在');

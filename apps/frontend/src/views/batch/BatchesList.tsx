@@ -325,8 +325,38 @@ export default function BatchesListPage() {
           >
             <Input placeholder="如: FUR-001" />
           </Form.Item>
+
+          <Form.Item
+            label="QC 标准物质(可选)"
+            name="qcSampleId"
+            extra="关联标准物质做批次 QC 回收率监控"
+          >
+            <RmSelect />
+          </Form.Item>
         </Form>
       </Modal>
     </div>
+  );
+}
+
+/** QC 标准物质远程下拉 */
+function RmSelect({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['rm-options'],
+    queryFn: async () => (await api.get('/reference-material', { params: { activeOnly: 'true', pageSize: 100 } })).data,
+  });
+  const rows = data?.data ?? data?.items ?? [];
+  return (
+    <Select
+      showSearch
+      allowClear
+      value={value}
+      onChange={onChange}
+      loading={isLoading}
+      optionFilterProp="label"
+      placeholder="选择标准物质"
+      options={rows.map((r: any) => ({ value: r.id, label: `${r.rmNo ?? r.name ?? r.id}${r.element ? `(${r.element})` : ''}` }))}
+      style={{ width: '100%' }}
+    />
   );
 }

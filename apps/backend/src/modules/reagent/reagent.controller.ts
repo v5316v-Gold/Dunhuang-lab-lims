@@ -62,4 +62,16 @@ export class ReagentController {
   alerts() {
     return this.reagentService.getAlerts();
   }
+
+  @Get(':id')
+  @ApiOperation({ summary: '查询试剂详情(含批次 + 领用记录)' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.reagentService.findOne(id);
+  }
+
+  @Get(':id/lots')
+  @ApiOperation({ summary: '查询试剂所有批次(含领用记录)' })
+  findLots(@Param('id', ParseUUIDPipe) id: string) {
+    return this.reagentService.findLots(id);
+  }
 }

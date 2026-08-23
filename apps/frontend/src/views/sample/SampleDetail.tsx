@@ -1,16 +1,18 @@
 // =====================================================
-// 样品详情页 — Phase 3 页面交互完善(②)
-// 功能: 详情展示 + 状态机推进(9 态)+ 历史轨迹
+// 样品详情页 — 交互完善(编辑 + 留样登记/销毁 + 真正生成报告 + 跨页跳转)
 // 样式: 设计令牌(墨黑+辉金)
 // =====================================================
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Button, Card, Descriptions, Space, Tag, Timeline, message, Spin, Empty,
+  Button, Card, Descriptions, Space, Tag, Timeline, message, Spin, Empty, Modal, Form, Input, InputNumber, Select, Alert, Popconfirm,
 } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined, EditOutlined, InboxOutlined, DeleteOutlined, FileAddOutlined, FileTextOutlined,
+} from '@ant-design/icons';
 import { api } from '../../data/api';
+import { MfaChallengeModal } from '../../components/MfaChallengeModal';
 
 interface SampleDetail {
   id: string;
@@ -19,37 +21,36 @@ interface SampleDetail {
   customerRef?: string;
   sampleType: string;
   weightG: string;
+  declaredPurityPct?: string;
+  storageLocation?: string;
+  remarks?: string;
   status: string;
   receivedAt: string;
+  retentionUntil?: string;
   receivedBy?: { name: string };
-  batch?: { batchNo: string };
+  batch?: { id: string; batchNo: string };
   tests?: Array<{ id: string; method: string; status: string; purityPct?: string }>;
+  reports?: Array<{ id: string; reportNo: string; status: string }>;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  RECEIVED: 'var(--info)',
-  BATCHED: 'var(--gold)',
-  IN_TEST: 'var(--warning)',
-  TESTED: 'var(--success)',
-  REPORT_DRAFT: 'var(--text-secondary)',
-  REPORT_REVIEW: 'var(--info)',
-  REPORT_APPROVED: 'var(--success)',
-  ARCHIVED: 'var(--text-muted)',
-  REJECTED: 'var(--error)',
+const STATUS_META: Record<string, { color: string; label: string }> = {
+  RECEIVED: { color: 'blue', label: '已接收' },
+  BATCHED: { color: 'cyan', label: '已分批' },
+  IN_TEST: { color: 'gold', label: '检测中' },
+  TESTED: { color: 'green', label: '已检测' },
+  REPORT_DRAFT: { color: 'default', label: '报告草稿' },
+  REPORT_REVIEW: { color: 'orange', label: '报告审核' },
+  REPORT_APPROVED: { color: 'purple', label: '报告已批' },
+  ARCHIVED: { color: 'geekblue', label: '已留样' },
+  REJECTED: { color: 'red', label: '已拒收' },
+  DISPOSED: { color: 'red', label: '已处置' },
 };
 
-/** 9 态可用动作(纯前端映射,与后端 state-machine 一致) */
-const NEXT_ACTIONS: Record<string, Array<{ event: string; label: string; to: string; danger?: boolean }>> = {
-  RECEIVED: [{ event: 'TO_BATCH', label: '加入批次', to: 'BATCHED' }],
-  BATCHED: [{ event: 'START_TEST', label: '开始检测', to: 'IN_TEST' }],
-  IN_TEST: [{ event: 'COMPLETE_TEST', label: '完成检测', to: 'TESTED' }],
-  TESTED: [{ event: 'TO_REPORT_DRAFT', label: '生成报告草稿', to: 'REPORT_DRAFT' }],
-  REPORT_DRAFT: [{ event: 'SUBMIT_REVIEW', label: '提交审核', to: 'REPORT_REVIEW' }],
-  REPORT_REVIEW: [{ event: 'APPROVE', label: '审核通过', to: 'REPORT_APPROVED' }, { event: 'REVIEW_REJECT', label: '驳回', to: 'REPORT_DRAFT', danger: true }],
-  REPORT_APPROVED: [{ event: 'ARCHIVE', label: '归档', to: 'ARCHIVED' }],
-  ARCHIVED: [],
-  REJECTED: [],
-};
+const DISPOSE_METHODS = [
+  { value: 'INCINERATION', label: '焚烧' },
+  { value: 'ACID_DISSOLUTION', label: '酸溶回收' },
+  { value: 'RETURN_CUSTOMER', label: '退还客户' },
+];
 
 export function SampleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +58,14 @@ export function SampleDetail() {
   const [detail, setDetail] = useState<SampleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [disposeOpen, setDisposeOpen] = useState(false);
+  const [mfaOpen, setMfaOpen] = useState(false);
+  const [disposeForm] = Form.useForm();
+  const [editForm] = Form.useForm();
+  const [archiveForm] = Form.useForm();
+  const [users, setUsers] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +83,14 @@ export function SampleDetail() {
     load();
   }, [load]);
 
+  // 留样销毁需要选择双人审批的批准人
+  const loadUsers = async () => {
+    try {
+      const res = await api.get('/users', { params: { pageSize: 100 } });
+      setUsers(res.data?.data ?? []);
+    } catch { /* ignore */ }
+  };
+
   const doTransition = async (event: string) => {
     setActing(true);
     try {
@@ -84,6 +101,61 @@ export function SampleDetail() {
       message.error(e?.response?.data?.message || '状态转换失败');
     } finally {
       setActing(false);
+    }
+  };
+
+  // TESTED → 真正创建报告草稿(POST /reports)并跳转报告详情
+  const createReport = async () => {
+    setActing(true);
+    try {
+      const res = await api.post('/reports', { sampleId: id });
+      message.success('报告草稿已生成');
+      await load();
+      navigate(`/reports/${res.data.id}`);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '生成报告失败');
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    const values = await editForm.validateFields().catch(() => null);
+    if (!values) return;
+    try {
+      await api.patch(`/samples/${id}`, values);
+      message.success('样品信息已更新');
+      setEditOpen(false);
+      await load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '保存失败');
+    }
+  };
+
+  const submitArchive = async () => {
+    const values = await archiveForm.validateFields().catch(() => null);
+    if (!values) return;
+    try {
+      await api.post(`/samples/${id}/archive`, values);
+      message.success('留样登记完成,样品已归档');
+      setArchiveOpen(false);
+      await load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '留样登记失败');
+    }
+  };
+
+  const submitDispose = async (mfaToken: string) => {
+    const values = await disposeForm.validateFields().catch(() => null);
+    if (!values) return;
+    try {
+      await api.post(`/samples/${id}/dispose-retention`, values, { headers: { 'x-mfa-token': mfaToken } });
+      message.success('留样销毁已登记');
+      setDisposeOpen(false);
+      setMfaOpen(false);
+      await load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || '销毁失败');
     }
   };
 
@@ -103,13 +175,13 @@ export function SampleDetail() {
     );
   }
 
-  const actions = NEXT_ACTIONS[detail.status] ?? [];
+  const meta = STATUS_META[detail.status] ?? { color: 'default', label: detail.status };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* 头部 */}
       <Card style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-        <Space style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Space style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Space>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/samples')} />
             <div>
@@ -122,21 +194,41 @@ export function SampleDetail() {
             </div>
           </Space>
           <Space wrap>
-            <Tag style={{ color: STATUS_COLOR[detail.status] ?? 'var(--text-muted)', fontSize: 14, padding: '4px 12px' }}>
-              {detail.status}
-            </Tag>
-            {actions.map((a) => (
-              <Button
-                key={a.event}
-                type={a.danger ? 'default' : 'primary'}
-                danger={a.danger}
-                loading={acting}
-                onClick={() => doTransition(a.event)}
-                style={!a.danger ? { background: 'var(--gold)', borderColor: 'var(--gold)' } : undefined}
-              >
-                {a.label} → {a.to}
+            <Tag color={meta.color} style={{ fontSize: 14, padding: '4px 12px' }}>{meta.label}</Tag>
+            <Button icon={<EditOutlined />} onClick={() => { editForm.setFieldsValue({ storageLocation: detail.storageLocation, remarks: detail.remarks }); setEditOpen(true); }}>
+              编辑
+            </Button>
+            {/* 状态机动作 */}
+            {detail.status === 'RECEIVED' && (
+              <Button type="primary" style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }} onClick={() => navigate('/batches')}>
+                去批次管理加入批次
               </Button>
-            ))}
+            )}
+            {detail.status === 'BATCHED' && (
+              <Button type="primary" style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }} loading={acting} onClick={() => doTransition('START_TEST')}>
+                开始检测
+              </Button>
+            )}
+            {detail.status === 'IN_TEST' && (
+              <Button type="primary" style={{ background: 'var(--gold)', borderColor: 'var(--gold)' }} loading={acting} onClick={() => doTransition('COMPLETE_TEST')}>
+                完成检测
+              </Button>
+            )}
+            {detail.status === 'TESTED' && (
+              <Button type="primary" icon={<FileAddOutlined />} loading={acting} onClick={createReport}>
+                生成报告草稿
+              </Button>
+            )}
+            {(detail.status === 'TESTED' || detail.status === 'REPORT_DRAFT' || detail.status === 'REPORT_REVIEW' || detail.status === 'REPORT_APPROVED') && (
+              <Button icon={<InboxOutlined />} onClick={() => { archiveForm.resetFields(); setArchiveOpen(true); }}>
+                留样登记
+              </Button>
+            )}
+            {detail.status === 'ARCHIVED' && (
+              <Button danger icon={<DeleteOutlined />} onClick={() => { loadUsers(); disposeForm.resetFields(); setDisposeOpen(true); }}>
+                留样销毁
+              </Button>
+            )}
           </Space>
         </Space>
       </Card>
@@ -157,16 +249,28 @@ export function SampleDetail() {
           <Descriptions.Item label="接收重量(g)">
             <span style={{ color: 'var(--gold)' }}>{detail.weightG}</span>
           </Descriptions.Item>
+          <Descriptions.Item label="声明纯度">{detail.declaredPurityPct ? `${detail.declaredPurityPct}%` : '—'}</Descriptions.Item>
           <Descriptions.Item label="所属批次">
-            {detail.batch ? <Tag style={{ color: 'var(--gold)' }}>{detail.batch.batchNo}</Tag> : '—'}
+            {detail.batch ? (
+              <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/batches/${detail.batch!.id}`)}>
+                {detail.batch.batchNo}
+              </Button>
+            ) : '—'}
           </Descriptions.Item>
+          <Descriptions.Item label="留样位置">{detail.storageLocation ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="留样到期">{detail.retentionUntil ? new Date(detail.retentionUntil).toLocaleDateString('zh-CN') : '—'}</Descriptions.Item>
           <Descriptions.Item label="接收人">{detail.receivedBy?.name ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="备注" span={2}>{detail.remarks ?? '—'}</Descriptions.Item>
         </Descriptions>
       </Card>
 
       {/* 检测任务 */}
       {detail.tests && detail.tests.length > 0 && (
-        <Card title="检测任务" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <Card
+          title="检测任务"
+          extra={<Button size="small" type="link" onClick={() => navigate('/tests')}>检测任务列表</Button>}
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        >
           {detail.tests.map((t) => (
             <div
               key={t.id}
@@ -175,38 +279,102 @@ export function SampleDetail() {
                 marginBottom: 8,
                 background: 'var(--bg-tertiary)',
                 borderRadius: 6,
-                borderLeft: `3px solid ${STATUS_COLOR[t.status] ?? 'var(--text-muted)'}`,
+                borderLeft: `3px solid ${STATUS_META[t.status]?.color ?? 'var(--text-muted)'}`,
+                display: 'flex',
+                justifyContent: 'space-between',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-primary)' }}>{t.method}</span>
-                <span style={{ color: STATUS_COLOR[t.status] ?? 'var(--text-muted)' }}>{t.status}</span>
-              </div>
-              {t.purityPct && (
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
-                  纯度: <span style={{ color: 'var(--gold)' }}>{t.purityPct}%</span>
-                </div>
-              )}
+              <span style={{ color: 'var(--text-primary)' }}>
+                <Tag color={t.method === 'FIRE_ASSAY' ? 'gold' : 'cyan'}>{t.method === 'FIRE_ASSAY' ? '火试金' : t.method}</Tag>
+                {t.purityPct && <span style={{ color: 'var(--gold)', fontFamily: 'monospace' }}>{parseFloat(String(t.purityPct)).toFixed(4)}%</span>}
+              </span>
+              <span style={{ color: STATUS_META[t.status]?.color ?? 'var(--text-muted)' }}>{STATUS_META[t.status]?.label ?? t.status}</span>
             </div>
           ))}
         </Card>
       )}
 
-      {/* 状态机时间线 */}
-      <Card title="状态流转示意" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+      {/* 报告 */}
+      {detail.reports && detail.reports.length > 0 && (
+        <Card title="检测报告" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+          {detail.reports.map((r) => (
+            <Button key={r.id} type="link" icon={<FileTextOutlined />} onClick={() => navigate(`/reports/${r.id}`)}>
+              {r.reportNo} · {r.status}
+            </Button>
+          ))}
+        </Card>
+      )}
+
+      {/* 状态机时间线(按当前状态高亮) */}
+      <Card title="状态流转" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
         <Timeline
           items={[
             { color: 'green', children: 'RECEIVED 已接收' },
-            { color: 'gold', children: 'BATCHED 已分批' },
-            { color: 'orange', children: 'IN_TEST 检测中' },
-            { color: 'blue', children: 'TESTED 已检测' },
-            { color: 'purple', children: 'REPORT_DRAFT 报告草稿' },
-            { color: 'cyan', children: 'REPORT_REVIEW 报告审核' },
-            { color: 'green', children: 'REPORT_APPROVED 报告已批' },
-            { color: 'gray', children: 'ARCHIVED 已归档' },
+            { color: detail.status === 'BATCHED' ? '#ff4d4f' : 'blue', children: 'BATCHED 已分批' },
+            { color: detail.status === 'IN_TEST' ? '#ff4d4f' : 'blue', children: 'IN_TEST 检测中' },
+            { color: detail.status === 'TESTED' ? '#ff4d4f' : 'blue', children: 'TESTED 已检测' },
+            { color: detail.status.startsWith('REPORT') ? '#ff4d4f' : 'blue', children: 'REPORT 报告流转' },
+            { color: detail.status === 'ARCHIVED' ? '#ff4d4f' : 'gray', children: 'ARCHIVED 已留样' },
           ]}
         />
       </Card>
+
+      {/* 编辑弹窗 */}
+      <Modal title={`编辑样品(${detail.sampleNo})`} open={editOpen} onCancel={() => setEditOpen(false)} onOk={saveEdit} okText="保存" cancelText="取消">
+        <Form form={editForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="留样位置" name="storageLocation">
+            <Input placeholder="如:留样柜 A-3-12" />
+          </Form.Item>
+          <Form.Item label="备注" name="remarks">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 留样登记弹窗 */}
+      <Modal title="留样登记" open={archiveOpen} onCancel={() => setArchiveOpen(false)} onOk={submitArchive} okText="登记归档" cancelText="取消">
+        <Alert type="info" showIcon message="登记后样品状态 → ARCHIVED,并计算留样到期日。" style={{ marginBottom: 16 }} />
+        <Form form={archiveForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="留样位置" name="location" rules={[{ required: true, message: '留样位置必填' }]}>
+            <Input placeholder="如:留样柜 A-3-12" />
+          </Form.Item>
+          <Form.Item label="留样期(月)" name="months" initialValue={6}>
+            <InputNumber min={1} max={120} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 留样销毁弹窗 */}
+      <Modal
+        title="留样销毁(双人审批)"
+        open={disposeOpen && !mfaOpen}
+        onCancel={() => setDisposeOpen(false)}
+        onOk={() => setMfaOpen(true)}
+        okText="下一步(MFA 验证)"
+        cancelText="取消"
+      >
+        <Alert type="warning" showIcon message="留样销毁需批准人 + MFA 二次验证(CNAS §7.4)。" style={{ marginBottom: 16 }} />
+        <Form form={disposeForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="批准人" name="approveById" rules={[{ required: true, message: '请选择批准人' }]}>
+            <Select
+              showSearch optionFilterProp="label"
+              placeholder="选择批准人"
+              options={users.map((u: any) => ({ value: u.id, label: `${u.name ?? u.username}(${u.role ?? ''})` }))}
+            />
+          </Form.Item>
+          <Form.Item label="销毁方式" name="method" rules={[{ required: true }]} initialValue="INCINERATION">
+            <Select options={DISPOSE_METHODS} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <MfaChallengeModal
+        open={mfaOpen}
+        title="MFA 二次验证 · 留样销毁"
+        description="留样销毁为敏感操作,需二次验证。"
+        onCancel={() => setMfaOpen(false)}
+        onConfirm={submitDispose}
+      />
     </div>
   );
 }

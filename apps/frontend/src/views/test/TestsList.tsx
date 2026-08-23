@@ -6,16 +6,18 @@
 
 import { useState } from 'react';
 import {
-  Button, Form, Modal, Select, Table, Tag, Space, App, Tooltip,
+  Button, Form, Modal, Select, Table, Tag, Space, App, Tooltip, Popconfirm,
 } from 'antd';
 import {
-  PlusOutlined, FileSearchOutlined, FileTextOutlined, EyeOutlined, LinkOutlined,
+  PlusOutlined, FileSearchOutlined, FileTextOutlined, EyeOutlined, LinkOutlined, EditOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
 import { DataTable } from '../../components/DataTable';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import ElementResultForm from './ElementResultForm';
+import { MfaChallengeModal } from '../../components/MfaChallengeModal';
 
 interface TestRow {
   id: string;
@@ -51,6 +53,7 @@ export function TestsList() {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm();
+  const [elementTestId, setElementTestId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['tests', page, method, status],
@@ -70,6 +73,16 @@ export function TestsList() {
       navigate(`/raw-records/${sheet.id}`);
     },
     onError: (e: any) => message.error(e?.response?.data?.message ?? '生成失败'),
+  });
+
+  // ICP: 录完元素后手动完成检测
+  const completeMut = useMutation({
+    mutationFn: async (testId: string) => (await api.post(`/tests/icp/${testId}/complete`)).data,
+    onSuccess: () => {
+      message.success('检测已完成,样品状态已推进');
+      qc.invalidateQueries({ queryKey: ['tests'] });
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '完成失败(请先录入元素结果)'),
   });
 
   const create = async () => {
@@ -115,9 +128,21 @@ export function TestsList() {
       render: (_: any, r: TestRow) => (r.completedAt ? new Date(r.completedAt).toLocaleString('zh-CN', { hour12: false }) : '—'),
     },
     {
-      title: '操作', width: 150, fixed: 'right' as const,
+      title: '操作', width: 210, fixed: 'right' as const,
       render: (_: any, r: TestRow) => (
         <Space size={4}>
+          {r.method === 'ICP_OES' && r.status !== 'COMPLETED' && r.status !== 'QC_FAILED' && (
+            <Tooltip title="ICP 多元素录入(含校准曲线 R²,批量提交)">
+              <Button size="small" icon={<EditOutlined />} onClick={() => setElementTestId(r.id)}>元素录入</Button>
+            </Tooltip>
+          )}
+          {r.method === 'ICP_OES' && r.status !== 'COMPLETED' && (
+            <Tooltip title="元素录入完毕后完成检测">
+              <Popconfirm title="确认完成检测?完成后生成原始记录单入口。" onConfirm={() => completeMut.mutate(r.id)}>
+                <Button size="small" type="primary" ghost loading={completeMut.isPending}>完成</Button>
+              </Popconfirm>
+            </Tooltip>
+          )}
           {r.status === 'COMPLETED' && (
             <Tooltip title="检测完成 → 生成原始记录单(数据快照冻结)">
               <Button
@@ -206,6 +231,16 @@ export function TestsList() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* ICP 多元素批量录入(含校准曲线 R²) */}
+      {elementTestId && (
+        <ElementResultForm
+          open={!!elementTestId}
+          testId={elementTestId}
+          onClose={() => setElementTestId(null)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['tests'] })}
+        />
+      )}
     </div>
   );
 }

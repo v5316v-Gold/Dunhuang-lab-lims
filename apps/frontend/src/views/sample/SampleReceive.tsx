@@ -55,9 +55,11 @@ export default function SampleReceivePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ sampleNo: string; id: string } | null>(null);
+  const [lastCustomerName, setLastCustomerName] = useState<string>('');
   const currentUser = useAuthStore((s) => s.user);
 
-  const onFinish = async (values: FormValues) => {
+  // 保存成功 → 返回 false 表示"继续录入下一份"(重置表单保留客户名)
+  const submitSample = async (values: FormValues): Promise<{ id: string; sampleNo: string } | null> => {
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -78,14 +80,8 @@ export default function SampleReceivePage() {
         '/samples',
         payload,
       );
-
-      setSuccess({ sampleNo: data.sampleNo, id: data.id });
-      message.success(`✅ 接收成功,样品编号: ${data.sampleNo}`);
-
-      // 不立刻跳转,让用户看到成功消息
-      setTimeout(() => navigate('/samples'), 1500);
+      return { id: data.id, sampleNo: data.sampleNo };
     } catch (err: any) {
-      // axios 拦截器已经把 message.error() 弹了,这里再显示一个详细 alert
       const msg =
         err.response?.data?.message
           ? Array.isArray(err.response.data.message)
@@ -93,9 +89,29 @@ export default function SampleReceivePage() {
             : err.response.data.message
           : '接收失败';
       setError(msg);
+      return null;
     } finally {
       setLoading(false);
     }
+  };
+
+  // 保存并跳转列表
+  const onFinish = async (values: FormValues) => {
+    const data = await submitSample(values);
+    if (!data) return;
+    setSuccess({ sampleNo: data.sampleNo, id: data.id });
+    message.success(`✅ 接收成功,样品编号: ${data.sampleNo}`);
+    setTimeout(() => navigate('/samples'), 1200);
+  };
+
+  // 保存并继续录入下一份(现场批量收样)
+  const onFinishAndContinue = async (values: FormValues) => {
+    const data = await submitSample(values);
+    if (!data) return;
+    message.success(`✅ 已接收 ${data.sampleNo},继续录入下一份`);
+    setLastCustomerName(values.customerName);
+    form.resetFields();
+    form.setFieldsValue({ customerName: values.customerName, sampleType: values.sampleType, declaredPurityPct: values.declaredPurityPct });
   };
 
   return (
@@ -247,14 +263,24 @@ export default function SampleReceivePage() {
           </Form.Item>
 
           <Form.Item>
-            <Space>
+            <Space wrap>
               <Button
                 type="primary"
                 htmlType="submit"
                 loading={loading}
                 size="large"
               >
-                提交接收
+                提交并返回列表
+              </Button>
+              <Button
+                size="large"
+                loading={loading}
+                onClick={async () => {
+                  const values = await form.validateFields().catch(() => null);
+                  if (values) await onFinishAndContinue(values);
+                }}
+              >
+                保存并继续录入下一份
               </Button>
               <Button
                 onClick={() => {

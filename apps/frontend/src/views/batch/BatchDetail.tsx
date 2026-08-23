@@ -210,11 +210,14 @@ export default function BatchDetailPage() {
     enabled: !!id,
   });
 
-  // 可加入的样品(状态 = RECEIVED 且未分批)
+  // 可加入的样品(状态 = RECEIVED 且未分批,支持按编号/客户搜索)
+  const [sampleSearch, setSampleSearch] = useState('');
   const { data: availableSamples } = useQuery({
-    queryKey: ['available-samples'],
+    queryKey: ['available-samples', sampleSearch],
     queryFn: async () => {
-      const r = await api.get('/samples', { params: { status: 'RECEIVED', pageSize: 100 } });
+      const params: any = { status: 'RECEIVED', pageSize: 100 };
+      if (sampleSearch) params.sampleNo = sampleSearch;
+      const r = await api.get('/samples', { params });
       // 过滤掉已分批的(后端查询可能不过滤)
       return r.data.data.filter((s: SampleToAdd) => s.status === 'RECEIVED');
     },
@@ -333,6 +336,17 @@ export default function BatchDetailPage() {
                   // WEIGHING 状态:先弹称重录入表单,称重完成后再推进
                   if (batch.status === 'WEIGHING' && batch.method === 'FIRE_ASSAY') {
                     setFireAssayOpen(true);
+                    return;
+                  }
+                  // 非火试金(ICP 等)在 WEIGHING 时:提示去检测任务页录入元素结果
+                  if (batch.status === 'WEIGHING' && batch.method !== 'FIRE_ASSAY') {
+                    Modal.confirm({
+                      title: '非火试金方法无需称重',
+                      content: 'ICP 等方法应在「检测任务」页完成多元素录入与检测完成操作,随后回到本页推进。现在跳转?',
+                      okText: '去检测任务页',
+                      cancelText: '留在本页',
+                      onOk: () => navigate('/tests'),
+                    });
                     return;
                   }
                   setConfirmAction({ action: next.action, label: next.label });
@@ -561,6 +575,13 @@ export default function BatchDetailPage() {
           showIcon
           style={{ marginBottom: 12 }}
           message="只能加入状态为「已接收」且未分批的样品"
+        />
+        <Input.Search
+          allowClear
+          placeholder="按样品编号搜索(如 260823-…)"
+          value={sampleSearch}
+          onChange={(e) => setSampleSearch(e.target.value)}
+          style={{ marginBottom: 12, maxWidth: 360 }}
         />
         <Table
           rowKey="id"

@@ -9,7 +9,7 @@ import {
   Button, Form, Input, InputNumber, Select, Table, Tag, Space, Modal, message, Row, Col, Statistic, Divider, Radio,
 } from 'antd';
 import {
-  PlusOutlined, AlertOutlined, TruckOutlined, FireOutlined, GoldOutlined, DeleteOutlined,
+  PlusOutlined, AlertOutlined, TruckOutlined, FireOutlined, GoldOutlined,
 } from '@ant-design/icons';
 import { api } from '../../data/api';
 import { PageHeader } from '../../components/PageHeader';
@@ -270,24 +270,6 @@ export function WasteList() {
               onClick={() => {
                 setCurrentRecord(r);
                 setDisposeOpen(true);
-              }}
-            >
-              处置
-            </Button>
-          )}
-          {(r.status === 'STORED' || r.status === 'TRANSFERRED') && (
-            <Button
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={async () => {
-                try {
-                  await api.post(`/waste/${r.id}/dispose`, { method: '其他方式处置', recoveredGoldWeightG: '0' });
-                  message.success('已处置');
-                  load(1, pageSize);
-                } catch (e: any) {
-                  message.error('处置失败:' + (e?.response?.data?.message ?? e?.message));
-                }
               }}
             >
               处置

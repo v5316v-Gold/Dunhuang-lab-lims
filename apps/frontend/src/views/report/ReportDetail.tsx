@@ -142,23 +142,47 @@ export function ReportDetail() {
       const ch = await api.post('/auth/mfa/challenge', { code: mfaCode });
       const mfaToken = ch.data?.mfaToken;
       if (!mfaToken) throw new Error('未获取到 MFA token');
-      await api.post(
-        `/reports/${id}/transition`,
-        { action: mfaModal.action, comments: mfaModal.comments },
-        { headers: { 'x-mfa-token': mfaToken } },
-      );
-      message.success('操作成功');
+      if (mfaModal.action === '__SIGN__') {
+        // 电子签名(21 CFR Part 11 §11.50):签名数据 + 证书序列号
+        const user = useAuthStore.getState().user;
+        await api.post(
+          `/reports/${id}/sign`,
+          {
+            signatureData: `${user?.name ?? user?.username ?? 'unknown'}|${new Date().toISOString()}`,
+            certificateSerial: 'CNAS-DEMO-CA-001',
+          },
+          { headers: { 'x-mfa-token': mfaToken } },
+        );
+        message.success('电子签名已登记(21 CFR Part 11)');
+      } else {
+        await api.post(
+          `/reports/${id}/transition`,
+          { action: mfaModal.action, comments: mfaModal.comments },
+          { headers: { 'x-mfa-token': mfaToken } },
+        );
+        message.success('操作成功');
+      }
       setMfaModal(null);
       setMfaCode('');
       setRejectModal({ visible: false, action: '' });
       setComment('');
       await load();
     } catch (e: any) {
-      // 错误提示由 api 拦截器统一处理(避免双 toast);
-      // MFA_NOT_ENABLED 时后端 message 已含操作指引
+      message.error(e?.response?.data?.message ?? 'MFA 验证失败,请重试');
     } finally {
       setMfaBusy(false);
     }
+  };
+
+  // 本人电子签名(签字链,角色 = 当前登录角色)
+  const doSign = () => {
+    const user = useAuthStore.getState().user;
+    if (!user?.mfaEnabled) {
+      message.warning('该操作需要 MFA 二次验证,请先在右上角"账号安全 · 启用 MFA"完成绑定');
+      return;
+    }
+    setMfaModal({ action: '__SIGN__' });
+    setMfaCode('');
   };
 
   // 打开编辑弹窗
@@ -279,9 +303,9 @@ export function ReportDetail() {
             {detail.status !== 'ISSUED' && detail.status !== 'SUPERSEDED' && (
               <Button icon={<EditOutlined />} onClick={openEdit}>编辑内容</Button>
             )}
-            {/* 下载/预览 PDF */}
-            <Button icon={<DownloadOutlined />} onClick={downloadPdf}>下载</Button>
-            <Button icon={<EyeOutlined />} onClick={previewPdf}>预览</Button>
+            {/* 下载/预览 PDF(仅签发后可下载) */}
+            <Button icon={<DownloadOutlined />} disabled={detail.status !== 'ISSUED'} onClick={downloadPdf}>下载</Button>
+            <Button icon={<EyeOutlined />} disabled={detail.status !== 'ISSUED'} onClick={previewPdf}>预览</Button>
           </Space>
         </Space>
       </Card>
@@ -364,6 +388,11 @@ export function ReportDetail() {
       <Card
         title="签字链(CNAS-CL01 强制 6 角色互斥)"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        extra={
+          <Button size="small" type="primary" ghost onClick={doSign}>
+            本人电子签名
+          </Button>
+        }
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
           {(['submitter', 'reviewer', 'approver', 'authorizer', 'issuer'] as const).map((role) => {
@@ -415,7 +444,13 @@ export function ReportDetail() {
         title="驳回报告"
         open={rejectModal.visible}
         onCancel={() => setRejectModal({ visible: false, action: '' })}
-        onOk={() => doAction(rejectModal.action, comment || '驳回')}
+        onOk={() => {
+          if (!comment.trim()) {
+            message.warning('驳回原因必填');
+            return;
+          }
+          doAction(rejectModal.action, comment.trim());
+        }}
         okText="确认驳回"
         okButtonProps={{ danger: true }}
       >
