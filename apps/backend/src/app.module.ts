@@ -42,7 +42,9 @@ import { EquipmentModule } from './modules/equipment/equipment.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { InstrumentDataModule } from './modules/instrument/instrument-data.module';
 import { PersonnelModule } from './modules/personnel/personnel.module';
+import { ProficiencyTestModule } from './modules/proficiency-test/proficiency-test.module';
 import { QcModule } from './modules/qc/qc.module';
+import { RawRecordModule } from './modules/raw-record/raw-record.module';
 import { ReagentModule } from './modules/reagent/reagent.module';
 import { ReportModule } from './modules/report/report.module';
 import { SampleModule } from './modules/sample/sample.module';
@@ -112,6 +114,8 @@ import { SopModule } from './modules/test/sop/sop.module';
     AuthorizedSignatoryModule,
     FeishuImportModule,
     DashboardModule,
+    ProficiencyTestModule,
+    RawRecordModule,
     ReagentModule,
     EhsModule,
     PreciousMetalModule,

@@ -124,6 +124,9 @@ model User {
   inventoryReviews       InventoryTransaction[]   @relation("InvTxReviewer")
   testParticipations     TestParticipant[]
   entityAttachments      EntityAttachment[]       @relation("EntityAttachmentUser")
+  rrsOperator            RawRecordSheet[]         @relation("RrsOperator")
+  rrsReviewer            RawRecordSheet[]         @relation("RrsReviewer")
+  rrsApprover            RawRecordSheet[]         @relation("RrsApprover")
   gasResponsible    Gas[]                  @relation("GasResponsible")
   gasInspected      GasPurchase[]          @relation("GasPurchaseInspector")
   gasUsed           GasUsage[]             @relation("GasUsageUsedBy")
@@ -566,6 +569,7 @@ model Sample {
   preciousMetalBar     PreciousMetalBar?    @relation("SamplePreciousMetalBar")
   sopExecutions        SopExecution[]       @relation("SampleSopExecution")
   inventoryTransactions InventoryTransaction[]
+  rawRecordSheets      RawRecordSheet[]
 
   @@index([sampleNo])
   @@index([batchId])
@@ -675,6 +679,7 @@ model Test {
   uncertaintyReport UncertaintyReport?       @relation("TestUncertainty")
   rmUsages             ReferenceMaterialUsage[] @relation("TestRMUsage")
   participants         TestParticipant[]
+  rawRecordSheets      RawRecordSheet[]
 
   @@index([sampleId])
   @@index([method, status])
@@ -1080,6 +1085,7 @@ model FileAttachment {
   rmUsageCertificates        ReferenceMaterialUsage[]  @relation("RMUsageCertificate")
   signatoryDocs               AuthorizedSignatory[]     @relation("SignatoryDoc")
   entityLinks                 EntityAttachment[]
+  rrsPdfFiles                 RawRecordSheet[]          @relation("RrsPdfFile")
 
   @@index([category])
   @@index([sha256])
@@ -2184,6 +2190,39 @@ model EntityAttachment {
   @@index([entityType, entityId])
   @@index([fileId])
   @@map("entity_attachments")
+}
+
+// =====================================================
+// W4-B 原始记录单(CNAS-CL01:2018 §7.5 记录控制)
+// =====================================================
+
+model RawRecordSheet {
+  id               String   @id @default(uuid()) @db.Uuid
+  sheetNo          String   @unique @map("sheet_no") @db.VarChar(30)  // RS-2026-0001
+  testId           String?  @map("test_id") @db.Uuid
+  sampleId         String   @map("sample_id") @db.Uuid
+  method           String   @db.VarChar(50)   // FIRE_ASSAY / ICP_OES
+  dataJson         Json     @map("data_json")  // 原始数据快照(称样/工艺/读数)
+  operatorId       String?  @map("operator_id") @db.Uuid
+  reviewerId       String?  @map("reviewer_id") @db.Uuid
+  approverId       String?  @map("approver_id") @db.Uuid
+  status           String   @default("DRAFT") @db.VarChar(20)  // DRAFT | LOCKED | SIGNED
+  pdfFileId        String?  @map("pdf_file_id") @db.Uuid
+  pdfSha256        String?  @map("pdf_sha256") @db.Char(64)
+  lockedAt         DateTime? @map("locked_at") @db.Timestamptz  // 数据冻结时间
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  sample    Sample      @relation(fields: [sampleId], references: [id])
+  test      Test?       @relation(fields: [testId], references: [id])
+  operator  User?       @relation("RrsOperator", fields: [operatorId], references: [id])
+  reviewer  User?       @relation("RrsReviewer", fields: [reviewerId], references: [id])
+  approver  User?       @relation("RrsApprover", fields: [approverId], references: [id])
+  pdfFile   FileAttachment? @relation("RrsPdfFile", fields: [pdfFileId], references: [id])
+
+  @@index([sampleId])
+  @@index([testId])
+  @@map("raw_record_sheets")
 }
 
 // =====================================================

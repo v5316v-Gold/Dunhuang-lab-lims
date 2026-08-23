@@ -36,6 +36,9 @@ const DocumentsPage = lazy(() => import('../views/documents/DocumentsPage'));
 const AuthorizedSignatoriesPage = lazy(() => import('../views/authorized-signatories/AuthorizedSignatoriesPage'));
 const SodPolicyPage = lazy(() => import('../views/sod-policy/SodPolicyPage'));
 const DataImportPage = lazy(() => import('../views/data-import/DataImportPage'));
+const ProficiencyTestsPage = lazy(() => import('../views/compliance/ProficiencyTestList'));
+const RawRecordListPage = lazy(() => import('../views/raw-record/RawRecordList'));
+const RawRecordDetailPage = lazy(() => import('../views/raw-record/RawRecordDetail'));
 
 function Loading() {
   return (
@@ -86,6 +89,9 @@ export function AppRouter() {
           <Route path="authorized-signatories" element={<AuthorizedSignatoriesPage />} />
           <Route path="sod-policies" element={<SodPolicyPage />} />
           <Route path="data-import" element={<DataImportPage />} />
+          <Route path="proficiency-tests" element={<ProficiencyTestsPage />} />
+          <Route path="raw-records" element={<RawRecordListPage />} />
+          <Route path="raw-records/:id" element={<RawRecordDetailPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
