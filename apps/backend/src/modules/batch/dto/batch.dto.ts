@@ -92,6 +92,12 @@ export class ProcessParameterDto {
   @IsNumberString()
   fusingDurationMin?: string;
 
+  // W3-C: 熔融温度独立字段(原错位映射到 furnaceTempC)
+  @ApiProperty({ required: false, description: '熔融温度 ℃', example: '1100' })
+  @IsOptional()
+  @IsNumberString()
+  fusingTempC?: string;
+
   @ApiProperty({ required: false, description: '灰吹温度 ℃', example: '900' })
   @IsOptional()
   @IsNumberString()

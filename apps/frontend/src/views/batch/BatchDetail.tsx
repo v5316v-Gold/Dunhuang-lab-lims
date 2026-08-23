@@ -669,7 +669,7 @@ export default function BatchDetailPage() {
                     {batch.status === 'FUSING' && (
                       <Row gutter={16}>
                         <Col span={12}>
-                          <Form.Item label="炉温 ℃" name="furnaceTempC">
+                          <Form.Item label="熔融温度 ℃" name="fusingTempC">
                             <InputNumber min={0} max={1500} step={1} style={{ width: '100%' }} placeholder="如:1100" />
                           </Form.Item>
                         </Col>
@@ -770,11 +770,17 @@ interface ProcessParamRow {
   testId: string;
   sample: { id: string; sampleNo: string; customerName: string };
   method: string;
-  furnaceTempC: string | null;
-  cupellationMin: string | null;
-  partingMin: string | null;
+  // W3-C: 新独立工艺字段
+  mixingTempC: string | null;
+  mixingDurationMin: string | null;
+  fusingTempC: string | null;
+  fusingDurationMin: string | null;
+  cupellationTempC: string | null;
+  cupellationDurationMin: string | null;
   partingAcid: string | null;
-  annealingMin: string | null;
+  partingDurationMin: string | null;
+  annealingTempC: string | null;
+  annealingDurationMin: string | null;
   recordedAt: string;
 }
 
@@ -819,15 +825,22 @@ function ProcessHistoryView({ batchId }: { batchId: string }) {
           width: 180,
         },
         {
-          title: '炉温 ℃',
-          dataIndex: 'furnaceTempC',
+          title: '混料温度 ℃',
+          dataIndex: 'mixingTempC',
           width: 100,
           align: 'right' as const,
           render: (v: string | null) => v ?? <Text type="secondary">-</Text>,
         },
         {
-          title: '灰吹 min',
-          dataIndex: 'cupellationMin',
+          title: '熔融温度 ℃',
+          dataIndex: 'fusingTempC',
+          width: 100,
+          align: 'right' as const,
+          render: (v: string | null) => v ?? <Text type="secondary">-</Text>,
+        },
+        {
+          title: '灰吹温度 ℃',
+          dataIndex: 'cupellationTempC',
           width: 100,
           align: 'right' as const,
           render: (v: string | null) => v ?? <Text type="secondary">-</Text>,
@@ -840,14 +853,14 @@ function ProcessHistoryView({ batchId }: { batchId: string }) {
         },
         {
           title: '分金 min',
-          dataIndex: 'partingMin',
+          dataIndex: 'partingDurationMin',
           width: 100,
           align: 'right' as const,
           render: (v: string | null) => v ?? <Text type="secondary">-</Text>,
         },
         {
           title: '退火 min',
-          dataIndex: 'annealingMin',
+          dataIndex: 'annealingDurationMin',
           width: 100,
           align: 'right' as const,
           render: (v: string | null) => v ?? <Text type="secondary">-</Text>,

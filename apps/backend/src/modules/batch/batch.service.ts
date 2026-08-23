@@ -120,15 +120,21 @@ export class BatchService {
         });
 
         const detailData: any = {};
-        if (process.mixingTempC) detailData.furnaceTempC = parseFloat(process.mixingTempC);
-        if (process.mixingDurationMin) detailData.cupellationMin = parseFloat(process.mixingDurationMin);
-        if (process.furnaceTempC) detailData.furnaceTempC = parseFloat(process.furnaceTempC);
-        if (process.fusingDurationMin) detailData.cupellationMin = parseFloat(process.fusingDurationMin);
-        if (process.cupellationTempC) detailData.furnaceTempC = parseFloat(process.cupellationTempC);
-        if (process.cupellationDurationMin) detailData.cupellationMin = parseFloat(process.cupellationDurationMin);
+        // W3-C: 工艺字段语义修正 — 各步骤独立字段(不再错位映射)
+        // 混料
+        if (process.mixingTempC) detailData.mixingTempC = parseFloat(process.mixingTempC);
+        if (process.mixingDurationMin) detailData.mixingDurationMin = parseFloat(process.mixingDurationMin);
+        // 熔融
+        if (process.fusingTempC) detailData.fusingTempC = parseFloat(process.fusingTempC);
+        if (process.fusingDurationMin) detailData.fusingDurationMin = parseFloat(process.fusingDurationMin);
+        // 灰吹
+        if (process.cupellationTempC) detailData.cupellationTempC = parseFloat(process.cupellationTempC);
+        if (process.cupellationDurationMin) detailData.cupellationDurationMin = parseFloat(process.cupellationDurationMin);
+        // 分金
         if (process.partingAcid) detailData.partingAcid = process.partingAcid;
-        if (process.partingDurationMin) detailData.partingMin = parseFloat(process.partingDurationMin);
-        if (process.annealingTempC) detailData.furnaceTempC = parseFloat(process.annealingTempC);
+        if (process.partingDurationMin) detailData.partingDurationMin = parseFloat(process.partingDurationMin);
+        // 退火
+        if (process.annealingTempC) detailData.annealingTempC = parseFloat(process.annealingTempC);
         if (process.annealingDurationMin) detailData.annealingMin = parseFloat(process.annealingDurationMin);
 
         // 为批次每个样品 upsert 一条 FireAssayDetail(若已存在则只更新)
@@ -209,10 +215,21 @@ export class BatchService {
           testId: t.id,
           sample: t.sample,
           method: t.method,
+          // W3-C: 新独立工艺字段
+          mixingTempC: t.fireAssay?.mixingTempC?.toString() ?? null,
+          mixingDurationMin: t.fireAssay?.mixingDurationMin?.toString() ?? null,
+          fusingTempC: t.fireAssay?.fusingTempC?.toString() ?? null,
+          fusingDurationMin: t.fireAssay?.fusingDurationMin?.toString() ?? null,
+          cupellationTempC: t.fireAssay?.cupellationTempC?.toString() ?? null,
+          cupellationDurationMin: t.fireAssay?.cupellationDurationMin?.toString() ?? null,
+          partingAcid: t.fireAssay?.partingAcid ?? null,
+          partingDurationMin: t.fireAssay?.partingDurationMin?.toString() ?? null,
+          annealingTempC: t.fireAssay?.annealingTempC?.toString() ?? null,
+          annealingDurationMin: t.fireAssay?.annealingMin?.toString() ?? null,
+          // 兼容旧字段(老数据)
           furnaceTempC: t.fireAssay?.furnaceTempC?.toString() ?? null,
           cupellationMin: t.fireAssay?.cupellationMin?.toString() ?? null,
           partingMin: t.fireAssay?.partingMin?.toString() ?? null,
-          partingAcid: t.fireAssay?.partingAcid ?? null,
           annealingMin: t.fireAssay?.annealingMin?.toString() ?? null,
           recordedAt: t.fireAssay?.createdAt ?? t.createdAt,
         })),

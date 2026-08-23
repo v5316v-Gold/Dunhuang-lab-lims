@@ -1,0 +1,28 @@
+feat: W3-C 工艺字段语义修正迁移(错位映射修复 + 前端分步表单)
+
+修复 FireAssayDetail 工艺字段错位映射(评审数据准确性必查):
+
+后端(batch.service.ts + batch.dto.ts):
+- transition 工艺参数写入独立字段,不再错位映射:
+  mixingTempC → mixing_temp_c(原错位到 furnace_temp_c)
+  mixingDurationMin → mixing_duration_min(原错位到 cupellation_min)
+  fusingTempC → fusing_temp_c(新增 DTO 字段)
+  fusingDurationMin → fusing_duration_min
+  cupellationTempC → cupellation_temp_c
+  cupellationDurationMin → cupellation_duration_min
+  partingDurationMin → parting_duration_min(原错位到 parting_min)
+  annealingTempC → annealing_temp_c
+  annealingDurationMin → annealing_min
+- getProcessParams 返回新字段(保留旧字段兼容老数据)
+- ProcessParameterDto 新增 fusingTempC
+
+前端(BatchDetail.tsx):
+- FUSING 状态表单 "炉温℃"(旧 furnaceTempC)→ "熔融温度℃"(fusingTempC)
+- 工艺历史表列更新为独立字段(混料温度/熔融温度/灰吹温度/分金/退火)
+- ProcessParamRow 接口扩展
+
+验证:
+- 后端 tsc EXIT=0、前端 tsc EXIT=0、vite build 成功
+- E2E: 提交 9 项工艺参数 → DB 检查全部独立存储正确
+  mixing_temp_c=1050 / fusing_temp_c=1100 / cupellation_temp_c=900 / parting_duration_min=20 / annealing_temp_c=700
+  furnace_temp_c=NULL(不再被错误覆盖)、cupellation_min=NULL(不再被错误覆盖)
