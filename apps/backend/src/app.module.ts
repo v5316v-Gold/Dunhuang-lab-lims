@@ -33,6 +33,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthorizedSignatoryModule } from './modules/authorized-signatory/authorized-signatory.module';
 import { BatchModule } from './modules/batch/batch.module';
 import { EhsModule } from './modules/ehs/ehs.module';
+import { FeishuImportModule } from './modules/integrations/feishu-import/feishu-import.module';
 import { PreciousMetalModule } from './modules/precious-metal/precious-metal.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
@@ -108,6 +109,7 @@ import { SopModule } from './modules/test/sop/sop.module';
     QcModule,
     ReportModule,
     AuthorizedSignatoryModule,
+    FeishuImportModule,
     ReagentModule,
     EhsModule,
     PreciousMetalModule,

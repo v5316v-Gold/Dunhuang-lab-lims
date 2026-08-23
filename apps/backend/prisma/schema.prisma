@@ -118,6 +118,12 @@ model User {
   sodPoliciesApproved      SodPolicy[]              @relation("SodPolicyApprover")
   retentionPoliciesApproved RetentionPolicy[]      @relation("RetentionPolicyApprover")
   scanLogs               ScanLog[]
+  importBatches          ImportBatch[]            @relation("ImportBatchUser")
+  importColumnMappings   ImportColumnMapping[]    @relation("ImportColumnMappingUser")
+  inventoryOps           InventoryTransaction[]   @relation("InvTxOperator")
+  inventoryReviews       InventoryTransaction[]   @relation("InvTxReviewer")
+  testParticipations     TestParticipant[]
+  entityAttachments      EntityAttachment[]       @relation("EntityAttachmentUser")
   gasResponsible    Gas[]                  @relation("GasResponsible")
   gasInspected      GasPurchase[]          @relation("GasPurchaseInspector")
   gasUsed           GasUsage[]             @relation("GasUsageUsedBy")
@@ -559,6 +565,7 @@ model Sample {
   samplingRecord       SamplingRecord?      @relation("SampleSamplingRecord")
   preciousMetalBar     PreciousMetalBar?    @relation("SamplePreciousMetalBar")
   sopExecutions        SopExecution[]       @relation("SampleSopExecution")
+  inventoryTransactions InventoryTransaction[]
 
   @@index([sampleNo])
   @@index([batchId])
@@ -667,6 +674,7 @@ model Test {
   containerUsages  ContainerUsage[]       @relation("ContainerUsageTest")
   uncertaintyReport UncertaintyReport?       @relation("TestUncertainty")
   rmUsages             ReferenceMaterialUsage[] @relation("TestRMUsage")
+  participants         TestParticipant[]
 
   @@index([sampleId])
   @@index([method, status])
@@ -1071,6 +1079,7 @@ model FileAttachment {
   uncertaintyCalculationFiles UncertaintyReport[]  @relation("UncertaintyCalculationFile")
   rmUsageCertificates        ReferenceMaterialUsage[]  @relation("RMUsageCertificate")
   signatoryDocs               AuthorizedSignatory[]     @relation("SignatoryDoc")
+  entityLinks                 EntityAttachment[]
 
   @@index([category])
   @@index([sha256])
@@ -2038,5 +2047,142 @@ model ScanLog {
   @@index([userId, createdAt])
   @@index([entity, entityId])
   @@map("scan_logs")
+}
+
+// =====================================================
+// W3-A 飞书多维表格导入框架(22 张表 → LIMS 各模块)
+// =====================================================
+
+// 可导入的实体类型(22 个,与 GDW 飞书表一一对应)
+enum ImportEntityType {
+  STAFF                       // 人员信息
+  SAMPLE_WORKSHOP             // 【车间】送样返样
+  SAMPLE_OVERSEAS             // 【国外】送样返样
+  SAMPLE_INBOUND              // 【贵金属】入库
+  SAMPLE_OUTBOUND             // 【贵金属】出库
+  SAMPLE_INVENTORY            // 【贵金属】库存
+  TEST_RECEIPT_DOMESTIC       // 检测领样
+  TEST_RECEIPT_OVERSEAS       // 【国外】检测领样
+  TEST_RECORD_DOMESTIC        // 检测记录
+  TEST_RECORD_OVERSEAS        // 【国外】检测记录
+  CONTAINER                   // 器皿管理
+  GAS_PURCHASE                // 气体·采购记录
+  GAS_USAGE                   // 气体·使用记录
+  GAS_INVENTORY               // 气体·库存记录
+  REAGENT_INBOUND             // 试剂·【入库】
+  REAGENT_OUTBOUND            // 试剂·【出库】
+  REAGENT_INVENTORY           // 试剂·【库存】
+  REAGENT_USAGE               // 试剂·【记录】取用
+  EQUIPMENT                   // 设备信息
+  EQUIPMENT_CALIBRATION       // 检定记录
+  EQUIPMENT_MAINTENANCE       // 维保记录
+  WASTE_RECORD                // 废液废样登记
+}
+
+// 导入批次(一次 Excel 上传 = 一个批次)
+model ImportBatch {
+  id           String           @id @default(uuid()) @db.Uuid
+  entityType   ImportEntityType @map("entity_type")
+  originalName String           @map("original_name") @db.VarChar(255)
+  storagePath  String?          @map("storage_path") @db.VarChar(500)
+  totalRows    Int              @map("total_rows")
+  successRows  Int              @default(0) @map("success_rows")
+  failedRows   Int              @default(0) @map("failed_rows")
+  status       String           @default("PENDING")  // PENDING | CONFIRMED | FAILED
+  uploadedById String           @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  confirmedAt  DateTime?        @map("confirmed_at") @db.Timestamptz
+
+  uploadedBy   User               @relation("ImportBatchUser", fields: [uploadedById], references: [id])
+  details      ImportBatchDetail[]
+
+  @@index([entityType, createdAt])
+  @@map("import_batches")
+}
+
+// 导入批次明细(Excel 每行一条)
+model ImportBatchDetail {
+  id         BigInt   @id @default(autoincrement())
+  batchId    String   @map("batch_id") @db.Uuid
+  rowNumber  Int      @map("row_number")
+  parsedJson Json     @map("parsed_json")
+  status     String   // OK | ERROR | PENDING
+  errorJson  Json?    @map("error_json")
+  createdId  String?  @map("created_id") @db.Uuid
+
+  batch      ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@map("import_batch_details")
+}
+
+// 自定义列映射模板(用户可保存)
+model ImportColumnMapping {
+  id          String           @id @default(uuid()) @db.Uuid
+  entityType  ImportEntityType @map("entity_type")
+  name        String           @db.VarChar(100)
+  mappings    Json             // {"工号":"username","姓名":"name",...}
+  createdById String           @map("created_by_id") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  createdBy   User @relation("ImportColumnMappingUser", fields: [createdById], references: [id])
+
+  @@unique([entityType, name])
+  @@map("import_column_mappings")
+}
+
+// 库存事务(支持 入库/出库/盘点 — 5 个仓库类飞书表)
+model InventoryTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  sampleId    String   @map("sample_id") @db.Uuid
+  type        String   @db.VarChar(20)  // INBOUND | OUTBOUND | INVENTORY
+  quantity    Decimal  @db.Decimal(15, 6)
+  destination String?  @db.VarChar(200)
+  reason      String?  @db.Text
+  refType     String?  @map("ref_type") @db.VarChar(50)
+  operatorId  String?  @map("operator_id") @db.Uuid
+  reviewerId  String?  @map("reviewer_id") @db.Uuid
+  occurredAt  DateTime @map("occurred_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  sample    Sample @relation(fields: [sampleId], references: [id])
+  operator  User?  @relation("InvTxOperator", fields: [operatorId], references: [id])
+  reviewer  User?  @relation("InvTxReviewer", fields: [reviewerId], references: [id])
+
+  @@index([sampleId, occurredAt])
+  @@index([type, occurredAt])
+  @@map("inventory_transactions")
+}
+
+// 检测参与人员(多对多 — 4 个检测记录表)
+model TestParticipant {
+  id      BigInt  @id @default(autoincrement())
+  testId  String  @map("test_id") @db.Uuid
+  userId  String  @map("user_id") @db.Uuid
+  role    String  @default("PARTICIPANT") @db.VarChar(20)  // PARTICIPANT | LEADER | WITNESS
+
+  test    Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user    User @relation(fields: [userId], references: [id])
+
+  @@unique([testId, userId])
+  @@map("test_participants")
+}
+
+// 实体关联附件(检测报告 PDF / 设备照片 / 器皿照片 / 废样照片等)
+model EntityAttachment {
+  id           BigInt   @id @default(autoincrement())
+  entityType   String   @map("entity_type") @db.VarChar(50)  // 'TEST' | 'EQUIPMENT' | 'CONTAINER' | 'WASTE' | 'REAGENT'
+  entityId     String   @map("entity_id") @db.Uuid
+  fileId       String   @map("file_id") @db.Uuid
+  role         String?  @map("role") @db.VarChar(50)          // 'report' | 'photo' | 'accessory' | ...
+  uploadedById String   @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  file        FileAttachment @relation(fields: [fileId], references: [id])
+  uploadedBy  User           @relation("EntityAttachmentUser", fields: [uploadedById], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([fileId])
+  @@map("entity_attachments")
 }
 

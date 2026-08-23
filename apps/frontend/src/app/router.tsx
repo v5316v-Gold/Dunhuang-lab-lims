@@ -35,6 +35,7 @@ const CompliancePage = lazy(() => import('../views/compliance/ComplianceHub'));
 const DocumentsPage = lazy(() => import('../views/documents/DocumentsPage'));
 const AuthorizedSignatoriesPage = lazy(() => import('../views/authorized-signatories/AuthorizedSignatoriesPage'));
 const SodPolicyPage = lazy(() => import('../views/sod-policy/SodPolicyPage'));
+const DataImportPage = lazy(() => import('../views/data-import/DataImportPage'));
 
 function Loading() {
   return (
@@ -84,6 +85,7 @@ export function AppRouter() {
           <Route path="compliance" element={<CompliancePage />} />
           <Route path="authorized-signatories" element={<AuthorizedSignatoriesPage />} />
           <Route path="sod-policies" element={<SodPolicyPage />} />
+          <Route path="data-import" element={<DataImportPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
