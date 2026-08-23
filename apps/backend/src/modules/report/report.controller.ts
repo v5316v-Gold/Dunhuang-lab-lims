@@ -69,13 +69,13 @@ export class ReportController {
     return this.reportService.update(id, body, user.id);
   }
 
-  // P0-Fix-2: 状态机推进强制 MFA(覆盖 SUBMIT / REVIEW / APPROVE / ISSUE 等所有动作)
+  // P0-Fix-2: 状态机推进强制 MFA(覆盖 SUBMIT / REVIEW / APPROVE / AUTHORIZE / ISSUE 等所有动作)
   @Post(':id/transition')
   @MfaProtected(MFA_SCENES.REPORT_ISSUE)
-  @ApiOperation({ summary: '推进报告状态(状态机,MFA 强制)' })
+  @ApiOperation({ summary: '推进报告状态(状态机,MFA 强制,W2: 含 AUTHORIZE 批准)' })
   transition(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { action: 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'ISSUE'; comments?: string },
+    @Body() body: { action: 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'AUTHORIZE' | 'ISSUE'; comments?: string },
     @CurrentUser() user: User,
   ) {
     return this.reportService.transition(id, body.action, user.id, body.comments);

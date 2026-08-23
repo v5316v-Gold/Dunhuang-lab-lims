@@ -2,6 +2,7 @@ import { StateMachineService } from '../../common/state-machine/state-machine.se
 // =====================================================
 // 报告服务
 // 详见 Phase 2 文档 §5.1
+// W2 接入:W1 框架 SodService(SoD 互斥)+ RetentionPolicyService(留样期)+ 签名人字段记录
 // =====================================================
 
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
@@ -14,12 +15,15 @@ import { AuditEventType } from '../../common/audit/audit-event.enum';
 import { SignatureService } from '../../common/signature/signature.service';
 import { DomainEventBus } from '../../common/events/domain-event-bus';
 import { DomainEvents, TestCompletedEvent } from '../../common/events/domain-events';
+import { SodService } from '../../common/w1-framework/sod.service';
+import { RetentionPolicyService } from '../../common/w1-framework/retention-policy.service';
 
 import { ReportEvent, transitionReport } from './report.state-machine';
 import { ReportPdfService } from './report-pdf.service';
 
-// CNAS-CL01 §7.4 样品处置:报告签发后留样期(默认 6 个月)
-const REPORT_RETENTION_MONTHS = 6;
+// CNAS-CL01 §7.4:留样期从 RetentionPolicy 读取(W2 不再硬编码)
+// 保留作为防御性默认值(若策略查询失败时)
+const DEFAULT_REPORT_RETENTION_MONTHS = 6;
 
 
 @Injectable()
@@ -31,6 +35,8 @@ export class ReportService implements OnModuleInit {
     private readonly securityAudit: SecurityAuditService,
     private readonly signatureService: SignatureService,
     private readonly eventBus: DomainEventBus,
+    private readonly sodService: SodService,
+    private readonly retentionPolicyService: RetentionPolicyService,
   ) {}
 
   /**
@@ -102,17 +108,24 @@ export class ReportService implements OnModuleInit {
 
   /**
    * 状态机推进(提交/校核/审核/批准/签发)
+   * W2: 接入 SodService(6 角色互斥)+ 签名人字段记录 + 留样期从 RetentionPolicy 读取
    */
   async transition(reportId: string, event: ReportEvent, userId: string, comments?: string): Promise<Report> {
     const report = await this.findOne(reportId);
+
+    // W2: SoD 互斥校验(CNAS-CL01 §7.8.4 + ISO 17025 §7.5.3)
+    // 老报告签名人字段为 NULL → history 为空 → excludeRoles 匹配不到 → 不拦截(老流程兼容)
+    // 新报告从 SUBMIT 开始逐步填字段,后续阶段自然受 SoD 约束
+    await this.sodService.check(reportId, event, userId);
 
     // Phase 2 Task 2.5: 用纯函数转换表计算下一状态
     // (XState 5.32 运行时 API 兼容问题,统一走 transitionReport 纯函数)
     let nextState: string;
     const next = transitionReport(report.status, event);
-    if (!next || next === report.status) {
+    if (!next) {
       throw new BadRequestException(`非法状态转换: ${report.status} + ${event}`);
     }
+    // AUTHORIZE 是合法的"无变化"转换(只记录 authorizerId,状态保持 APPROVED)
     nextState = next;
 
     return this.prisma.$transaction(async (tx) => {
@@ -162,12 +175,21 @@ export class ReportService implements OnModuleInit {
         pdfSha256 = pdf.sha256;
       }
 
+      // W2: 签名人字段记录(CNAS-CL01 §7.8.4 + ISO 17025 §6.6)
+      const signerFields: Record<string, string> = {};
+      if (event === 'SUBMIT')      signerFields.submitterId  = userId;
+      if (event === 'REVIEW_PASS') signerFields.reviewerId   = userId;
+      if (event === 'APPROVE')     signerFields.approverId   = userId;
+      if (event === 'AUTHORIZE')   signerFields.authorizerId = userId;
+      if (event === 'ISSUE')       signerFields.issuerId     = userId;
+
       const updated = await tx.report.update({
         where: { id: reportId },
         data: {
           status: nextState as ReportStatus,
           ...(event === 'ISSUE' && { issuedAt }),
           ...(pdfSha256 && { pdfSha256 }),
+          ...signerFields,
         },
       });
 
@@ -188,14 +210,24 @@ export class ReportService implements OnModuleInit {
       const newSampleStatus = sampleStatusMap[nextState];
       if (newSampleStatus) {
         const isIssue = nextState === 'ISSUED';
-        const retentionUntil = new Date();
-        retentionUntil.setMonth(retentionUntil.getMonth() + REPORT_RETENTION_MONTHS);
+        // W2: 留样期从 RetentionPolicy 读取(可配置,默认 6 月;永久 = -1)
+        let retentionUntil: Date | null = null;
+        if (isIssue) {
+          const months = await this.retentionPolicyService.getMonths('report');
+          retentionUntil = new Date();
+          if (months === -1) {
+            // 永久保留(审限协议)
+            retentionUntil.setFullYear(9999);
+          } else {
+            retentionUntil.setMonth(retentionUntil.getMonth() + months);
+          }
+        }
         await tx.sample.update({
           where: { id: report.sampleId },
           data: {
             status: newSampleStatus as any,
             ...(isIssue && { archivedAt: new Date() }),
-            ...(isIssue && { retentionUntil }),
+            ...(isIssue && retentionUntil && { retentionUntil }),
           },
         });
       }

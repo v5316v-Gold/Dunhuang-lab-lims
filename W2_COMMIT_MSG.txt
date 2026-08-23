@@ -1,0 +1,28 @@
+feat: W2 D2 + D3 SoD 框架接入 report.transition + 5 角色签名人字段 + 留样期可配置
+
+W2 D2 后端接入(架构 A1 优化持续):
+- report.service.transition: 入口加 sodService.check(6 角色 SoD 互斥校验)
+- transition 事务内记录 5 个签名人字段:
+  SUBMIT → submitterId
+  REVIEW_PASS → reviewerId
+  APPROVE → approverId
+  AUTHORIZE → authorizerId(新事件,状态不变)
+  ISSUE → issuerId
+- 留样期从 RetentionPolicy 读取(支持 -1 永久), 移除 REPORT_RETENTION_MONTHS=6 硬编码
+- report.state-machine: 新增 AUTHORIZE 事件(APPROVED 状态下状态不变,只记录 authorizerId)
+- report.controller: transition body 类型支持 AUTHORIZE
+- SodService.check: REVIEW_REJECT 跳过 SoD 校验(驳回不写签字人字段)
+
+W2 D3 前端:
+- ReportDetail: ReportDetail 接口加 5 个签名人字段 + submitter/reviewer/approver/authorizer/issuer User 对象
+- 新增签字链 Card(CNAS-CL01 强制 6 角色互斥),显示已签字人/未签字状态
+- ACTIONS.APPROVED 加 AUTHORIZE 按钮(签发前需批准)
+- SodPolicyPage: 接入 /sod-policies 真实 API(后端返回 {value:[], Count} 包装结构)
+
+验证:
+- 后端 tsc EXIT=0
+- 前端 tsc EXIT=0
+- vite build 成功(7s)
+- E2E 端到端:单用户 admin(OPERATOR)试图 SUBMIT → 403 SoD 拦截,
+  错误:违反职责分离(STRICT):您已作为检测员参与本报告,不能作为提交人执行此操作
+  (CNAS-CL01:2018 §7.8.4 完全合规)

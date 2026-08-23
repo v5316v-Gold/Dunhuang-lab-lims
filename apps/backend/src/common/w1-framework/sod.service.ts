@@ -15,9 +15,9 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SecurityAuditService } from '../audit/security-audit.service';
 import { AuditEventType } from '../audit/audit-event.enum';
 
-/** 报告生命周期事件 */
+/** 报告生命周期事件(与 ReportService 保持一致) */
 export type ReportLifecycleEvent =
-  | 'SUBMIT' | 'REVIEW_PASS' | 'APPROVE' | 'AUTHORIZE' | 'ISSUE';
+  | 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'AUTHORIZE' | 'ISSUE';
 
 /** SoD 互斥模式 */
 export type SodMode = 'STRICT' | 'RELAXED';
@@ -37,7 +37,8 @@ export class SodService {
 
   // 互斥规则集中表(W1 框架:配置化,如需调整改这里)
   // ISSUE 的排除角色按 SoDPolicy.mode 动态决定(STRICT 含 AUTHORIZER,RELAXED 不含)
-  private static readonly RULES: Record<Exclude<ReportLifecycleEvent, 'ISSUE'>, {
+  // REVIEW_REJECT 是驳回事件,不参与 SoD 互斥角色校验(驳回者身份不记录到签字人字段)
+  private static readonly RULES: Record<Exclude<ReportLifecycleEvent, 'ISSUE' | 'REVIEW_REJECT'>, {
     excludeRoles: Array<keyof HistoryRoles>;
     actionName: string;
   }> = {
@@ -54,6 +55,8 @@ export class SodService {
 
   /**
    * 调用入口:校验 SoD + 授权签字人
+   * REVIEW_REJECT(驳回)不参与 SoD 互斥(驳回者身份不记录到签字人字段)
+   * ISSUE 额外校验授权签字人
    * @throws ForbiddenException if violation
    */
   async check(
@@ -61,6 +64,9 @@ export class SodService {
     event: ReportLifecycleEvent,
     actorId: string,
   ): Promise<void> {
+    // 驳回事件跳过 SoD 互斥(状态回退,不涉及签字人字段)
+    if (event === 'REVIEW_REJECT') return;
+
     const report = await this.prisma.report.findUnique({
       where: { id: reportId },
       include: {

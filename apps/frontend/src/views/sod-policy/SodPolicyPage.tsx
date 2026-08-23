@@ -67,7 +67,12 @@ export default function SodPolicyPage() {
 
   const { data: sodPolicies = [], isLoading: sodLoading } = useQuery({
     queryKey: ['sod-policies'],
-    queryFn: async () => (await api.get('/sod-policies')).data,
+    queryFn: async () => {
+      const r = await api.get('/sod-policies');
+      // 后端返回结构 {value: [], Count: N} → 提取 value
+      const body = r.data;
+      return body?.value ?? body?.data ?? body ?? [];
+    },
   });
 
   const { data: retentionPolicies = [], isLoading: retLoading } = useQuery({

@@ -4,8 +4,8 @@
 //
 // 流程:
 //   DRAFT → INTERNAL_REVIEW(校核) → FINAL_REVIEW(审核) → APPROVED(批准) → ISSUED(签发)
-//                          ↓                  ↓
-//                       DRAFT(驳回)         DRAFT(驳回)
+//                          ↓                  ↓                ↓(W2 新增)
+//                       DRAFT(驳回)         DRAFT(驳回)      AUTHORIZE(记录批准人,状态不变)
 // =====================================================
 
 import { ReportStatus, UserRole } from '@prisma/client';
@@ -37,6 +37,7 @@ export const reportMachine = createMachine({
     },
     [ReportStatus.APPROVED]: {
       on: {
+        AUTHORIZE: ReportStatus.APPROVED,  // W2: 记录批准人,状态不变
         ISSUE: ReportStatus.ISSUED,
       },
       meta: { allowedRoles: [UserRole.LAB_DIRECTOR] },
@@ -46,7 +47,7 @@ export const reportMachine = createMachine({
   },
 });
 
-export type ReportEvent = 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'ISSUE';
+export type ReportEvent = 'SUBMIT' | 'REVIEW_PASS' | 'REVIEW_REJECT' | 'APPROVE' | 'AUTHORIZE' | 'ISSUE';
 
 
 // =====================================================
@@ -71,6 +72,7 @@ const REPORT_TRANSITIONS: Record<string, Partial<Record<ReportEvent, ReportStatu
     REVIEW_REJECT: ReportStatus.DRAFT,
   },
   [ReportStatus.APPROVED]: {
+    AUTHORIZE: ReportStatus.APPROVED,  // W2: 状态不变,只记录 authorizerId
     ISSUE: ReportStatus.ISSUED,
   },
   [ReportStatus.ISSUED]: {},

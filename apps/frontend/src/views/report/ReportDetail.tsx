@@ -32,6 +32,17 @@ interface ReportDetail {
   remarks?: string;
   issuedAt?: string;
   createdAt: string;
+  // W2: 6 角色签名人(CNAS-CL01:2018 §7.8.4)
+  submitterId?: string | null;
+  reviewerId?: string | null;
+  approverId?: string | null;
+  authorizerId?: string | null;
+  issuerId?: string | null;
+  submitter?: { id: string; name: string; username: string } | null;
+  reviewer?: { id: string; name: string; username: string } | null;
+  approver?: { id: string; name: string; username: string } | null;
+  authorizer?: { id: string; name: string; username: string } | null;
+  issuer?: { id: string; name: string; username: string } | null;
   sample?: {
     sampleNo: string;
     customerName: string;
@@ -40,6 +51,15 @@ interface ReportDetail {
   stages?: ReportStage[];
   signatures?: Array<{ signerRole: string; signedAt: string; signatureData: string }>;
 }
+
+// 6 角色 → 中文名(用于展示)
+const ROLE_LABELS: Record<string, string> = {
+  submitter: '提交',
+  reviewer: '校核',
+  approver: '审核',
+  authorizer: '批准',
+  issuer: '签发',
+};
 
 // 状态 → 颜色映射(设计令牌)
 const STATUS_COLOR: Record<string, string> = {
@@ -62,7 +82,10 @@ const ACTIONS: Record<string, Array<{ key: string; label: string; type: 'primary
     { key: 'APPROVE', label: '审核批准', type: 'primary' },
     { key: 'REVIEW_REJECT', label: '驳回', type: 'danger' },
   ],
-  APPROVED: [{ key: 'ISSUE', label: '签发报告', type: 'primary' }],
+  APPROVED: [
+    { key: 'AUTHORIZE', label: '批准(W2)', type: 'primary' },
+    { key: 'ISSUE', label: '签发报告', type: 'primary' },
+  ],
 };
 
 export function ReportDetail() {
@@ -337,10 +360,43 @@ export function ReportDetail() {
         )}
       </Card>
 
+      {/* 签字链 — W2: 6 角色签名人(CNAS-CL01:2018 §7.8.4) */}
+      <Card
+        title="签字链(CNAS-CL01 强制 6 角色互斥)"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
+          {(['submitter', 'reviewer', 'approver', 'authorizer', 'issuer'] as const).map((role) => {
+            const userId = detail[`${role}Id` as keyof ReportDetail] as string | null | undefined;
+            const user = detail[role as keyof ReportDetail] as { name?: string; username?: string } | null | undefined;
+            const signed = !!userId;
+            return (
+              <div key={role} style={{ minWidth: 160 }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>
+                  {ROLE_LABELS[role]}人
+                </div>
+                <Space>
+                  {signed ? (
+                    <>
+                      <CheckCircleOutlined style={{ color: 'var(--success)' }} />
+                      <span style={{ color: 'var(--text-primary)' }}>{user?.name ?? user?.username ?? userId}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ color: 'var(--text-muted)' }}>○ 未签字</span>
+                    </>
+                  )}
+                </Space>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
       {/* 签名信息 */}
       {detail.signatures && detail.signatures.length > 0 && (
         <Card
-          title="电子签名"
+          title="电子签名(21 CFR Part 11)"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
         >
           {detail.signatures.map((sig, i) => (
