@@ -5,10 +5,10 @@
 
 import * as crypto from 'crypto';
 
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+import { Prisma, User, UserRole, UserStatus } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
@@ -334,5 +334,93 @@ export class AuthService {
       email: user.email,
       mfaEnabled: user.mfaEnabled,
     };
+  }
+
+  /**
+   * 自注册(W4 用户管理)— 默认角色 INTERN、status PENDING
+   * 必须经管理员审核激活(PATCH /users/:id status=ACTIVE)后才能登录
+   */
+  async register(dto: { username: string; password: string; name: string; email: string; phone?: string }) {
+    // 密码策略校验
+    const policy = this.passwordService.validatePolicy(dto.password);
+    if (!policy.valid) {
+      throw new ConflictException(`密码不符合策略: ${policy.errors.join(', ')}`);
+    }
+    // 唯一性
+    const existing = await this.prisma.user.findFirst({
+      where: { OR: [{ username: dto.username }, { email: dto.email }], deletedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException(existing.username === dto.username ? '用户名已存在' : '邮箱已存在');
+    }
+    const passwordHash = await this.passwordService.hash(dto.password);
+    const user = await this.prisma.user.create({
+      data: {
+        username: dto.username,
+        passwordHash,
+        name: dto.name,
+        email: dto.email,
+        phone: dto.phone,
+        role: UserRole.INTERN,
+        status: UserStatus.PENDING,
+        createdById: null, // 自注册无创建人
+      },
+    });
+    await this.securityAudit.record({
+      event: AuditEventType.USER_REGISTERED,
+      domain: 'auth',
+      userId: user.id,
+      username: user.username,
+      detail: { status: 'PENDING', role: UserRole.INTERN },
+    }).catch(() => undefined);
+    return { id: user.id, username: user.username, status: user.status, message: '注册成功,需管理员审核激活后才能登录' };
+  }
+
+  /**
+   * 自注销 — 用户主动停用自己(status=INACTIVE,需管理重激活)
+   */
+  async deactivate(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.deletedAt) throw new UnauthorizedException('用户不存在');
+    if (user.status === UserStatus.INACTIVE) return { alreadyInactive: true };
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: UserStatus.INACTIVE, mfaEnabled: false, mfaSecret: null, mfaBackupCodes: [] },
+    });
+    await this.securityAudit.record({
+      event: AuditEventType.LOGOUT,
+      domain: 'auth',
+      userId,
+      username: user.username,
+      detail: { action: 'self_deactivate' },
+    }).catch(() => undefined);
+    return { userId, status: UserStatus.INACTIVE };
+  }
+
+  /**
+   * 完整改密码(替换 controller 中的 TODO 残缺实现)
+   */
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.deletedAt) throw new UnauthorizedException('用户不存在');
+    const ok = await this.passwordService.verify(user.passwordHash, oldPassword);
+    if (!ok) throw new UnauthorizedException('旧密码错误');
+    const policy = this.passwordService.validatePolicy(newPassword);
+    if (!policy.valid) {
+      throw new ConflictException(`新密码不符合策略: ${policy.errors.join(', ')}`);
+    }
+    const passwordHash = await this.passwordService.hash(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+    });
+    await this.securityAudit.record({
+      event: AuditEventType.PASSWORD_CHANGED,
+      domain: 'auth',
+      userId,
+      username: user.username,
+      detail: { self: true },
+    }).catch(() => undefined);
+    return { changed: true };
   }
 }

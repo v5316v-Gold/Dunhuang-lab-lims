@@ -100,3 +100,41 @@ export class MfaChallengeDto {
   @IsBoolean()
   useBackupCode?: boolean;
 }
+
+export class RegisterDto {
+  @ApiProperty({ example: 'zhang.san', description: '用户名(字母数字点下划线,3-50)' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(3)
+  @MaxLength(50)
+  @Matches(/^[a-zA-Z0-9._-]+$/, { message: '用户名仅允许字母数字 . _ -' })
+  username!: string;
+
+  @ApiProperty({ example: 'MySecure@Pass123', description: '密码(大小写+数字+特殊字符,≥8)' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
+  @MaxLength(128)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~])/, {
+    message: '密码必须包含大小写字母、数字、特殊字符',
+  })
+  password!: string;
+
+  @ApiProperty({ example: '张三', description: '真实姓名' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  name!: string;
+
+  @ApiProperty({ example: 'zhang.san@lims.local', description: '邮箱(唯一)' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  email!: string;
+
+  @ApiProperty({ required: false, description: '手机号(可选)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phone?: string;
+}

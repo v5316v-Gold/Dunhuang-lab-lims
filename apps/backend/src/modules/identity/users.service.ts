@@ -134,4 +134,39 @@ export class UsersService {
     });
     await this.prisma.user.update({ where: { id: userId }, data: { role } });
   }
+
+  /** 审核激活(PENDING/INACTIVE → ACTIVE),可指定初始角色 */
+  async activate(id: string, role?: UserRole) {
+    const user = await this.findOne(id);
+    if (user.status === 'ACTIVE') return { id, status: 'ACTIVE', message: '已处于激活状态' };
+    const data: any = { status: 'ACTIVE', failedLoginCount: 0, lockedUntil: null };
+    if (role) data.role = role;
+    const updated = await this.prisma.user.update({ where: { id }, data });
+    return { id, status: updated.status, role: updated.role };
+  }
+
+  /** 管理停用(ACTIVE → INACTIVE) */
+  async adminDeactivate(id: string) {
+    await this.findOne(id);
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { status: 'INACTIVE', mfaEnabled: false, mfaSecret: null, mfaBackupCodes: [] },
+    });
+    return { id, status: updated.status };
+  }
+
+  /** 管理员重置密码(无需旧密码) */
+  async adminResetPassword(id: string, newPassword: string) {
+    const user = await this.findOne(id);
+    const policy = this.passwordService.validatePolicy(newPassword);
+    if (!policy.valid) {
+      throw new ConflictException(`密码不符合策略: ${policy.errors.join(', ')}`);
+    }
+    const passwordHash = await this.passwordService.hash(newPassword);
+    await this.prisma.user.update({
+      where: { id },
+      data: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+    });
+    return { id, message: '密码已重置' };
+  }
 }

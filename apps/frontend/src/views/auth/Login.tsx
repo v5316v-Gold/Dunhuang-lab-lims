@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Form, Input, Button, Typography, Alert, Space, Divider, Tag, Grid } from 'antd';
 import { UserOutlined, LockOutlined, KeyOutlined, SafetyCertificateOutlined, AuditOutlined, ExperimentOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../data/api';
 import { useAuthStore } from '../../stores/auth.store';
 import type { LoginResponse } from '@dunhuang/lims-shared-types';
@@ -233,6 +233,11 @@ export default function LoginPage() {
           <Text type="secondary" style={{ fontSize: 11, textAlign: 'center', display: 'block', marginTop: 8 }}>
             ALCOA+ 数据完整性 · 21 CFR Part 11 电子签名 · 敏感操作强制 MFA
           </Text>
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              还没账号?<Link to="/register" style={{ color: '#D4AF37' }}>立即注册</Link>
+            </Text>
+          </div>
         </div>
       </div>
     </div>

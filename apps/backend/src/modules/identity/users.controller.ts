@@ -88,4 +88,43 @@ export class UsersController {
   ) {
     return this.usersService.assignRole(id, body.role, currentUser.id);
   }
+
+  /**
+   * POST /users/:id/activate — 审核激活(PENDING → ACTIVE)或重激活(INACTIVE → ACTIVE)
+   * 仅 ADMIN,需 MFA
+   */
+  @Post(':id/activate')
+  @MfaProtected(MFA_SCENES.USER_LOCKOUT_RESET)
+  @RequireRole(UserRole.ADMIN)
+  @ApiOperation({ summary: '审核激活/重激活用户(ADMIN,MFA)' })
+  activate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.activate(id);
+  }
+
+  /**
+   * POST /users/:id/deactivate — 管理停用(ACTIVE → INACTIVE)
+   * 仅 ADMIN,需 MFA
+   */
+  @Post(':id/deactivate')
+  @MfaProtected(MFA_SCENES.USER_LOCKOUT_RESET)
+  @RequireRole(UserRole.ADMIN)
+  @ApiOperation({ summary: '管理停用用户(ADMIN,MFA)' })
+  deactivate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.adminDeactivate(id);
+  }
+
+  /**
+   * POST /users/:id/reset-password — 管理员重置密码(无需旧密码)
+   * 仅 ADMIN,需 MFA
+   */
+  @Post(':id/reset-password')
+  @MfaProtected(MFA_SCENES.USER_LOCKOUT_RESET)
+  @RequireRole(UserRole.ADMIN)
+  @ApiOperation({ summary: '管理员重置密码(无需旧密码,MFA)' })
+  async resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { newPassword: string },
+  ) {
+    return this.usersService.adminResetPassword(id, body.newPassword);
+  }
 }

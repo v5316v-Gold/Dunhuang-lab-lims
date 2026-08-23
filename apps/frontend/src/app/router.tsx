@@ -21,6 +21,7 @@ import { SampleDetail } from '../views/sample/SampleDetail';
 import { RequireAuth } from './RequireAuth';
 
 const LoginPage = lazy(() => import('../views/auth/Login'));
+const RegisterPage = lazy(() => import('../views/auth/RegisterPage'));
 const DashboardPage = lazy(() => import('../views/dashboard/Dashboard'));
 const SamplesListPage = lazy(() => import('../views/sample/SamplesList'));
 const SampleReceivePage = lazy(() => import('../views/sample/SampleReceive'));
@@ -32,6 +33,7 @@ const ReportDetailPage = lazy(() =>
 const QcDashboardPage = lazy(() => import('../views/qc/QcDashboard'));
 const AuditLogsPage = lazy(() => import('../views/audit/AuditLogs'));
 const CompliancePage = lazy(() => import('../views/compliance/ComplianceHub'));
+const UsersPage = lazy(() => import('../views/identity/UsersPage'));
 const DocumentsPage = lazy(() => import('../views/documents/DocumentsPage'));
 const AuthorizedSignatoriesPage = lazy(() => import('../views/authorized-signatories/AuthorizedSignatoriesPage'));
 const SodPolicyPage = lazy(() => import('../views/sod-policy/SodPolicyPage'));
@@ -54,6 +56,7 @@ export function AppRouter() {
       <Routes>
         {/* 公开路由 */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
         {/* 受保护路由 */}
         <Route
@@ -92,6 +95,7 @@ export function AppRouter() {
           <Route path="proficiency-tests" element={<ProficiencyTestsPage />} />
           <Route path="raw-records" element={<RawRecordListPage />} />
           <Route path="raw-records/:id" element={<RawRecordDetailPage />} />
+          <Route path="users" element={<UsersPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -31,6 +31,7 @@ import {
   FileDoneOutlined,
   FileWordOutlined,
   FileTextOutlined,
+  UserSwitchOutlined,
   ToolOutlined,
   TeamOutlined,
   CloudOutlined,
@@ -50,6 +51,7 @@ import {
   DeploymentUnitOutlined,
   UploadOutlined,
   SafetyCertificateOutlined,
+  DisconnectOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
@@ -106,6 +108,7 @@ const menuGroups = [
       { key: '/compliance', icon: <SafetyOutlined />, label: <Link to="/compliance">合规管理</Link> },
       { key: '/authorized-signatories', icon: <SafetyCertificateOutlined />, label: <Link to="/authorized-signatories">授权签字人</Link> },
       { key: '/sod-policies', icon: <SafetyOutlined />, label: <Link to="/sod-policies">SoD 与留样期</Link> },
+      { key: '/users', icon: <UserSwitchOutlined />, label: <Link to="/users">用户管理</Link> },
       { key: '/proficiency-tests', icon: <SafetyCertificateOutlined />, label: <Link to="/proficiency-tests">能力验证 PT</Link> },
       { key: '/raw-records', icon: <FileTextOutlined />, label: <Link to="/raw-records">原始记录单</Link> },
       { key: '/data-import', icon: <UploadOutlined />, label: <Link to="/data-import">数据导入</Link> },
@@ -225,6 +228,12 @@ export function MainLayout() {
       key: 'mfa',
       icon: <SafetyOutlined />,
       label: user?.mfaEnabled ? '账号安全 · MFA 已启用' : '账号安全 · 启用 MFA',
+    },
+    {
+      key: 'deactivate',
+      icon: <DisconnectOutlined />,
+      danger: true,
+      label: '注销账号(自停用)',
     },
     { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
   ];
@@ -439,6 +448,25 @@ export function MainLayout() {
                 }
                 if (key === 'mfa') {
                   openMfa();
+                }
+                if (key === 'deactivate') {
+                  Modal.confirm({
+                    title: '注销账号?',
+                    content: '账号将变为 INACTIVE 状态,需管理员重新激活才能登录。是否继续?',
+                    okText: '确认注销',
+                    okButtonProps: { danger: true },
+                    cancelText: '取消',
+                    onOk: async () => {
+                      try {
+                        await api.post('/auth/deactivate');
+                        message.success('账号已注销');
+                        logout();
+                        navigate('/login');
+                      } catch (e: any) {
+                        message.error(e?.response?.data?.message ?? '注销失败');
+                      }
+                    },
+                  });
                 }
               },
             }}

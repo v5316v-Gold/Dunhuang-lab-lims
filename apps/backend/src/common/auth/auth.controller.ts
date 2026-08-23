@@ -10,7 +10,7 @@ import { Request } from 'express';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { ChangePasswordDto, LoginDto, LoginResponse, MfaChallengeDto, RefreshTokenDto, TotpVerifyDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto, LoginResponse, MfaChallengeDto, RefreshTokenDto, RegisterDto, TotpVerifyDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PasswordService } from './password.service';
 import { TotpService } from './totp.service';
@@ -110,19 +110,37 @@ export class AuthController {
 
   /**
    * POST /auth/change-password
-   * 修改密码
+   * 修改密码(完整实现)
    */
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: '修改密码' })
   async changePassword(@CurrentUser() user: User, @Body() dto: ChangePasswordDto) {
-    // 验证旧密码
-    const passwordOk = await this.passwordService.verify(user.passwordHash, dto.oldPassword);
-    if (!passwordOk) {
-      throw new Error('旧密码错误');
-    }
-    // TODO: 哈希新密码 + 更新
-    return { changed: true };
+    return this.authService.changePassword(user.id, dto.oldPassword, dto.newPassword);
+  }
+
+  /**
+   * POST /auth/register
+   * 自注册(公开)— 默认角色 INTERN、status PENDING,需管理员审核激活
+   */
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: '自注册账号(默认 PENDING,需管理员激活)' })
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  /**
+   * POST /auth/deactivate
+   * 自注销(登录后)— status INACTIVE + 清除 MFA,需管理员重激活
+   */
+  @Post('deactivate')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: '自注销(status=INACTIVE,需管理重激活)' })
+  async deactivate(@CurrentUser() user: User) {
+    return this.authService.deactivate(user.id);
   }
 }
