@@ -16,6 +16,7 @@ import { AuthModule } from './common/auth/auth.module';
 import { EventsModule } from './common/events/events.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { StateMachineModule } from './common/state-machine/state-machine.module';
+import { W1FrameworkModule } from './common/w1-framework/w1-framework.module';
 import { HealthModule } from './infrastructure/health/health.module';
 import { MinioModule } from './infrastructure/minio/minio.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
@@ -29,6 +30,7 @@ import { QrCodeModule } from './common/qrcode/qrcode.module';
 
 // 业务模块
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AuthorizedSignatoryModule } from './modules/authorized-signatory/authorized-signatory.module';
 import { BatchModule } from './modules/batch/batch.module';
 import { EhsModule } from './modules/ehs/ehs.module';
 import { PreciousMetalModule } from './modules/precious-metal/precious-metal.module';
@@ -90,6 +92,7 @@ import { SopModule } from './modules/test/sop/sop.module';
     AuditModule,
     EventsModule,
     SignatureModule,
+    W1FrameworkModule,
     QrCodeModule,
 
     // ============================================
@@ -104,6 +107,7 @@ import { SopModule } from './modules/test/sop/sop.module';
     SopModule,
     QcModule,
     ReportModule,
+    AuthorizedSignatoryModule,
     ReagentModule,
     EhsModule,
     PreciousMetalModule,

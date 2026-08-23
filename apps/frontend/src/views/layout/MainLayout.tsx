@@ -47,6 +47,7 @@ import {
   BellOutlined,
   SearchOutlined,
   DeploymentUnitOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
@@ -110,6 +111,8 @@ const menuGroups = [
       { key: '/qc', icon: <ExperimentOutlined />, label: <Link to="/qc">QC 监控</Link> },
       { key: '/audit-logs', icon: <AuditOutlined />, label: <Link to="/audit-logs">审计日志</Link> },
       { key: '/compliance', icon: <SafetyOutlined />, label: <Link to="/compliance">合规管理</Link> },
+      { key: '/authorized-signatories', icon: <SafetyCertificateOutlined />, label: <Link to="/authorized-signatories">授权签字人</Link> },
+      { key: '/sod-policies', icon: <SafetyOutlined />, label: <Link to="/sod-policies">SoD 与留样期</Link> },
     ],
   },
 ];

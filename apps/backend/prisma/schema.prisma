@@ -106,8 +106,18 @@ model User {
   operatedTests     Test[]                 @relation("TestOperator")
   operatedBatches   SampleBatch[]          @relation("BatchOperator")
   createdReports    Report[]               @relation("ReportCreator")
+  submittedReports  Report[]               @relation("ReportSubmitter")
+  reviewedReports   Report[]               @relation("ReportReviewer")
+  approvedReports   Report[]               @relation("ReportApprover")
+  authorizedReports Report[]               @relation("ReportAuthorizer")
+  issuedReports     Report[]               @relation("ReportIssuer")
   signedSignatures  ReportSignature[]
   uploadedFiles     FileAttachment[]       @relation("FileAttachmentUploader")
+  signatoryEntries        AuthorizedSignatory[]   @relation("SignatoryUser")
+  signatoryApprovals       AuthorizedSignatory[]   @relation("SignatoryApprover")
+  sodPoliciesApproved      SodPolicy[]              @relation("SodPolicyApprover")
+  retentionPoliciesApproved RetentionPolicy[]      @relation("RetentionPolicyApprover")
+  scanLogs               ScanLog[]
   gasResponsible    Gas[]                  @relation("GasResponsible")
   gasInspected      GasPurchase[]          @relation("GasPurchaseInspector")
   gasUsed           GasUsage[]             @relation("GasUsageUsedBy")
@@ -674,10 +684,24 @@ model FireAssayDetail {
   leadButtonWeightG Decimal? @map("lead_button_weight_g") @db.Decimal(15, 6)
   prillWeightG      Decimal? @map("prill_weight_g") @db.Decimal(15, 6)
   partingAcid       String?  @map("parting_acid") @db.VarChar(50)
+
+  // === W1 工艺字段语义修正 — 9 步独立(混料/熔融/灰吹/分金/退火) ===
+  // 历史错位:mixingTempC→furnaceTempC, mixingDurationMin→cupellationMin 已废弃
+  // 老数据保留 furnaceTempC/cupellationMin 字段不删,W2 起 BatchDetail 写入新字段
+  mixingTempC            Decimal? @map("mixing_temp_c")             @db.Decimal(8, 2)
+  mixingDurationMin      Decimal? @map("mixing_duration_min")       @db.Decimal(8, 2)
+  fusingTempC            Decimal? @map("fusing_temp_c")             @db.Decimal(8, 2)
+  fusingDurationMin      Decimal? @map("fusing_duration_min")       @db.Decimal(8, 2)
+  cupellationTempC       Decimal? @map("cupellation_temp_c")        @db.Decimal(8, 2)
+  cupellationDurationMin Decimal? @map("cupellation_duration_min")  @db.Decimal(8, 2)
+  partingDurationMin     Decimal? @map("parting_duration_min")      @db.Decimal(8, 2)
+  annealingTempC         Decimal? @map("annealing_temp_c")          @db.Decimal(8, 2)
+  // 兼容字段(保留,新数据不再写入)
   furnaceTempC      Int?     @map("furnace_temp_c")
   cupellationMin    Int?     @map("cupellation_min")
   partingMin        Int?     @map("parting_min")
   annealingMin      Int?     @map("annealing_min")
+
   qcRecoveryPct     Decimal? @map("qc_recovery_pct") @db.Decimal(5, 2)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -816,8 +840,21 @@ model Report {
   issuedAt     DateTime?    @map("issued_at") @db.Timestamptz
   createdById  String?      @map("created_by_id") @db.Uuid
 
+  // === W1 SoD 6 角色签名人(CNAS-CL01:2018 §7.8.4) ===
+  // 检测员在 Test.operatorId(不重复);此处记录报告流程各阶段执行人
+  submitterId    String? @map("submitter_id")    @db.Uuid  // 编制/提交
+  reviewerId     String? @map("reviewer_id")     @db.Uuid  // 校核(INTERNAL_REVIEW)
+  approverId     String? @map("approver_id")     @db.Uuid  // 审核(FINAL_REVIEW)
+  authorizerId   String? @map("authorizer_id")   @db.Uuid  // 批准(AUTHORIZE 事件)
+  issuerId       String? @map("issuer_id")       @db.Uuid  // 签发(ISSUE 事件)
+
   sample       Sample           @relation(fields: [sampleId], references: [id])
   createdBy    User?            @relation("ReportCreator", fields: [createdById], references: [id])
+  submitter    User?            @relation("ReportSubmitter",   fields: [submitterId],    references: [id])
+  reviewer     User?            @relation("ReportReviewer",    fields: [reviewerId],     references: [id])
+  approver     User?            @relation("ReportApprover",    fields: [approverId],     references: [id])
+  authorizer   User?            @relation("ReportAuthorizer",  fields: [authorizerId],   references: [id])
+  issuer       User?            @relation("ReportIssuer",      fields: [issuerId],       references: [id])
   stages       ReportStage[]
   signatures   ReportSignature[]
 
@@ -1033,6 +1070,7 @@ model FileAttachment {
   equipment     Equipment?   @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
   uncertaintyCalculationFiles UncertaintyReport[]  @relation("UncertaintyCalculationFile")
   rmUsageCertificates        ReferenceMaterialUsage[]  @relation("RMUsageCertificate")
+  signatoryDocs               AuthorizedSignatory[]     @relation("SignatoryDoc")
 
   @@index([category])
   @@index([sha256])
@@ -1895,5 +1933,110 @@ model SopStepExecution {
   @@index([sopExecutionId])
   @@index([stepCode])
   @@map("sop_step_executions")
+}
+
+// =====================================================
+// W1 架构框架 — SoD 互斥 + 授权签字人 + 留样期 + 事件幂等 + 扫码审计
+// =====================================================
+
+// 授权签字人名录(CNAS-CL01:2018 §7.5.3)
+model AuthorizedSignatory {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+
+  // 授权范围(方法 + 样品类型,空 = 该字段无限制)
+  methods          String[] @map("methods")
+  sampleTypes      String[] @map("sample_types")
+
+  effectiveFrom    DateTime  @map("effective_from")
+  effectiveTo      DateTime? @map("effective_to")
+  approvedById     String    @map("approved_by_id") @db.Uuid
+  approvalDocFileId String? @map("approval_doc_file_id") @db.Uuid
+
+  isActive         Boolean   @default(true) @map("is_active")
+  description      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User             @relation("SignatoryUser",       fields: [userId],           references: [id])
+  approvedBy       User             @relation("SignatoryApprover",  fields: [approvedById],     references: [id])
+  approvalDoc      FileAttachment?  @relation("SignatoryDoc",       fields: [approvalDocFileId], references: [id])
+
+  @@index([userId, isActive])
+  @@index([isActive, effectiveFrom, effectiveTo])
+  @@map("authorized_signatories")
+}
+
+// SoD 互斥策略(可配置化,默认 STRICT)
+model SodPolicy {
+  id                  String   @id @default(uuid()) @db.Uuid
+
+  // 适用范围(按样品类型,空数组 = 全部)
+  applyToSampleTypes  String[] @map("apply_to_sample_types")
+
+  // STRICT = 5 人 5 角色互斥;RELAXED = 4 人(AUTHORIZER=ISSUER 允许)
+  mode                String   @map("mode")
+
+  effectiveFrom       DateTime  @map("effective_from")
+  effectiveTo         DateTime? @map("effective_to")
+  approvedById        String    @map("approved_by_id") @db.Uuid
+  description         String?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  approvedBy          User      @relation("SodPolicyApprover", fields: [approvedById], references: [id])
+
+  @@index([effectiveFrom, effectiveTo])
+  @@map("sod_policies")
+}
+
+// 留样/记录保存期(CNAS-CL01 §7.5.2 可配置)
+model RetentionPolicy {
+  id                 String   @id @default(uuid()) @db.Uuid
+  entityType         String   @unique @map("entity_type")  // 'sample' | 'report' | 'audit_log' | 'qc_record' | 'equipment_record'
+  retentionMonths    Int      @map("retention_months")    // -1 = 永久
+  archiveAfterMonths Int      @map("archive_after_months") // 归档只读阈值(月)
+  effectiveFrom      DateTime @map("effective_from")
+  effectiveTo        DateTime? @map("effective_to")
+  approvedById       String   @map("approved_by_id") @db.Uuid
+  description        String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  approvedBy         User     @relation("RetentionPolicyApprover", fields: [approvedById], references: [id])
+
+  @@index([entityType, effectiveFrom, effectiveTo])
+  @@map("retention_policies")
+}
+
+// 事件幂等(防止重复触发 OOS/CAPA 等副作用)
+model ProcessedEvent {
+  id           BigInt   @id @default(autoincrement())
+  eventId      String   @unique @map("event_id") @db.Uuid
+  eventName    String   @map("event_name") @db.VarChar(100)
+  listenerName String   @map("listener_name") @db.VarChar(100)
+  processedAt  DateTime @default(now()) @map("processed_at")
+
+  @@index([eventName, processedAt])
+  @@map("processed_events")
+}
+
+// 扫码审计(QR 设备操作记录)
+model ScanLog {
+  id        BigInt   @id @default(autoincrement())
+  userId    String   @map("user_id") @db.Uuid
+  entity    String   @map("entity") @db.VarChar(50)    // 'sample' | 'batch' | 'equipment' | 'task'
+  entityId  String   @map("entity_id") @db.Uuid
+  ip        String?  @map("ip") @db.VarChar(64)
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+  @@map("scan_logs")
 }
 

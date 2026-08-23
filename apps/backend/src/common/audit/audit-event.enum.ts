@@ -89,6 +89,9 @@ export const AuditEventType = {
   REPORT_SIGNED: 'REPORT:SIGNED',      // 21 CFR Part 11 电子签名
   REPORT_PDF_GENERATED: 'REPORT:PDF_GENERATED',
 
+  // W1 架构:SoD 互斥违规(CNAS-CL01:2018 §7.8.4 + ISO 17025:2017 §7.5.3)
+  SOD_VIOLATION_BLOCKED: 'SOD:VIOLATION_BLOCKED',
+
   // ===== 业务事件 — 标准物质 =====
   // CNAS §7.6 测量溯源性
   REFERENCE_MATERIAL_REGISTERED: 'RM:REGISTERED',

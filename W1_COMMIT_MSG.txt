@@ -1,0 +1,22 @@
+feat: W1 架构框架(数据迁移/老字段回填留待后续)
+
+评审通过:6 角色 SoD 互斥覆盖 CNAS-CL01:2018、授权签字人符合 7.5.3、双模式合理、13 人天可行。
+
+数据库(2 迁移 + schema):
+- Report 加 5 签名人字段 + 5 FK(submitter/reviewer/approver/authorizer/issuer)
+- FireAssayDetail 加 8 独立工艺字段(混料/熔融/灰吹/分金/退火 — 替代错位映射)
+- 新增 5 表: AuthorizedSignatory(7.5.3)、SodPolicy(STRICT/RELAXED)、RetentionPolicy(7.5.2)、ProcessedEvent(幂等)、ScanLog
+- User 多角色反向关系 + 新增审计事件 SOD_VIOLATION_BLOCKED
+
+后端(W1 框架):
+- common/w1-framework/: SodService(6 角色互斥 + 签字人校验)、ProcessedEventService、RetentionPolicyService(seed 默认策略)、W1FrameworkModule(@Global)
+- modules/authorized-signatory/: 完整模块(CTRL + service + module + DTO)
+- common/events/domain-event-bus.ts: emitAsync 自动生成 eventId(UUID)用于幂等
+
+前端(W1 骨架):
+- authorized-signatories/AuthorizedSignatoriesPage.tsx: 签字人名录(列表+新增)
+- sod-policy/SodPolicyPage.tsx: SoD 模式 + 留样期配置
+- router + MainLayout 菜单(质量合规组)
+
+验证:后端 tsc EXIT=0、前端 tsc EXIT=0、vite build 成功。
+本提交不含数据迁移/老字段回填,留待架构完善后再做。

@@ -33,6 +33,8 @@ const QcDashboardPage = lazy(() => import('../views/qc/QcDashboard'));
 const AuditLogsPage = lazy(() => import('../views/audit/AuditLogs'));
 const CompliancePage = lazy(() => import('../views/compliance/ComplianceHub'));
 const DocumentsPage = lazy(() => import('../views/documents/DocumentsPage'));
+const AuthorizedSignatoriesPage = lazy(() => import('../views/authorized-signatories/AuthorizedSignatoriesPage'));
+const SodPolicyPage = lazy(() => import('../views/sod-policy/SodPolicyPage'));
 
 function Loading() {
   return (
@@ -80,6 +82,8 @@ export function AppRouter() {
           <Route path="scan" element={<ScanPage />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
           <Route path="compliance" element={<CompliancePage />} />
+          <Route path="authorized-signatories" element={<AuthorizedSignatoriesPage />} />
+          <Route path="sod-policies" element={<SodPolicyPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

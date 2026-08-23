@@ -6,6 +6,7 @@
 // =====================================================
 
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
 
 import { DomainEvent, DomainEventName } from './domain-events';
@@ -23,9 +24,17 @@ export class DomainEventBus {
   /**
    * 发布事件并等待所有同步/异步监听器完成
    * 任一监听器抛错 → 本次发布 reject(发布方可决定是否影响主流程)
+   *
+   * W1: 自动生成 eventId(随机 UUID),监听器用此在 ProcessedEvent 表判重,
+   *     避免 qc.failed 等副作用事件被重复消费。
    */
   async emitAsync<T>(name: DomainEventName, payload: T): Promise<void> {
-    const event: DomainEvent<T> = { name, payload, occurredAt: new Date() };
+    const event: DomainEvent<T> = {
+      name,
+      payload,
+      occurredAt: new Date(),
+      eventId: randomUUID(),
+    };
     const listeners = this.emitter.listeners(name) as Array<(e: DomainEvent<T>) => unknown>;
     if (listeners.length === 0) return;
     for (const fn of listeners) {
