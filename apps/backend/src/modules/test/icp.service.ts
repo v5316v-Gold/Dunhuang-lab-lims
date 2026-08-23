@@ -6,7 +6,9 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { User } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { ReportService } from '../report/report.service';
+import { DomainEventBus } from '../../common/events/domain-event-bus';
+import { DomainEvents, TestCompletedEvent } from '../../common/events/domain-events';
+import { TestAccessService } from './test-access.service';
 
 export interface CreateIcpTestDto {
   sampleId: string;
@@ -30,7 +32,8 @@ export interface ElementResultInput {
 export class IcpService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly reportService: ReportService,
+    private readonly eventBus: DomainEventBus,
+    private readonly testAccess: TestAccessService,
   ) {}
 
   async create(dto: CreateIcpTestDto, operatorId: string) {
@@ -79,7 +82,9 @@ export class IcpService {
     return this.findOne(testId);
   }
 
-  async complete(testId: string, user?: User) {
+  async complete(testId: string, user: User) {
+    // 行级权限统一校验(与火试金一致)
+    await this.testAccess.assertCanOperate(testId, user);
     const test = await this.findOne(testId);
 
     // 计算主元素纯度(若有 Au 结果,用作 purityPct)
@@ -103,11 +108,15 @@ export class IcpService {
       });
     });
 
-    // 断点④修复:自动创建报告草稿(已有报告则跳过)
-    const reporterId = user?.id ?? test.operatorId;
-    if (reporterId) {
-      await this.reportService.autoCreateReportIfNeeded(test.sampleId, reporterId);
-    }
+    // 架构优化 A1: 发布"检测完成"领域事件 → 报告模块监听后自动建草稿(解耦)
+    const payload: TestCompletedEvent = {
+      testId,
+      sampleId: test.sampleId,
+      method: 'ICP_OES',
+      qcPassed: true,
+      operatorId: user.id,
+    };
+    await this.eventBus.emitAsync(DomainEvents.TEST_COMPLETED, payload);
     return this.findOne(testId);
   }
 

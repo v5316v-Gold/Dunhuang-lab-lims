@@ -62,7 +62,7 @@ export const antdTheme: ThemeConfig = {
     // 交互
     colorPrimaryHover: DESIGN_TOKENS.goldHover,
     colorPrimaryActive: DESIGN_TOKENS.goldBright,
-    colorHoverBg: DESIGN_TOKENS.bgHover,
+    colorBgTextHover: DESIGN_TOKENS.bgHover,
     colorFillTertiary: DESIGN_TOKENS.bgHover,
 
     // 链接
@@ -164,7 +164,6 @@ export const antdTheme: ThemeConfig = {
     Tag: {
       defaultBg: DESIGN_TOKENS.bgTertiary,
       defaultColor: DESIGN_TOKENS.textSecondary,
-      defaultBorderColor: DESIGN_TOKENS.borderColor,
     },
     Pagination: {
       itemActiveBg: 'rgba(212, 175, 55, 0.12)',
@@ -204,7 +203,7 @@ export const antdTheme: ThemeConfig = {
       titleColor: DESIGN_TOKENS.textPrimary,
     },
     Radio: {
-      buttonColorCheckedBg: DESIGN_TOKENS.bgActive,
+      buttonCheckedBg: DESIGN_TOKENS.bgActive,
     },
     Checkbox: {
       colorPrimary: DESIGN_TOKENS.gold,

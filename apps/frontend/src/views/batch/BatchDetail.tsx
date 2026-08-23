@@ -112,6 +112,7 @@ const SAMPLE_STATUS_LABEL: Record<SampleStatus, string> = {
   REPORT_REVIEW: '报告审核',
   REPORT_APPROVED: '报告已批',
   ARCHIVED: '已归档',
+  DISPOSED: '已处置',
   REJECTED: '已拒收',
 };
 
@@ -124,12 +125,12 @@ const SAMPLE_STATUS_COLOR: Record<SampleStatus, string> = {
   REPORT_REVIEW: 'magenta',
   REPORT_APPROVED: 'green',
   ARCHIVED: 'default',
+  DISPOSED: 'default',
   REJECTED: 'red',
 };
 
 const SAMPLE_TYPE_LABEL: Record<SampleType, string> = {
   GOLD_INGOT: '金锭',
-  GOLD_BAR: '金条',
   GOLD_POWDER: '金粉',
   GOLD_ALLOY: '金合金',
   JEWELRY: '首饰',
@@ -202,7 +203,7 @@ export default function BatchDetailPage() {
   const [fireAssayOpen, setFireAssayOpen] = useState(false);
 
   // 批次详情
-  const { data: batch, isLoading, error } = useQuery({
+  const { data: batch, isLoading, error } = useQuery<BatchDetail>({
     queryKey: ['batch', id],
     queryFn: async () => (await api.get(`/batches/${id}`)).data,
     enabled: !!id,
@@ -567,7 +568,7 @@ export default function BatchDetailPage() {
           pagination={{ pageSize: 10 }}
           rowSelection={{
             selectedRowKeys: selectedSampleIds,
-            onChange: setSelectedSampleIds,
+            onChange: (keys) => setSelectedSampleIds(keys as string[]),
           }}
           columns={[
             { title: '样品编号', dataIndex: 'sampleNo', width: 140 },

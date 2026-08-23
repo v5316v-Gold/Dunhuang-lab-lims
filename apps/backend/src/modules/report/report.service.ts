@@ -4,7 +4,7 @@ import { StateMachineService } from '../../common/state-machine/state-machine.se
 // 详见 Phase 2 文档 §5.1
 // =====================================================
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Report, ReportStatus, UserRole } from '@prisma/client';
 
 
@@ -12,6 +12,8 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SecurityAuditService } from '../../common/audit/security-audit.service';
 import { AuditEventType } from '../../common/audit/audit-event.enum';
 import { SignatureService } from '../../common/signature/signature.service';
+import { DomainEventBus } from '../../common/events/domain-event-bus';
+import { DomainEvents, TestCompletedEvent } from '../../common/events/domain-events';
 
 import { ReportEvent, transitionReport } from './report.state-machine';
 import { ReportPdfService } from './report-pdf.service';
@@ -21,14 +23,33 @@ const REPORT_RETENTION_MONTHS = 6;
 
 
 @Injectable()
-export class ReportService {
+export class ReportService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfService: ReportPdfService,
     private readonly stateMachine: StateMachineService,
     private readonly securityAudit: SecurityAuditService,
     private readonly signatureService: SignatureService,
+    private readonly eventBus: DomainEventBus,
   ) {}
+
+  /**
+   * 架构优化 A1: 订阅"检测完成"领域事件 → 自动创建报告草稿
+   * TestModule 不再反向依赖 ReportModule(模块解耦)
+   */
+  onModuleInit(): void {
+    this.eventBus.on<TestCompletedEvent>(DomainEvents.TEST_COMPLETED, (event) =>
+      this.handleTestCompleted(event.payload),
+    );
+  }
+
+  private async handleTestCompleted(payload: TestCompletedEvent): Promise<void> {
+    // QC 未通过不自动建报告
+    if (!payload.qcPassed) return;
+    const reporterId = payload.operatorId;
+    if (!reporterId) return;
+    await this.autoCreateReportIfNeeded(payload.sampleId, reporterId);
+  }
 
   /**
    * 创建报告(草稿)

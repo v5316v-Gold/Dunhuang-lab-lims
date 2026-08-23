@@ -55,7 +55,7 @@ export function statusTag(status?: string | null): ReactNode {
 }
 
 // ---------- 通用表格 ----------
-interface DataTableProps<T> extends TableProps<T> {
+interface DataTableProps<T> extends Omit<TableProps<T>, 'title' | 'loading'> {
   title?: ReactNode;
   subtitle?: ReactNode;
   onRefresh?: () => void;

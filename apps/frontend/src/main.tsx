@@ -20,7 +20,11 @@ class DebugErrorBoundary extends Component<
   { children: ReactNode },
   { hasError: boolean; error: Error | null; stack: string | null }
 > {
-  state = { hasError: false, error: null, stack: null };
+  state: { hasError: boolean; error: Error | null; stack: string | null } = {
+    hasError: false,
+    error: null,
+    stack: null,
+  };
 
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error, stack: error.stack ?? null };

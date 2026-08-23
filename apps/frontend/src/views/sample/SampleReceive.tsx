@@ -17,6 +17,7 @@ import {
   Col,
   Typography,
   Tag,
+  message,
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../data/api';
@@ -28,7 +29,6 @@ const { Title, Text } = Typography;
 // 样品类型中文映射(ADR-0011 §1 业务画像)
 const sampleTypeOptions: { value: SampleType; label: string; color?: string }[] = [
   { value: 'GOLD_INGOT', label: '金锭', color: 'gold' },
-  { value: 'GOLD_BAR', label: '金条', color: 'gold' },
   { value: 'GOLD_POWDER', label: '金粉', color: 'orange' },
   { value: 'GOLD_ALLOY', label: '金合金', color: 'orange' },
   { value: 'JEWELRY', label: '首饰', color: 'cyan' },

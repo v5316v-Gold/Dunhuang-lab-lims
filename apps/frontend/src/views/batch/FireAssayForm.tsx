@@ -24,6 +24,7 @@ import {
 import { FireOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../../data/api';
+import type { AssayMethod } from '@dunhuang/lims-shared-types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -39,7 +40,7 @@ interface Sample {
 interface FireAssayFormProps {
   open: boolean;
   batchNo: string;
-  method: 'FIRE_ASSAY' | 'ICP_OES' | 'OTHER';
+  method: AssayMethod;
   samples: Sample[];
   replicateCount: number;
   onCancel: () => void;
@@ -49,6 +50,7 @@ interface FireAssayFormProps {
 interface ParallelSample {
   sampleId: string;
   sampleNo: string;
+  testId?: string;
   prillWeightG?: number;
   qcRecoveryPct?: number;
   status: 'pending' | 'saving' | 'saved' | 'error';

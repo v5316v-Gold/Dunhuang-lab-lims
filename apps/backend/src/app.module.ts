@@ -13,6 +13,7 @@ import { ClsModule } from 'nestjs-cls';
 // 基础设施层
 import { AuditModule } from './common/audit/audit.module';
 import { AuthModule } from './common/auth/auth.module';
+import { EventsModule } from './common/events/events.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { StateMachineModule } from './common/state-machine/state-machine.module';
 import { HealthModule } from './infrastructure/health/health.module';
@@ -87,6 +88,7 @@ import { SopModule } from './modules/test/sop/sop.module';
     // ============================================
     AuthModule,
     AuditModule,
+    EventsModule,
     SignatureModule,
     QrCodeModule,
 

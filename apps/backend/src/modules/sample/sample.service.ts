@@ -248,14 +248,14 @@ export class SampleService {
   }
   /**
    * W+1-10: 样品留样登记(TESTED/REPORTED → ARCHIVED + retentionUntil)
+   * 架构优化: 使用注入的 stateMachine/securityAudit(移除 (this as any) 动态探测),
+   *           审计事件修正为 SAMPLE_ARCHIVED(原误用 SETTINGS_CHANGED)
    */
   async archive(sampleId: string, location: string, months = 6, userId?: string) {
     const sample = await this.prisma.sample.findUnique({ where: { id: sampleId } });
     if (!sample) throw new NotFoundException(`样品 ${sampleId} 不存在`);
-    // 状态机守卫(若注入)
-    if ((this as any).stateMachine) {
-      (this as any).stateMachine.assertTransition('Sample', sample.status, 'ARCHIVED');
-    }
+    // 状态机守卫
+    this.stateMachine.assertTransition('Sample', sample.status, 'ARCHIVED');
     const retentionUntil = new Date();
     retentionUntil.setMonth(retentionUntil.getMonth() + months);
     const result = await this.prisma.sample.update({
@@ -267,19 +267,16 @@ export class SampleService {
         retentionUntil,
       },
     });
-    // 审计
-    if ((this as any).securityAudit) {
-      await (this as any).securityAudit.system(
-        (this as any).AuditEventType?.SETTINGS_CHANGED ?? 'CONFIG:SETTINGS_CHANGED',
-        {
-          event: 'SAMPLE_ARCHIVED',
-          sampleNo: sample.sampleNo,
-          location,
-          retentionUntil: retentionUntil.toISOString(),
-          months,
-        },
-      );
-    }
+    // 审计(修正: 原代码兜底误用 CONFIG:SETTINGS_CHANGED)
+    await this.securityAudit.system(AuditEventType.SAMPLE_ARCHIVED, {
+      event: 'SAMPLE_ARCHIVED',
+      sampleNo: sample.sampleNo,
+      sampleId,
+      location,
+      retentionUntil: retentionUntil.toISOString(),
+      months,
+      operatorId: userId,
+    });
     return result;
   }
 

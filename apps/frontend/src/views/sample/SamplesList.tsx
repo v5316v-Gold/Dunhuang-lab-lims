@@ -32,6 +32,7 @@ const statusColorMap: Record<SampleStatus, string> = {
   REPORT_REVIEW: 'magenta',
   REPORT_APPROVED: 'green',
   ARCHIVED: 'default',
+  DISPOSED: 'default',
   REJECTED: 'red',
 };
 
@@ -44,6 +45,7 @@ const statusLabelMap: Record<SampleStatus, string> = {
   REPORT_REVIEW: '报告审核',
   REPORT_APPROVED: '报告已批',
   ARCHIVED: '已归档',
+  DISPOSED: '已处置',
   REJECTED: '已拒收',
 };
 
@@ -141,7 +143,7 @@ export default function SamplesListPage() {
         />
       </Space>
 
-      <DataTable
+      <DataTable<Sample>
         rowKey="id"
         loading={isLoading}
         dataSource={data?.data ?? []}

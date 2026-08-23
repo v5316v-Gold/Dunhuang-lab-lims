@@ -403,8 +403,8 @@ export function WasteList() {
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="容器类型" name="containerType" placeholder="如:25L 塑料桶">
-                <Input />
+              <Form.Item label="容器类型" name="containerType">
+                <Input placeholder="如:25L 塑料桶" />
               </Form.Item>
             </Col>
             <Col span={12}>

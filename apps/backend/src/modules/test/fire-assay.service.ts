@@ -9,7 +9,9 @@ import Decimal from 'decimal.js';
 import { validateStepOrder, isAllStepsDone } from './fire-assay-steps';
 
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { ReportService } from '../report/report.service';
+import { DomainEventBus } from '../../common/events/domain-event-bus';
+import { DomainEvents, TestCompletedEvent } from '../../common/events/domain-events';
+import { TestAccessService } from './test-access.service';
 
 import {
   calculateFireAssayPurity,
@@ -43,29 +45,15 @@ export interface RecordWeightsDto {
 export class FireAssayService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly reportService: ReportService,
+    private readonly eventBus: DomainEventBus,
+    private readonly testAccess: TestAccessService,
   ) {}
 
   /**
-   * Phase 1 Task 2.2: row-level 权限校验(检测归属)
-   * 规则: ANALYST/INTERN 只能操作自己负责的检测任务;
-   *       SENIOR_ANALYST/QUALITY_MANAGER/LAB_DIRECTOR/ADMIN 可操作全部
+   * 行级权限校验(检测归属) — 统一走 TestAccessService
    */
-  private async assertCanOperate(testId: string, user: User): Promise<void> {
-    if (user.role === UserRole.ADMIN || user.role === UserRole.LAB_DIRECTOR ||
-        user.role === UserRole.QUALITY_MANAGER || user.role === UserRole.SENIOR_ANALYST) {
-      return;
-    }
-    const test = await this.prisma.test.findUnique({
-      where: { id: testId },
-      select: { operatorId: true },
-    });
-    if (!test) {
-      throw new NotFoundException(`检测 ${testId} 不存在`);
-    }
-    if (test.operatorId !== user.id) {
-      throw new ForbiddenException('只能操作自己负责的检测任务');
-    }
+  private assertCanOperate(testId: string, user: User): Promise<void> {
+    return this.testAccess.assertCanOperate(testId, user);
   }
 
   /**
@@ -210,10 +198,8 @@ export class FireAssayService {
       return { ...result, testId: dto.testId };
     });
 
-    // 断点④修复:QC 通过(检测完成)→ 自动创建报告草稿(已有报告则跳过)
-    if (result.qcPassed) {
-      await this.reportService.autoCreateReportIfNeeded(test.sampleId, user.id);
-    }
+    // 架构优化 A1: 发布"检测完成"领域事件 → 报告模块监听后自动建草稿(解耦)
+    await this.emitTestCompleted(test.id, test.sampleId, result.qcPassed, test.operatorId);
 
     return txResult;
   }
@@ -235,9 +221,28 @@ export class FireAssayService {
         data: { status: 'TESTED' },
       });
     });
-    // 断点④修复:自动创建报告草稿(已有报告则跳过)
-    await this.reportService.autoCreateReportIfNeeded(test.sampleId, user.id);
+    // 架构优化 A1: 发布"检测完成"领域事件 → 报告模块监听后自动建草稿(解耦)
+    await this.emitTestCompleted(test.id, test.sampleId, true, test.operatorId);
     return this.findOne(testId);
+  }
+
+  /**
+   * 发布 检测完成 领域事件(架构优化 A1)
+   */
+  private async emitTestCompleted(
+    testId: string,
+    sampleId: string,
+    qcPassed: boolean,
+    operatorId: string | null,
+  ): Promise<void> {
+    const payload: TestCompletedEvent = {
+      testId,
+      sampleId,
+      method: 'FIRE_ASSAY',
+      qcPassed,
+      operatorId,
+    };
+    await this.eventBus.emitAsync(DomainEvents.TEST_COMPLETED, payload);
   }
 
   /**

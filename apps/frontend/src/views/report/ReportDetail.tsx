@@ -131,12 +131,8 @@ export function ReportDetail() {
       setComment('');
       await load();
     } catch (e: any) {
-      const msg = e?.response?.data?.message;
-      const code = typeof msg === 'object' ? msg?.code : null;
-      if (code === 'MFA_NOT_ENABLED') {
-        message.error('该操作需要 MFA 二次验证,请先在右上角"账号安全"启用 MFA');
-      }
-      // 其余错误(验证码错误等)由 api 拦截器统一提示
+      // 错误提示由 api 拦截器统一处理(避免双 toast);
+      // MFA_NOT_ENABLED 时后端 message 已含操作指引
     } finally {
       setMfaBusy(false);
     }
