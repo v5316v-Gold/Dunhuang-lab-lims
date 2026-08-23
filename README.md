@@ -145,13 +145,24 @@ UserSession        UserRoleAssignment
 | Swagger UI | http://127.0.0.1:3030/api/docs | API 在线文档 |
 | 健康检查 | http://127.0.0.1:3030/api/v1/health/live | — |
 
-### 6.2 测试账号
-| 用户名 | 密码 | 角色 |
-|---|---|---|
-| `admin` | `Admin@Pass123` | 管理员 |
-| `qa.manager` | `Analyst@Pass123` | 质量经理 |
-| `fire.senior` | `Analyst@Pass123` | 高级分析员(火试金) |
-| `icp.analyst` | `Analyst@Pass123` | ICP 分析员 |
+### 6.2 测试账号(已与最新数据库同步,2026-08-23)
+**统一初始密码**:`Admin@Pass123`(首次登录后建议各自在「头像菜单 → 账号安全 → 修改密码」改为强密码)。
+
+| 用户名 | 姓名 | 角色 | 状态 | MFA |
+|---|---|---|---|---|
+| `admin` | 管理员 | ADMIN | ACTIVE | 未启用 |
+| `wang.wu` | 王五 | QUALITY_MANAGER | ACTIVE | 未启用 |
+| `li.si` | 李四 | SENIOR_ANALYST | ACTIVE | 未启用 |
+| `zhang.san` | 张三 | ANALYST | ACTIVE | 未启用 |
+| `999999` | 李珍玉 | ANALYST | ACTIVE | 未启用 |
+| `director.zhao` | 赵主任 | LAB_DIRECTOR | ACTIVE | 未启用 |
+| `equip.li` | 李设备 | EQUIPMENT_MANAGER | ACTIVE | 未启用 |
+| `reagent.wang` | 王试剂 | REAGENT_MANAGER | ACTIVE | 未启用 |
+| `intern.song` | 宋实习 | INTERN | ACTIVE | 未启用 |
+| `auditor.guest` | 外审员 | EXTERNAL_AUDITOR | ACTIVE | 未启用 |
+
+> 自注册:`/` 注册新账号(公开端点)→ 默认 INTERN / PENDING → 必须管理员在「用户管理」中点击「激活」改为 ACTIVE 后方可登录。
+> 自注销:头像菜单 → 「注销账号(自停用)」→ 账号立即 INACTIVE,需管理员重激活。
 
 ### 6.3 Docker 容器(已运行)
 | 容器 | 端口 | 用途 |
@@ -277,9 +288,10 @@ UNLICENSED — 内部使用,需经「敦煌金质检」书面授权。
 
 ---
 
-**最后更新**:2026-08-15
-**当前 commit**:`a9bc085` feat(phase-1b): P0 合规硬化冲刺
-**CNAS 评审目标**:2026-11-03(距今 80 天)
+**最后更新**:2026-08-23
+**当前 commit**:`c856c14`(feat(account): self-registration + admin user management + 5 role accounts)
+**CNAS 评审目标**:2026-11-03(距今 73 天)
+**当前分支**:`feat/cnas-hardening`
 **阶段状态**:
 
 | 阶段 | 状态 | 关键 commit | 评估 |
@@ -291,10 +303,12 @@ UNLICENSED — 内部使用,需经「敦煌金质检」书面授权。
 | W4 贵金属业务 (§7.5+§7.8+§7.4) | ✅ 完成 | aaac66c | 评审合规 |
 | W5 UX 增强 (SSE+BI+QR+i18n) | ✅ 完成 | 6476801 | 体验增强 |
 | Phase 1A 架构冻结+证据链 | ✅ PASS | 6a01acf / ea929d6 / a443054 | 9 文档 + DB trigger |
-| **Phase 1B P0 合规硬化** | ✅ **PASS** | **a9bc085** | **6 块 P0 全部闭环** |
-| Phase 1C 功能开发 | ⏸️ 待启动 | — | 允许(条件见下) |
-
-**累计**:39 个 model / 39/39 测试 PASS / 15 项前端菜单 / 7 个 DB migration / 12 个后端模块 / 4 个 ADR / 60+ 文档 / 1500+ 行 Phase 1B 新代码
+| Phase 1B P0 合规硬化 | ✅ PASS | a9bc085 | 6 块 P0 全部闭环 |
+| Phase 1C 12 项功能开发 | ✅ 完成 | bfe52a5 - a5d4ad0 | RBAC / 报告 PDF / 火试金 / 临时授权 / 内审 / 管评 |
+| **审计整改 + 全菜单交互补全** | ✅ 完成 | `5cab920 / 2022705 / 348048c / 8dbe87d / 755ab26` | 34 页面补操作 |
+| **S1-S3 / M1-M5 / L1-L4 修复** | ✅ 完成 | `93233e7 / 52a1ff7` | 重复路由/MFA/防护逻辑 |
+| **账号管理(自注册+审核+软删)** | ✅ 完成 | `c856c14` | 10 真实账号就绪 |
+| Phase 1C 准入条件(必做第一周) | ✅ 已完成 | — | 见下文 |
 
 ---
 
@@ -334,10 +348,10 @@ UNLICENSED — 内部使用,需经「敦煌金质检」书面授权。
 | Build 0 错 | ✅ | 1100+ 行新代码 |
 | Migration apply | ✅ | 4 个新 migration |
 
-**Phase 1C 准入条件**(必做第一周):
-1. **补 P0 专项 spec 测试**(Westgard/StateMachine/Ownership/Uncertainty/ReferenceMaterial 各 1 spec)— 3h
-2. 启动 P1 任务(报告 PDF / 校准证书 / RM 期间核查 / 留样 / 内审 / 管评)— 11h
-3. Phase 1C 末:模拟内部评审(实验室主任扮 CNAS 评审员)
+**Phase 1C 准入条件**(已全部完成):
+1. ✅ P0 专项 spec 测试 — Westgard/StateMachine/Ownership/Uncertainty/ReferenceMaterial 各覆盖
+2. ✅ P1 任务 — 报告 PDF / 校准证书 / RM 期间核查 / 留样 / 内审 / 管评
+3. ⏸️ 模拟内部评审(实验室主任扮 CNAS 评审员)— 评审前一周准备
 
 ### 关键文档索引
 
@@ -395,7 +409,9 @@ Phase 2      试运行 + 内审 + 管评 + 模拟评审 + 最终 Gate
 
 ---
 
-**最后更新**: 2026-08-15
-**当前 commit**: `8e79a1a`(Phase 2 收官)
-**CNAS 现场评审**: 2026-11-03
+**最后更新**: 2026-08-23
+**当前 commit**: `c856c14`(feat(account): self-registration + admin user management + 5 role accounts)
+**当前分支**: `feat/cnas-hardening`
+**CNAS 现场评审**: 2026-11-03(距今 73 天)
+**最新阶段**: 全部菜单交互补全 + 审计整改(S1-S3 / M1-M5 / L1-L4)+ 账号管理体系上线
 **状态**: **全项目收官,系统具备 CNAS 现场评审演示能力**。剩余 3 项系统外工作(试运行数据录入 / 质量手册 / 现场演练)需实验室主任在评审前完成。
