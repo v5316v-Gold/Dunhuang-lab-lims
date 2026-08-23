@@ -239,7 +239,7 @@ export function MainLayout() {
 
   // 菜单内容(供 Sider + Drawer 复用)
   const menuContent = (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Logo 区 */}
       <div
         className="dsh-logo-area"
@@ -287,35 +287,32 @@ export function MainLayout() {
       </div>
 
       {/* 菜单 */}
-      <Menu
-        theme="dark"
-        mode="inline"
-        selectedKeys={[selectedKey]}
-        defaultOpenKeys={[breadcrumb.group ? menuGroups.find((g) => g.label === breadcrumb.group)?.key ?? 'g-overview' : 'g-overview']}
-        items={menuItems}
-        style={{ borderRight: 'none', marginTop: 4 }}
-      />
+      <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          defaultOpenKeys={[breadcrumb.group ? menuGroups.find((g) => g.label === breadcrumb.group)?.key ?? 'g-overview' : 'g-overview']}
+          items={menuItems}
+          style={{ borderRight: 'none', marginTop: 4 }}
+        />
+      </div>
 
-      {/* 底部: 环境徽章 + 版本 */}
+      {/* 底部: 环境徽章 + 版本(不再 absolute,作为 flex 项) */}
       <div
         style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: '12px 16px',
+          flexShrink: 0,
+          padding: '10px 16px',
           borderTop: '1px solid rgba(212,175,55,0.1)',
           background: 'var(--bg-secondary)',
         }}
       >
-        <Space direction="vertical" size={6} style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Tag color={ENV_BADGE.color} style={{ margin: 0, fontSize: 10 }}>{ENV_BADGE.text}</Tag>
-            <Text style={{ fontSize: 10, color: 'var(--text-muted)' }}>v1.0.0</Text>
-          </div>
-        </Space>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Tag color={ENV_BADGE.color} style={{ margin: 0, fontSize: 10 }}>{ENV_BADGE.text}</Tag>
+          <Text style={{ fontSize: 10, color: 'var(--text-muted)' }}>v{import.meta.env.PACKAGE_VERSION ?? '1.0.0'}</Text>
+        </div>
       </div>
-    </>
+    </div>
   );
 
   return (
