@@ -37,6 +37,7 @@ import {
   FireOutlined,
   ExperimentOutlined,
   ClockCircleOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../data/api';
@@ -785,9 +786,22 @@ interface ProcessParamRow {
 }
 
 function ProcessHistoryView({ batchId }: { batchId: string }) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['batch-process-params', batchId],
     queryFn: async () => (await api.get(`/batches/${batchId}/process-params`)).data,
+  });
+
+  // W4: 工艺完成后可一键生成/查看原始记录单(幂等)
+  const genRecordMut = useMutation({
+    mutationFn: async (testId: string) => (await api.post('/raw-records/generate', { testId })).data,
+    onSuccess: (sheet) => {
+      message.success(`原始记录单 ${sheet.sheetNo} 已就绪`);
+      qc.invalidateQueries({ queryKey: ['batch-process-params', batchId] });
+      navigate(`/raw-records/${sheet.id}`);
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message ?? '生成失败'),
   });
 
   if (isLoading) {
@@ -870,6 +884,21 @@ function ProcessHistoryView({ batchId }: { batchId: string }) {
           dataIndex: 'recordedAt',
           width: 170,
           render: (v: string) => new Date(v).toLocaleString('zh-CN'),
+        },
+        {
+          title: '操作',
+          width: 100,
+          fixed: 'right' as const,
+          render: (_: any, r: ProcessParamRow) => (
+            <Button
+              size="small"
+              type="primary"
+              ghost
+              icon={<FileTextOutlined />}
+              loading={genRecordMut.isPending}
+              onClick={() => genRecordMut.mutate(r.testId)}
+            >记录单</Button>
+          ),
         },
       ]}
     />

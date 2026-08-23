@@ -8,7 +8,7 @@ import {
   Button, Card, Descriptions, Table, Tag, Space, App, Spin, Alert, Typography, Popconfirm,
 } from 'antd';
 import {
-  ArrowLeftOutlined, LockOutlined, EditOutlined, SafetyCertificateOutlined, FileTextOutlined,
+  ArrowLeftOutlined, LockOutlined, EditOutlined, SafetyCertificateOutlined, FileTextOutlined, EyeOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../data/api';
@@ -111,6 +111,9 @@ export default function RawRecordDetail() {
         extra={
           <Space>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/raw-records')}>返回列表</Button>
+            {sheet.sample?.id && (
+              <Button icon={<EyeOutlined />} onClick={() => navigate(`/samples/${sheet.sample!.id}`)}>查看样品</Button>
+            )}
             {isDraft && (
               <Popconfirm title="锁定后数据冻结,不可再修改,确认锁定?" onConfirm={() => lockMut.mutate()}>
                 <Button type="primary" danger icon={<LockOutlined />} loading={lockMut.isPending}>锁定记录单</Button>

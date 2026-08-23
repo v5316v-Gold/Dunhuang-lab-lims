@@ -31,7 +31,7 @@ export class RawRecordController {
 
   @Get()
   @ApiOperation({ summary: '原始记录单列表' })
-  findAll(@Query() filter: { sampleId?: string; page?: number; pageSize?: number }) {
+  findAll(@Query() filter: { sampleId?: string; status?: string; page?: number; pageSize?: number }) {
     return this.service.findAll(filter);
   }
 

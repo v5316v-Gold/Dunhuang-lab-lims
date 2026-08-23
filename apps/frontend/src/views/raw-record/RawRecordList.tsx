@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Button, Form, Input, Table, Tag, Space, Modal, App, Alert,
+  Button, Form, Table, Tag, Space, Modal, App, Alert, Select,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, FileTextOutlined, EyeOutlined,
@@ -52,10 +52,15 @@ export default function RawRecordList() {
   const navigate = useNavigate();
   const [genOpen, setGenOpen] = useState(false);
   const [genForm] = Form.useForm();
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
 
   const { data: list, isLoading } = useQuery({
-    queryKey: ['raw-records'],
-    queryFn: async () => (await api.get<{ items: RawRecordSheet[]; total: number }>('/raw-records?pageSize=50')).data,
+    queryKey: ['raw-records', statusFilter],
+    queryFn: async () => {
+      const params: any = { pageSize: 50 };
+      if (statusFilter) params.status = statusFilter;
+      return (await api.get<{ items: RawRecordSheet[]; total: number }>('/raw-records', { params })).data;
+    },
     refetchInterval: 30000,
   });
 
@@ -102,6 +107,14 @@ export default function RawRecordList() {
         icon={<FileTextOutlined />}
         extra={
           <Space>
+            <Select
+              allowClear
+              placeholder="状态"
+              style={{ width: 120 }}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={Object.entries(STATUS_META).map(([v, m]) => ({ value: v, label: m.label }))}
+            />
             <Button icon={<ReloadOutlined />} onClick={() => qc.invalidateQueries({ queryKey: ['raw-records'] })}>刷新</Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => { genForm.resetFields(); setGenOpen(true); }}>生成记录单</Button>
           </Space>
@@ -141,15 +154,46 @@ export default function RawRecordList() {
         />
         <Form form={genForm} layout="vertical" style={{ marginTop: 16 }} onFinish={(values) => genMut.mutate(values)}>
           <Form.Item
-            label="检测任务 ID(testId)"
+            label="检测任务(已完成)"
             name="testId"
-            rules={[{ required: true, message: '请输入检测任务 UUID' }]}
-            extra="可在检测任务列表/批处理参数中获取"
+            rules={[{ required: true, message: '请选择已完成的检测任务' }]}
+            extra="仅显示状态为「已完成」的检测;同一检测幂等,重复生成返回已有记录单"
           >
-            <Input placeholder="如:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={{ fontFamily: 'monospace' }} />
+            <CompletedTestSelect />
           </Form.Item>
         </Form>
       </Modal>
     </div>
+  );
+}
+
+/** 已完成检测任务远程下拉 */
+function CompletedTestSelect({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
+  const [keyword, setKeyword] = useState('');
+  const { data, isLoading } = useQuery({
+    queryKey: ['completed-tests', keyword],
+    queryFn: async () => {
+      const params: any = { status: 'COMPLETED', page: 1, pageSize: 50 };
+      if (keyword) params.sampleId = keyword;
+      return (await api.get('/tests', { params })).data;
+    },
+  });
+  const options = (data?.data ?? []).map((t: any) => ({
+    value: t.id,
+    label: `${t.sample?.sampleNo ?? '未知样品'} · ${t.method === 'FIRE_ASSAY' ? '火试金' : t.method}${t.purityPct != null ? ` · ${parseFloat(String(t.purityPct)).toFixed(4)}%` : ''}`,
+  }));
+  return (
+    <Select
+      showSearch
+      value={value}
+      onChange={onChange}
+      loading={isLoading}
+      options={options}
+      placeholder="选择已完成检测…"
+      filterOption={false}
+      onSearch={(v) => setKeyword(v)}
+      notFoundContent="暂无已完成检测"
+      style={{ width: '100%' }}
+    />
   );
 }

@@ -166,11 +166,13 @@ export class RawRecordSheetService {
     return sheet;
   }
 
-  /** 列表(按样品/检测) */
-  async findAll(filter: { sampleId?: string; page?: number; pageSize?: number }) {
+  /** 列表(按样品/检测/状态) */
+  async findAll(filter: { sampleId?: string; status?: string; page?: number; pageSize?: number }) {
     const page = filter.page ? Number(filter.page) : 1;
     const pageSize = filter.pageSize ? Number(filter.pageSize) : 20;
-    const where: any = filter.sampleId ? { sampleId: filter.sampleId } : {};
+    const where: any = {};
+    if (filter.sampleId) where.sampleId = filter.sampleId;
+    if (filter.status) where.status = filter.status;
     const [items, total] = await Promise.all([
       this.prisma.rawRecordSheet.findMany({
         where,
