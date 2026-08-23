@@ -143,6 +143,40 @@ async function bootstrap() {
     },
   });
 
+  // 根路径友好指引:直接访问 3030 端口时显示中文入口页(而非 404 JSON)
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/', (_req: any, res: any) => {
+    res.type('html').send(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>敦煌金质检 LIMS · 后端服务</title>
+<style>
+  body { background:#08080a; color:#e8e6e3; font-family:"Microsoft YaHei",sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+  .card { background:#121216; border:1px solid rgba(212,175,55,.3); border-radius:12px; padding:40px 48px; max-width:520px; }
+  h1 { color:#d4af37; font-size:22px; margin:0 0 8px; }
+  p { color:#a8a6a1; line-height:1.8; margin:8px 0; }
+  a { color:#d4af37; }
+  .links { margin-top:16px; }
+  .links a { display:inline-block; background:rgba(212,175,55,.08); border:1px solid rgba(212,175,55,.35); border-radius:6px; padding:8px 16px; margin:4px 8px 4px 0; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>敦煌金质检 LIMS · 后端 API 服务</h1>
+  <p>这是后端 API 服务端口(3030),不是前台页面入口。</p>
+  <p>请通过前端系统访问业务功能:</p>
+  <div class="links">
+    <a href="http://127.0.0.1:5173/">→ 打开前端系统(5173)</a>
+    <a href="/api/docs">API 文档(Swagger)</a>
+    <a href="/health/ready">健康检查</a>
+  </div>
+  <p style="font-size:12px;color:#6d6b66;">CNAS-CL01:2018 / ISO 17025 · 数据完整性 ALCOA+ · 内部系统请勿外传</p>
+</div>
+</body>
+</html>`);
+  });
+
   // 优雅关闭
   app.enableShutdownHooks();
 
