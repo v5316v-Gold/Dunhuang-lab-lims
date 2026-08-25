@@ -81,9 +81,22 @@ router.post('/projects', requireAuth, validate(ProjectCreateSchema), (req, res) 
 
 router.delete('/projects/:id', requireAdmin, (req, res) => {
   try {
-    run('DELETE FROM projects WHERE id=?', [parseInt(req.params.id)]);
+    const id = parseInt(req.params.id);
+    // 检查是否有关联样品
+    const sampleCount = queryOne('SELECT COUNT(*) as cnt FROM samples WHERE project_id=?', [id]);
+    if (sampleCount && sampleCount.cnt > 0) {
+      return res.status(400).json({ 
+        error: '该项目关联 ' + sampleCount.cnt + ' 个样品，无法直接删除。请先删除关联样品。' 
+      });
+    }
+    run('DELETE FROM projects WHERE id=?', [id]);
     res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { 
+    if (e.message && e.message.includes('FOREIGN KEY')) {
+      return res.status(400).json({ error: '项目被其他数据引用，无法删除' });
+    }
+    res.status(500).json({ error: e.message }); 
+  }
 });
 
 router.get('/project-records', requireAuth, (req, res) => {
@@ -111,7 +124,12 @@ router.delete('/project-records/:id', requireAuth, (req, res) => {
   try {
     run('DELETE FROM project_records WHERE id=?', [parseInt(req.params.id)]);
     res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { 
+    if (e.message && e.message.includes('FOREIGN KEY')) {
+      return res.status(400).json({ error: '检测记录被其他数据引用，无法删除' });
+    }
+    res.status(500).json({ error: e.message }); 
+  }
 });
 
 router.put('/projects/:id', requireAuth, validate(ProjectCreateSchema), (req, res) => {
