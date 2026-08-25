@@ -76,7 +76,7 @@ window.LIMS_ENUMS.combos = (function() {
   };
 })();
 
-console.log('[ENUMS] 阶段 1.1+1.2 枚举已加载:');
+console.info('[ENUMS] 阶段 1.1+1.2 枚举已加载:');
 
 
 // 2026-08-11 全局错误处理（消除 Unchecked runtime.lastError + CSP 警告）

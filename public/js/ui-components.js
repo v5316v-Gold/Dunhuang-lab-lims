@@ -500,6 +500,31 @@ class FileUpload {
 // ============================================================
 // 6. 全局 Toast
 // ============================================================
+// 增强错误提示（长消息、含标题和提示）
+function showError(title, message, hint) {
+  type = 'danger';
+  duration = 5000;
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = 'position:fixed;top:80px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.style.cssText = 'background:#fff;border-left:4px solid #C04851;box-shadow:0 4px 16px rgba(192,72,81,0.2);border-radius:8px;padding:12px 16px;min-width:320px;max-width:420px;font-size:13px;color:#3D2B1F;animation:slideIn 0.2s ease;';
+  toast.innerHTML = '<div style="display:flex;align-items:start;gap:10px;">'
+    + '<i data-lucide="alert-circle" style="width:20px;height:20px;color:#C04851;flex-shrink:0;margin-top:2px;"></i>'
+    + '<div style="flex:1;">'
+    + '<div style="font-weight:600;color:#C04851;margin-bottom:4px;">' + (title || '操作失败') + '</div>'
+    + '<div style="color:#3D2B1F;line-height:1.5;">' + (message || '') + '</div>'
+    + (hint ? '<div style="color:#8B7355;font-size:12px;margin-top:6px;font-style:italic;">💡 ' + hint + '</div>' : '')
+    + '</div></div>';
+  container.appendChild(toast);
+  if (window.lucide) window.lucide.createIcons();
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, duration);
+}
+
 function showToast(message, type, duration) {
   type = type || 'info';
   duration = duration || 2500;

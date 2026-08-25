@@ -114,9 +114,34 @@ function renderTable(headers, rows, containerId) {
 function deleteItem(tab, id) {
   if (!confirm('确定删除?')) return;
   api('/' + tab + '/' + id, 'DELETE').then(function(r) {
-    if (r.error) { showMessage(r.error, 'danger'); return; }
+    if (r.error) {
+      // 智能判断错误类型，给出明确指引
+      var msg = r.error;
+      var hint = '';
+      if (msg.indexOf('无法直接删除') >= 0 || msg.indexOf('关联') >= 0) {
+        hint = '请先删除关联数据后重试';
+      } else if (msg.indexOf('FOREIGN KEY') >= 0) {
+        hint = '该数据被其他记录引用';
+      } else if (msg.indexOf('Unauthorized') >= 0) {
+        hint = '请重新登录';
+      } else if (msg.indexOf('Not Found') >= 0) {
+        hint = '记录可能已被其他用户删除';
+      }
+      if (typeof showError === 'function') {
+        showError('删除失败', msg, hint);
+      } else {
+        showMessage(msg, 'danger');
+      }
+      return;
+    }
     showMessage('删除成功', 'success');
     if (typeof window['load' + capitalize(tab)] === 'function') window['load' + capitalize(tab)]();
+  }).catch(function(err) {
+    if (typeof showError === 'function') {
+      showError('网络错误', '请检查服务器连接', err.message || '');
+    } else {
+      showMessage('网络错误：' + (err.message || ''), 'danger');
+    }
   });
 }
 
