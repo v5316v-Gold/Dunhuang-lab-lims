@@ -1579,6 +1579,10 @@
       <div class="content-header">
         <h2><i data-lucide="search"></i> 日常巡检</h2>
         <div class="header-actions">
+          <!-- 2026-08-11 阶段 4 入口 -->
+          <button class="btn btn-primary" onclick="traceabilityMgr.openManager()" style="background: linear-gradient(90deg, #8B6914, #B8860B); margin-right:6px;">
+            <i data-lucide="link" style="width:16px;height:16px;"></i> 全流程溯源
+          </button>
           <!-- 2026-08-11 阶段 3 P2 入口 -->
           <button class="btn btn-primary" onclick="deviceIot.openManager()" style="background: linear-gradient(90deg, #4A6B8A, #5C8CB5); margin-right:6px;">
             <i data-lucide="cpu" style="width:16px;height:16px;"></i> 设备 IoT
@@ -2084,6 +2088,8 @@
 <script src="/js/capa-approval.js?v=20260811"></script>
 <!-- 2026-08-11 阶段 3 P2 - 设备 IoT + 不确定度 -->
 <script src="/js/device-iot-ui.js?v=20260811"></script>
+<!-- 2026-08-11 阶段 4 - 全流程溯源 -->
+<script src="/js/traceability-ui.js?v=20260811"></script>
 <script>
 const _origShowCM = window.showModal;
 window.showModal = function(id) {

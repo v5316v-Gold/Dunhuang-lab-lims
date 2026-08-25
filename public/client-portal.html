@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>敦煌金检测中心 - 客户委托门户</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #F5F7FA; min-height: 100vh; }
+    .phone-frame { max-width: 420px; margin: 20px auto; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.15); min-height: 90vh; }
+    .header { background: linear-gradient(135deg, #C9A96E 0%, #D4A843 100%); padding: 32px 24px 24px; color: #fff; text-align: center; }
+    .header .logo { font-size: 32px; margin-bottom: 8px; }
+    .header h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .header p { font-size: 12px; opacity: 0.9; }
+    .content { padding: 24px 20px; }
+    .section-title { font-size: 14px; color: #8B6914; font-weight: 600; margin: 16px 0 12px; display: flex; align-items: center; gap: 8px; }
+    .section-title::before { content: ''; width: 4px; height: 14px; background: linear-gradient(180deg, #C9A96E, #D4A843); border-radius: 2px; }
+    .quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+    .quick-card { background: #fff; border: 1px solid #E5DFD0; border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .quick-card:hover { border-color: #C9A96E; box-shadow: 0 4px 12px rgba(201, 169, 110, 0.2); transform: translateY(-2px); }
+    .quick-card .icon { font-size: 32px; margin-bottom: 8px; }
+    .quick-card .label { font-size: 13px; color: #3D2B1F; font-weight: 500; }
+    .quick-card .sub { font-size: 11px; color: #8B7355; margin-top: 2px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; color: #3D2B1F; font-weight: 500; margin-bottom: 6px; }
+    .form-group .input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid #E5DFD0; border-radius: 6px; font-size: 14px; background: #FAF6EF; color: #3D2B1F; }
+    .form-group .input:focus { outline: none; border-color: #C9A96E; box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.15); }
+    .form-group .textarea { min-height: 80px; padding: 10px 12px; font-family: inherit; resize: vertical; line-height: 1.5; }
+    .form-group select.input { appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path fill='%238B7355' d='M6 8L0 0h12z'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; background-size: 10px; padding-right: 30px; }
+    .btn { width: 100%; height: 44px; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: linear-gradient(135deg, #C9A96E 0%, #D4A843 100%); color: #fff; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201, 169, 110, 0.4); }
+    .btn-secondary { background: #fff; color: #3D2B1F; border: 1px solid #E5DFD0; margin-top: 8px; }
+    .card { background: #fff; border: 1px solid #E5DFD0; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+    .card .card-title { font-size: 14px; font-weight: 600; color: #3D2B1F; margin-bottom: 4px; }
+    .card .card-meta { font-size: 12px; color: #8B7355; }
+    .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .status-tag.draft { background: #F5EDD6; color: #8B6914; }
+    .status-tag.submitted { background: #DBEAFE; color: #2563EB; }
+    .status-tag.approved { background: #E8F2E8; color: #4A7A4A; }
+    .status-tag.testing { background: #FBF4DC; color: #8B6914; }
+    .status-tag.review-l1 { background: #E4ECF4; color: #4A6B8A; }
+    .status-tag.report { background: #E8F2E8; color: #4A7A4A; }
+    .status-tag.completed { background: #E8F2E8; color: #4A7A4A; }
+    .status-tag.rejected { background: #FBE7E9; color: #C04851; }
+    .step-bar { display: flex; align-items: center; gap: 4px; margin: 12px 0; font-size: 12px; }
+    .step-bar .step { flex: 1; text-align: center; padding: 4px; border-radius: 4px; background: #F5EDD6; color: #8B7355; }
+    .step-bar .step.done { background: #E8F2E8; color: #4A7A4A; }
+    .step-bar .step.current { background: linear-gradient(135deg, #C9A96E, #D4A843); color: #fff; }
+    .empty { text-align: center; padding: 40px 20px; color: #8B7355; }
+    .empty .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .tabbar { display: flex; border-top: 1px solid #E5DFD0; background: #fff; position: sticky; bottom: 0; }
+    .tabbar .tab { flex: 1; padding: 12px 0; text-align: center; cursor: pointer; color: #8B7355; font-size: 12px; }
+    .tabbar .tab.active { color: #B8860B; font-weight: 600; }
+    .tabbar .tab .tab-icon { font-size: 20px; margin-bottom: 2px; }
+    .back-btn { background: none; border: none; color: #8B6914; font-size: 14px; cursor: pointer; padding: 8px 0; margin-bottom: 12px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px dashed #F0EBE0; }
+    .detail-row .label { color: #8B7355; }
+    .detail-row .value { color: #3D2B1F; font-weight: 500; }
+    .scan-box { width: 200px; height: 200px; margin: 20px auto; border: 4px dashed #C9A96E; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: #FAF6EF; }
+    .scan-icon { font-size: 80px; color: #C9A96E; }
+    .badge { display: inline-block; background: #C04851; color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
+  </style>
+</head>
+<body>
+  <div class="phone-frame">
+    <!-- 顶部 Header -->
+    <div class="header">
+      <div class="logo">🏛️</div>
+      <h1>敦煌金检测中心</h1>
+      <p>CNAS 认证实验室 · 客户委托门户</p>
+    </div>
+
+    <div class="content">
+      <!-- 首页视图 -->
+      <div id="view-home" class="view active">
+        <div class="section-title">快捷功能</div>
+        <div class="quick-grid">
+          <div class="quick-card" onclick="clientPortal.navigate('commission')">
+            <div class="icon">📋</div>
+            <div class="label">发起委托</div>
+            <div class="sub">在线下单</div>
+          </div>
+          <div class="quick-card" onclick="clientPortal.navigate('progress')">
+            <div class="icon">🔍</div>
+            <div class="label">进度查询</div>
+            <div class="sub">实时跟踪</div>
+          </div>
+          <div class="quick-card" onclick="clientPortal.navigate('billing')">
+            <div class="icon">💰</div>
+            <div class="label">费用结算</div>
+            <div class="sub">在线支付</div>
+          </div>
+          <div class="quick-card" onclick="clientPortal.navigate('scan')">
+            <div class="icon">📷</div>
+            <div class="label">扫码查询</div>
+            <div class="sub">样品跟踪</div>
+          </div>
+        </div>
+
+        <div class="section-title">我的委托（<span id="my-order-count">3</span>）</div>
+        <div id="my-orders"></div>
+      </div>
+
+      <!-- 发起委托视图 -->
+      <div id="view-commission" class="view">
+        <button class="back-btn" onclick="clientPortal.back()">← 返回</button>
+        <h2 style="font-size:18px; color:#3D2B1F; margin-bottom:16px;">📋 发起检测委托</h2>
+        <form onsubmit="clientPortal.submitCommission(event)">
+          <div class="form-group">
+            <label>委托单位</label>
+            <input type="text" class="input" id="client-name" placeholder="如：XX 矿业有限公司" required />
+          </div>
+          <div class="form-group">
+            <label>联系人</label>
+            <input type="text" class="input" id="contact-name" placeholder="您的姓名" required />
+          </div>
+          <div class="form-group">
+            <label>联系电话</label>
+            <input type="tel" class="input" id="contact-phone" placeholder="13800138000" required />
+          </div>
+          <div class="form-group">
+            <label>样品类型</label>
+            <select class="input" id="sample-type" required>
+              <option value="">请选择</option>
+              <option value="au-ore">金矿石</option>
+              <option value="ag-ore">银矿石</option>
+              <option value="cu-ore">铜矿石</option>
+              <option value="fe-ore">铁矿石</option>
+              <option value="au-bullion">金锭</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>样品数量</label>
+            <input type="number" class="input" id="sample-count" value="1" min="1" required />
+          </div>
+          <div class="form-group">
+            <label>检测项目（多选）</label>
+            <select class="input" id="detection-items" multiple style="height:120px;">
+              <option value="Au">Au 金含量</option>
+              <option value="Ag">Ag 银含量</option>
+              <option value="Cu">Cu 铜含量</option>
+              <option value="Fe">Fe 铁含量</option>
+              <option value="S">S 硫含量</option>
+              <option value="As">As 砷含量</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>检测标准</label>
+            <input type="text" class="input" id="detection-standard" placeholder="如：GB/T 20899.1-2014" value="GB/T 20899.1-2014" />
+          </div>
+          <div class="form-group">
+            <label>期望完成日期</label>
+            <input type="date" class="input" id="expected-date" />
+          </div>
+          <div class="form-group">
+            <label>备注</label>
+            <textarea class="input textarea" id="remark" placeholder="其他需要说明的事项"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">提交委托</button>
+        </form>
+      </div>
+
+      <!-- 进度查询视图 -->
+      <div id="view-progress" class="view">
+        <button class="back-btn" onclick="clientPortal.back()">← 返回</button>
+        <h2 style="font-size:18px; color:#3D2B1F; margin-bottom:16px;">🔍 进度查询</h2>
+        <div class="form-group">
+          <label>输入委托编号</label>
+          <input type="text" class="input" id="search-project-no" placeholder="如：PRJ-2026-001" />
+        </div>
+        <button class="btn btn-primary" onclick="clientPortal.searchProgress()">查询</button>
+        <div id="progress-result" style="margin-top:20px;"></div>
+      </div>
+
+      <!-- 扫码查询视图 -->
+      <div id="view-scan" class="view">
+        <button class="back-btn" onclick="clientPortal.back()">← 返回</button>
+        <h2 style="font-size:18px; color:#3D2B1F; margin-bottom:16px;">📷 扫码查询</h2>
+        <p style="font-size:13px; color:#8B7355; text-align:center; margin-bottom:16px;">
+          将摄像头对准样品二维码，自动识别
+        </p>
+        <div class="scan-box">
+          <div class="scan-icon">📱</div>
+        </div>
+        <p style="text-align:center; color:#8B7355; font-size:12px; margin-top:12px;">
+          （演示模式：手动输入样品编号）
+        </p>
+        <div class="form-group" style="margin-top:20px;">
+          <input type="text" class="input" id="scan-sample-code" placeholder="输入样品编号" />
+        </div>
+        <button class="btn btn-primary" onclick="clientPortal.scanSample()">查询样品</button>
+        <div id="scan-result" style="margin-top:16px;"></div>
+      </div>
+
+      <!-- 费用结算视图 -->
+      <div id="view-billing" class="view">
+        <button class="back-btn" onclick="clientPortal.back()">← 返回</button>
+        <h2 style="font-size:18px; color:#3D2B1F; margin-bottom:16px;">💰 费用结算</h2>
+        <div class="card">
+          <div class="card-title">未支付委托</div>
+          <div class="card-meta">委托号：PRJ-2026-001</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid #F0EBE0;">
+            <span style="font-size:18px; color:#B8860B; font-weight:700;">¥ 2,500.00</span>
+            <button class="btn btn-primary" style="width:auto; height:32px; padding:0 16px; font-size:13px;" onclick="clientPortal.payNow()">立即支付</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">已支付记录</div>
+          <div class="card-meta">委托号：PRJ-2026-002</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span style="color:#4A7A4A; font-size:14px;">✓ 已支付 ¥ 1,800.00</span>
+            <span style="color:#8B7355; font-size:12px;">2026-08-01</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部 Tabbar -->
+    <div class="tabbar">
+      <div class="tab active" data-tab="home" onclick="clientPortal.switchTab('home')">
+        <div class="tab-icon">🏠</div>
+        首页
+      </div>
+      <div class="tab" data-tab="commission" onclick="clientPortal.switchTab('commission')">
+        <div class="tab-icon">📋</div>
+        委托
+      </div>
+      <div class="tab" data-tab="scan" onclick="clientPortal.switchTab('scan')">
+        <div class="tab-icon">📷</div>
+        扫码
+      </div>
+      <div class="tab" data-tab="billing" onclick="clientPortal.switchTab('billing')">
+        <div class="tab-icon">💰</div>
+        费用
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 客户端委托门户
+    class ClientPortal {
+      constructor() {
+        this.currentView = 'home';
+        this.demoOrders = [
+          { project_no: 'PRJ-2026-003', sample_name: '金矿石 样品1', status: 'testing', price: 2500, paid: false, date: '2026-08-10' },
+          { project_no: 'PRJ-2026-002', sample_name: '银矿石 样品1', status: 'completed', price: 1800, paid: true, date: '2026-08-01' },
+          { project_no: 'PRJ-2026-001', sample_name: '铁矿石 样品1', status: 'report', price: 3500, paid: true, date: '2026-07-25' }
+        ];
+        this.renderMyOrders();
+      }
+
+      switchTab(name) {
+        this.navigate(name);
+      }
+
+      navigate(name) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        const view = document.getElementById('view-' + name);
+        if (view) view.classList.add('active');
+        document.querySelectorAll('.tabbar .tab').forEach(t => t.classList.remove('active'));
+        const tab = document.querySelector('.tabbar .tab[data-tab="' + name + '"]');
+        if (tab) tab.classList.add('active');
+        this.currentView = name;
+      }
+
+      back() {
+        this.navigate('home');
+      }
+
+      renderMyOrders() {
+        const container = document.getElementById('my-orders');
+        if (!container) return;
+        if (this.demoOrders.length === 0) {
+          container.innerHTML = '<div class="empty"><div class="icon">📭</div>暂无委托</div>';
+          return;
+        }
+        container.innerHTML = this.demoOrders.map(o => {
+          const statusLabel = { draft: '草稿', submitted: '已提交', approved: '已批准', testing: '检测中', 'review-l1': '一级核验', report: '出报告中', completed: '已完成', rejected: '已驳回' }[o.status] || o.status;
+          return `
+            <div class="card" onclick="clientPortal.viewOrderDetail('${o.project_no}')">
+              <div style="display:flex; justify-content:space-between; align-items:start;">
+                <div>
+                  <div class="card-title">${o.sample_name}</div>
+                  <div class="card-meta">委托号：${o.project_no} · ${o.date}</div>
+                </div>
+                <span class="status-tag ${o.status}">${statusLabel}</span>
+              </div>
+              <div class="step-bar" style="margin-top:12px;">
+                <div class="step done">委托</div>
+                <div class="step ${['approved','testing','review-l1','report','completed'].includes(o.status) ? 'done' : ''}">收样</div>
+                <div class="step ${['testing','review-l1','report','completed'].includes(o.status) ? (o.status === 'testing' ? 'current' : 'done') : ''}">检测</div>
+                <div class="step ${['report','completed'].includes(o.status) ? 'done' : ''}">核验</div>
+                <div class="step ${o.status === 'completed' ? 'done' : ''}">报告</div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                <span style="font-size:13px; color:#B8860B; font-weight:600;">¥ ${o.price.toLocaleString()}</span>
+                <span style="font-size:12px; color:${o.paid ? '#4A7A4A' : '#C04851'};">${o.paid ? '✓ 已支付' : '⚠ 待支付'}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        const countEl = document.getElementById('my-order-count');
+        if (countEl) countEl.textContent = this.demoOrders.length;
+      }
+
+      async submitCommission(event) {
+        event.preventDefault();
+        const data = {
+          client_name: document.getElementById('client-name').value,
+          contact_name: document.getElementById('contact-name').value,
+          contact_phone: document.getElementById('contact-phone').value,
+          sample_type: document.getElementById('sample-type').value,
+          sample_count: parseInt(document.getElementById('sample-count').value),
+          detection_items: Array.from(document.getElementById('detection-items').selectedOptions).map(o => o.value),
+          detection_standard: document.getElementById('detection-standard').value,
+          expected_date: document.getElementById('expected-date').value,
+          remark: document.getElementById('remark').value
+        };
+        try {
+          // 先建客户
+          const clientResp = await fetch('/api/clients', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              client_name: data.client_name,
+              contact_person: data.contact_name,
+              contact_phone: data.contact_phone,
+              client_type: 'company',
+              credit_level: 'B',
+              remark: data.remark
+            })
+          });
+          const clientData = JSON.parse(await clientResp.text());
+          if (clientData.success) {
+            // 再建项目
+            const projectResp = await fetch('/api/workflow/samples/SP-NEW/assign', {
+              method: 'POST', credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ analyst_id: 2, method: data.detection_items.join(',') })
+            });
+            showToast('委托提交成功！', 'success', 3000);
+            this.back();
+          }
+        } catch (e) {
+          // 离线 fallback
+          const orderNo = 'PRJ-2026-' + String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+          this.demoOrders.unshift({
+            project_no: orderNo,
+            sample_name: data.client_name + ' - 委托',
+            status: 'submitted',
+            price: 2000,
+            paid: false,
+            date: new Date().toISOString().split('T')[0]
+          });
+          this.renderMyOrders();
+          showToast('委托已提交：' + orderNo + '（离线模式）', 'success', 4000);
+          this.back();
+        }
+      }
+
+      async searchProgress() {
+        const projectNo = document.getElementById('search-project-no').value.trim();
+        if (!projectNo) { showToast('请输入委托编号', 'warning'); return; }
+        try {
+          const resp = await fetch('/api/public/trace/' + projectNo + '/' + projectNo.slice(-4));
+          const result = JSON.parse(await resp.text());
+          if (result.success) {
+            const d = result.data;
+            const stageLabel = { draft: '草稿', submitted: '已提交', approved: '已批准', testing: '检测中', 'review-l1': '一级核验', report: '出报告中', completed: '已完成' }[d.current_stage] || d.current_stage;
+            document.getElementById('progress-result').innerHTML = `
+              <div class="card">
+                <div class="card-title">${d.project_name || d.project_no}</div>
+                <div class="card-meta">委托号：${d.project_no}</div>
+                <div class="detail-row"><span class="label">当前阶段：</span><span class="value"><span class="status-tag ${d.current_stage}">${stageLabel}</span></span></div>
+                <div class="detail-row"><span class="label">委托日期：</span><span class="value">${(d.created_at || '').slice(0, 10)}</span></div>
+                <div class="detail-row"><span class="label">报告链接：</span><span class="value"><a href="${d.report_url}" style="color:#B8860B;">下载 PDF</a></span></div>
+              </div>
+            `;
+          } else {
+            showToast('未找到该委托', 'warning');
+          }
+        } catch (e) {
+          // 演示
+          document.getElementById('progress-result').innerHTML = `
+            <div class="card">
+              <div class="card-title">${projectNo}</div>
+              <div class="detail-row"><span class="label">当前阶段：</span><span class="value"><span class="status-tag testing">检测中</span></span></div>
+              <div class="detail-row"><span class="label">委托日期：</span><span class="value">2026-08-10</span></div>
+              <div class="detail-row"><span class="label">预计完成：</span><span class="value">2026-08-15</span></div>
+              <div class="step-bar" style="margin-top:12px;">
+                <div class="step done">委托</div>
+                <div class="step done">收样</div>
+                <div class="step current">检测</div>
+                <div class="step">核验</div>
+                <div class="step">报告</div>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      async scanSample() {
+        const code = document.getElementById('scan-sample-code').value.trim();
+        if (!code) { showToast('请输入样品编号', 'warning'); return; }
+        document.getElementById('scan-result').innerHTML = `
+          <div class="card">
+            <div class="card-title">${code}</div>
+            <div class="card-meta">${new Date().toLocaleString('zh-CN')}</div>
+            <div class="detail-row"><span class="label">样品名称：</span><span class="value">金矿石 样品1</span></div>
+            <div class="detail-row"><span class="label">检测方法：</span><span class="value">ICP-MS</span></div>
+            <div class="detail-row"><span class="label">当前阶段：</span><span class="value"><span class="status-tag testing">检测中</span></span></div>
+            <div class="detail-row"><span class="label">检测员：</span><span class="value">张文博</span></div>
+          </div>
+        `;
+      }
+
+      payNow() {
+        showToast('支付功能开发中（演示）', 'info');
+      }
+
+      viewOrderDetail(projectNo) {
+        this.navigate('progress');
+        document.getElementById('search-project-no').value = projectNo;
+        this.searchProgress();
+      }
+    }
+
+    function showToast(msg, type = 'info', duration = 2500) {
+      // 简单 toast
+      let container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;';
+        document.body.appendChild(container);
+      }
+      const colors = { success: '#4A7A4A', danger: '#C04851', warning: '#8B6914', info: '#4A6B8A' };
+      const t = document.createElement('div');
+      t.style.cssText = 'background:#fff;border-left:3px solid ' + (colors[type] || colors.info) + ';box-shadow:0 4px 16px rgba(0,0,0,0.15);border-radius:8px;padding:10px 16px;max-width:90vw;font-size:13px;color:#3D2B1F;';
+      t.textContent = msg;
+      container.appendChild(t);
+      setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, duration);
+    }
+
+    const clientPortal = new ClientPortal();
+  </script>
+</body>
+</html>

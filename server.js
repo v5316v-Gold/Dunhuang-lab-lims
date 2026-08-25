@@ -243,6 +243,10 @@ app.use('/api', require('./routes/task-assign'));
 app.use('/api', require('./routes/device-iot'));
 // 2026-08-11 阶段 3 - 不确定度 A/B 类评定
 app.use('/api', require('./routes/uncertainty'));
+// 2026-08-11 阶段 4 - 公共查询（无需登录）
+app.use('/api', require('./routes/public-trace'));
+// 2026-08-11 阶段 4 - 全流程溯源
+app.use('/api', require('./routes/traceability'));
 
 app.use('/api/permissions', require('./routes/permissions'));  // 阶段 1.2 - 8 岗位 RBAC
 app.use('/api/excel', require('./routes/excel'));   // /api/excel/*
