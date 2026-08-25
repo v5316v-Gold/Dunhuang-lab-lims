@@ -14,8 +14,11 @@ window.LIMS_SCHEMAS = {};
 if (!window.LIMS_ENUMS) window.LIMS_ENUMS = {};
 
 window.LIMS_ENUMS.metals = {
-  ALL: window.LIMS_ENUMS_PRECIOUS_METALS || [],
-  byCode: function(code) { return (window.LIMS_ENUMS_PRECIOUS_METALS || []).find(function(m) { return m.code === code; }); },
+  ALL: (typeof LIMS_ENUMS_PRECIOUS_METALS !== 'undefined') ? LIMS_ENUMS_PRECIOUS_METALS : (window.LIMS_ENUMS && window.LIMS_ENUMS.metals && window.LIMS_ENUMS.metals.ALL) ? window.LIMS_ENUMS.metals.ALL : [],
+  byCode: function(code) {
+    var arr = (typeof LIMS_ENUMS_PRECIOUS_METALS !== 'undefined') ? LIMS_ENUMS_PRECIOUS_METALS : (window.LIMS_ENUMS && window.LIMS_ENUMS.metals && window.LIMS_ENUMS.metals.ALL) ? window.LIMS_ENUMS.metals.ALL : [];
+    return arr.find(function(m) { return m.code === code; });
+  },
   bySymbol: function(symbol) { return (window.LIMS_ENUMS_PRECIOUS_METALS || []).find(function(m) { return m.symbol === symbol; }); }
 };
 
@@ -76,10 +79,20 @@ window.LIMS_ENUMS.combos = (function() {
 console.log('[ENUMS] 阶段 1.1+1.2 枚举已加载:');
 
 
+// 2026-08-11 全局错误处理（消除 Unchecked runtime.lastError）
+window.addEventListener('error', function(e) {
+  if (e.message && e.message.includes('message channel')) return; // 忽略扩展消息
+  console.warn('[GLOBAL ERROR]', e.message, e.filename, e.lineno);
+});
+window.addEventListener('unhandledrejection', function(e) {
+  console.warn('[UNHANDLED PROMISE]', e.reason);
+  e.preventDefault();
+});
+
 window.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {
     if (typeof zod === 'undefined') {
-      console.warn('[ZOD] 未加载，跳过客户端校验');
+      console.info('[ZOD] 未加载（可能是 CDN 阻塞或 CSP 限制），跳过客户端校验——服务器端仍会校验');
       return;
     }
     var z = zod.z;

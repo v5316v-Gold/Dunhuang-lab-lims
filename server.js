@@ -170,6 +170,7 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false
 }));
+// 2026-08-11 全局错误处理中间件
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -1070,7 +1071,30 @@ function seedData() {
 // Start
 // ============================================================
 initDB().then(() => {
-  app.listen(PORT, '::', () => {
+  
+// 2026-08-11 全局错误处理（必须在所有路由之后）
+app.use(function(err, req, res, next) {
+  console.error('[GLOBAL ERROR]', err.stack || err.message);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: '请求数据格式错误（JSON 解析失败）' });
+  }
+  if (err.code === 'SQLITE_CONSTRAINT') {
+    return res.status(400).json({ error: '数据约束错误' });
+  }
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: '服务器内部错误：' + (err.message || '未知错误') });
+});
+
+// 404 统一处理
+app.use(function(req, res) {
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({ error: 'API 不存在：' + req.method + ' ' + req.path });
+  } else {
+    res.status(404).sendFile(require('path').join(__dirname, 'public', 'index.html'));
+  }
+});
+
+app.listen(PORT, '::', () => {
     console.log(`\n  敦煌金检测中心LIMS系统已启动 [模块化架构]`);
     console.log(`  地址: http://localhost:${PORT}`);
     console.log(`  局域网: http://192.168.2.55:${PORT}`);
