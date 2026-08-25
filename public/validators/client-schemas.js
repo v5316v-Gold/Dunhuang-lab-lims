@@ -79,12 +79,25 @@ window.LIMS_ENUMS.combos = (function() {
 console.log('[ENUMS] 阶段 1.1+1.2 枚举已加载:');
 
 
-// 2026-08-11 全局错误处理（消除 Unchecked runtime.lastError）
+// 2026-08-11 全局错误处理（消除 Unchecked runtime.lastError + CSP 警告）
 window.addEventListener('error', function(e) {
-  if (e.message && e.message.includes('message channel')) return; // 忽略扩展消息
-  console.warn('[GLOBAL ERROR]', e.message, e.filename, e.lineno);
-});
+  if (!e || !e.message) return;
+  var msg = e.message || '';
+  // 忽略：扩展消息、CSP 警告、Chrome 内部错误
+  if (msg.indexOf('message channel') >= 0) return;
+  if (msg.indexOf('runtime.lastError') >= 0) return;
+  if (msg.indexOf('violates the following Content Security Policy') >= 0) return;
+  console.warn('[GLOBAL ERROR]', msg, e.filename || '', e.lineno || '');
+}, true);
 window.addEventListener('unhandledrejection', function(e) {
+  // 静默处理扩展引起的 Promise 错误
+  if (e && e.reason && typeof e.reason === 'object' && e.reason.message) {
+    var msg = e.reason.message || '';
+    if (msg.indexOf('message channel') >= 0 || msg.indexOf('runtime.lastError') >= 0) {
+      e.preventDefault();
+      return;
+    }
+  }
   console.warn('[UNHANDLED PROMISE]', e.reason);
   e.preventDefault();
 });

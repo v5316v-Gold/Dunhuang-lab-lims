@@ -3,6 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 2026-08-11 全局错误抑制：忽略 Chrome 扩展消息和 CSP 警告 -->
+  <script>
+    (function() {
+      var origOnError = window.onerror;
+      window.onerror = function(msg, src, line, col, err) {
+        if (typeof msg === 'string' && (msg.indexOf('runtime.lastError') >= 0 || msg.indexOf('message channel') >= 0 || msg.indexOf('Content Security Policy') >= 0)) return true;
+        if (origOnError) return origOnError.apply(this, arguments);
+        return false;
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        if (e && e.reason && e.reason.message && (e.reason.message.indexOf('message channel') >= 0 || e.reason.message.indexOf('runtime.lastError') >= 0)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    })();
+  </script>
   <title>敦煌金检测中心 LIMS 系统</title>
   <meta name="description" content="CNAS 认证实验室信息管理系统 - 敦煌金检测中心">
   <meta name="keywords" content="LIMS, 实验室, 检测, CNAS, ISO 17025, 敦煌金检测">
@@ -17,7 +34,7 @@
   <!-- Bootstrap CSS removed (修复 17) - glyphicons replaced with Lucide -->
   <!-- Lucide Icons (2026-08-03 升级：以专业线性图标替换 emoji) -->
   <script src="/vendor/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/zod@3.22.4/lib/index.umd.min.js"></script>
+  <script src="/vendor/zod.min.js"></script>
 <script src="/validators/enums/precious-metals.js"></script>
   <script src="/validators/enums/materials.js"></script>
   <script src="/validators/enums/methods.js"></script>
