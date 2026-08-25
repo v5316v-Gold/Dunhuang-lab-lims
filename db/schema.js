@@ -809,4 +809,45 @@ function runMigrations(db) {
   }
 }
 
-module.exports = { createTables, runMigrations };
+// ============================================================
+// 2026-08-11 P0 工作流迁移应用
+// ============================================================
+function applyP0Migration(db) {
+  const fs = require('fs');
+  const path = require('path');
+  const migrationPath = path.join(__dirname, 'migration-p0-workflow.sql');
+  if (!fs.existsSync(migrationPath)) return false;
+  try {
+    const sql = fs.readFileSync(migrationPath, 'utf-8');
+    // 移除注释行
+    const cleanSql = sql.split('\n').filter(line => !line.trim().startsWith('--')).join('\n');
+    // 按 ; 拆分（每个 CREATE TABLE / CREATE INDEX / INSERT 单独执行）
+    const statements = cleanSql.split(';').map(s => s.trim()).filter(s => s.length > 5);
+    let successCount = 0;
+    const errors = [];
+    statements.forEach((stmt, idx) => {
+      try {
+        db.exec(stmt + ';');
+        successCount++;
+      } catch (e) {
+        const msg = e.message || '';
+        // 忽略重复创建错误
+        if (msg.includes('duplicate') || msg.includes('already exists')) {
+          successCount++; // 算成功
+        } else {
+          errors.push({idx, msg: msg.substring(0, 150)});
+        }
+      }
+    });
+    console.log('[P0-MIGRATION] Applied ' + successCount + '/' + statements.length + ' statements');
+    if (errors.length > 0 && errors.length < 10) {
+      console.log('[P0-MIGRATION] Errors:', JSON.stringify(errors));
+    }
+    return true;
+  } catch (e) {
+    console.warn('[P0-MIGRATION] Failed:', e.message);
+    return false;
+  }
+}
+
+module.exports = { createTables, runMigrations, applyP0Migration };

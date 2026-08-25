@@ -1,188 +1,189 @@
 const express = require('express');
-const { WorkflowSampleCreateSchema, validate } = require('../validators/schemas');
-
 const router = express.Router();
 
-// STAGE MAP: appointment → received → encoded → split → testing → data_recorded → report → reviewed → archived
+// ============================================================
+// 2026-08-11 P0 工作流 API — 委托审批流（节点 2/9）
+// ============================================================
 
-const STAGES = ['appointment', 'received', 'encoded', 'split', 'testing', 'data_recorded', 'report', 'reviewed', 'archived'];
-
-const STAGE_LABELS = {
-  appointment: '送样预约',
-  received: '样品接收',
-  encoded: '登记编码',
-  split: '样品分流',
-  testing: '检测执行',
-  data_recorded: '数据记录',
-  report: '报告生成',
-  reviewed: '报告审核',
-  archived: '归档存储',
-  completed: '已完成'
-};
-
-const STAGE_COLORS = {
-  appointment: '#1d4ed8',
-  received: '#2563eb',
-  encoded: '#3b82f6',
-  split: '#06b6d4',
-  testing: '#f97316',
-  data_recorded: '#d97708',
-  report: '#7c3aed',
-  reviewed: '#6d28d9',
-  archived: '#059669',
-  completed: '#374151'
-};
-
-// GET /api/workflow/stages - 返回所有阶段定义
-router.get('/stages', requireAuth, (req, res) => {
-  res.json({ stages: STAGES, labels: STAGE_LABELS, colors: STAGE_COLORS });
-});
-
-// GET /api/workflow/samples - 返回所有样品及其当前阶段
-router.get('/samples', requireAuth, (req, res) => {
-  const rows = queryAll(`
-    SELECT ws.*, u.name as operator_name, sup.name as supervisor_name
-    FROM workflow_samples ws
-    LEFT JOIN users u ON ws.operator_id=u.id
-    LEFT JOIN users sup ON ws.supervisor_id=sup.id
-    ORDER BY ws.id DESC
-  `);
-  res.json({ data: rows });
-});
-
-// POST /api/workflow/samples - 创建新样品（从预约开始）
-router.post('/samples', requireAuth, validate(WorkflowSampleCreateSchema), (req, res) => {
-  if (!req.body.sample_code) return res.status(400).json({ error: '样品编号必填' });
+// 提交委托（草稿 → 已提交）
+router.post('/projects/:id/submit', requireAuth, (req, res) => {
   try {
-    const info = run(
-      `INSERT INTO workflow_samples (sample_code,sample_name,sample_type,client_name,contact_phone,detection_method,appointment_date,operator_id,appointment_no,remark)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
-      [
-        req.body.sample_code,
-        req.body.sample_name || '',
-        req.body.sample_type || '',
-        req.body.client_name || '',
-        req.body.contact_phone || '',
-        req.body.detection_method || 'ICP',
-        req.body.appointment_date || '',
-        req.session.userId,
-        req.body.appointment_no || '',
-        req.body.remark || ''
-      ]
+    const id = parseInt(req.params.id);
+    run('UPDATE projects SET status=?, submitted_at=datetime(\'now\') WHERE id=?', ['submitted', id]);
+    // 写审批历史
+    run('INSERT INTO approval_records (target_type, target_id, approval_level, from_stage, to_stage, approver_id, decision, comment) VALUES (?,?,?,?,?,?,?,?)',
+      ['project', id, 1, 'draft', 'submitted', req.session.userId, 'submitted', req.body.comment || '']);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 审批委托（通过 / 驳回）
+router.post('/projects/:id/approve', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { decision, comment } = req.body;
+    if (!['approved', 'rejected'].includes(decision)) return res.status(400).json({ error: '无效决策' });
+    if (decision === 'approved') {
+      run('UPDATE projects SET status=?, approved_at=datetime(\'now\'), approval_user_id=?, approval_remark=? WHERE id=?',
+        ['approved', req.session.userId, comment || '', id]);
+      run('INSERT INTO approval_records (target_type, target_id, approval_level, approval_role, approver_id, decision, comment, from_stage, to_stage) VALUES (?,?,?,?,?,?,?,?,?)',
+        ['project', id, 1, '业务员主管', req.session.userId, 'approved', comment || '', 'submitted', 'approved']);
+    } else {
+      run('UPDATE projects SET status=?, rejection_reason=?, approval_user_id=? WHERE id=?',
+        ['rejected', comment || '', req.session.userId, id]);
+      run('INSERT INTO approval_records (target_type, target_id, approval_level, approval_role, approver_id, decision, comment) VALUES (?,?,?,?,?,?,?)',
+        ['project', id, 1, '业务员主管', req.session.userId, 'rejected', comment || '']);
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 获取委托审批历史
+router.get('/projects/:id/approvals', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const records = queryAll(
+      'SELECT a.*, u.name as approver_name FROM approval_records a LEFT JOIN users u ON a.approver_id=u.id WHERE a.target_type=? AND a.target_id=? ORDER BY a.created_at DESC',
+      ['project', id]
     );
-    const sampleId = info.lastInsertRowid;
-    // 记录历史
-    run(`INSERT INTO workflow_history (sample_id,from_stage,to_stage,action_user_id,remark) VALUES (?,'',?,?,?)`,
-      [sampleId, 'appointment', req.session.userId, '样品创建']);
-    res.json({ success: true, id: sampleId });
-  } catch(e) {
-    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: '样品编号已存在' });
-    res.status(500).json({ error: e.message });
-  }
+    res.json({ success: true, data: records });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT /api/workflow/samples/:id - 更新样品信息
-router.put('/samples/:id', requireAuth, validate(WorkflowSampleCreateSchema), (req, res) => {
+// 样品收样（更新收样字段）
+router.post('/samples/:id/accept', requireAuth, (req, res) => {
   try {
-    run(`UPDATE workflow_samples SET
-      sample_name=?,sample_type=?,client_name=?,contact_phone=?,detection_method=?,
-      operator_id=?,supervisor_id=?,remark=?,updated_at=datetime('now')
-      WHERE id=?`,
-      [
-        req.body.sample_name||'', req.body.sample_type||'',
-        req.body.client_name||'', req.body.contact_phone||'',
-        req.body.detection_method||'', req.body.operator_id||null,
-        req.body.supervisor_id||null, req.body.remark||'',
-        parseInt(req.params.id)
-      ]
+    const id = parseInt(req.params.id);
+    const { appearance_check, weight_received, photo_url, seal_status, acceptance_status, inspector_id, inspection_remark } = req.body;
+    run(
+      'UPDATE samples SET appearance_check=?, weight_received=?, photo_url=?, seal_status=?, acceptance_status=?, inspector_id=?, inspection_at=datetime(\'now\'), inspection_remark=? WHERE id=?',
+      [appearance_check || '{}', weight_received || 0, photo_url || '', seal_status || 'sealed', acceptance_status || 'accepted', inspector_id || req.session.userId, inspection_remark || '', id]
     );
     res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE /api/workflow/samples/:id
-router.delete('/samples/:id', requireAuth, (req, res) => {
+// 生成样品二维码（节点 3）
+router.post('/samples/:id/qr', requireAuth, (req, res) => {
   try {
-    run('DELETE FROM workflow_history WHERE sample_id=?', [parseInt(req.params.id)]);
-    run('DELETE FROM workflow_samples WHERE id=?', [parseInt(req.params.id)]);
+    const id = parseInt(req.params.id);
+    const s = queryOne('SELECT sample_code FROM workflow_samples WHERE id=?', [id]);
+    if (!s) return res.status(404).json({ error: '样品不存在' });
+    const qrContent = 'LIMS-DHJ-' + s.sample_code;
+    run(
+      'INSERT INTO qr_codes (target_type, target_id, qr_content, generated_by) VALUES (?,?,?,?)',
+      ['sample', id, qrContent, req.session.userId]
+    );
+    res.json({ success: true, qr_content: qrContent });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 留样入库（节点 5）
+router.post('/samples/:id/retain', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { retain_type, retention_until, storage_location, retain_weight, container_type } = req.body;
+    // 自动生成留样编号
+    const max = queryOne('SELECT MAX(id) as max_id FROM retain_samples');
+    const nextId = (max && max.max_id) ? max.max_id + 1 : 1;
+    const retain_code = 'RET-' + String(nextId).padStart(5, '0');
+    const result = run(
+      'INSERT INTO retain_samples (sample_id, retain_code, retain_type, storage_location, retain_weight, container_type, retained_by, retention_until) VALUES (?,?,?,?,?,?,?,?)',
+      [id, retain_code, retain_type || 'split', storage_location || '', retain_weight || 0, container_type || 'bottle', req.session.userId, retention_until]
+    );
+    res.json({ success: true, id: result.lastInsertRowid, retain_code });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 留样列表
+router.get('/retain-samples', requireAuth, (req, res) => {
+  try {
+    const { status, keyword } = req.query;
+    let sql = 'SELECT r.*, s.sample_code, s.sample_name FROM retain_samples r LEFT JOIN samples s ON r.sample_id=s.id WHERE 1=1';
+    const params = [];
+    if (status) { sql += ' AND r.destroy_status = ?'; params.push(status); }
+    if (keyword) { sql += ' AND (r.retain_code LIKE ? OR s.sample_code LIKE ?)'; params.push('%' + keyword + '%', '%' + keyword + '%'); }
+    sql += ' ORDER BY r.id DESC LIMIT 500';
+    res.json({ success: true, data: queryAll(sql, params) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 留样到期提醒
+router.get('/retain-samples/expiring', requireAuth, (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const data = queryAll(
+      `SELECT r.*, s.sample_code FROM retain_samples r LEFT JOIN samples s ON r.sample_id=s.id
+       WHERE r.destroy_status='retained' AND r.retention_until IS NOT NULL AND julianday(r.retention_until) - julianday('now') <= ? ORDER BY r.retention_until ASC`,
+      [days]
+    );
+    res.json({ success: true, data });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 不确定度计算（节点 10 CNAS-GL005）
+router.post('/samples/:id/uncertainty', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { parameter_name, measurement_value, type_a, type_b, num_measurements, mean_value, standard_deviation, coverage_factor, method } = req.body;
+    if (!parameter_name) return res.status(400).json({ error: '参数名称不能为空' });
+    // 同步 samples 表（外键需要）
+    const sample = queryOne('SELECT sample_code FROM workflow_samples WHERE id=?', [id]);
+    if (sample) {
+      const exists = queryOne('SELECT id FROM samples WHERE id=?', [id]);
+      if (!exists) {
+        run('INSERT INTO samples (id, sample_code, sample_name) VALUES (?, ?, ?)', [id, sample.sample_code, sample.sample_name || '']);
+      }
+    }
+    // 计算合成不确定度 u_c = sqrt(u_A^2 + u_B^2)
+    const combined = Math.sqrt(Math.pow(type_a || 0, 2) + Math.pow(type_b || 0, 2));
+    const k = coverage_factor || 2;
+    const expanded = combined * k;
+    const relative = measurement_value ? (expanded / measurement_value) * 100 : 0;
+    const result = run(
+      `INSERT INTO uncertainty_calculations
+       (sample_id, parameter_name, measurement_value, type_a_uncertainty, type_a_source, type_b_uncertainty, type_b_source,
+        combined_uncertainty, coverage_factor, expanded_uncertainty, relative_uncertainty, num_measurements, mean_value, standard_deviation, method, calculated_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [id, parameter_name, measurement_value || 0, type_a || 0, 'repeated_measurements', type_b || 0, 'calibration_certificate',
+       combined, k, expanded, relative, num_measurements || 1, mean_value || measurement_value, standard_deviation || 0, method || 'GUM', req.session.userId]
+    );
+    res.json({ success: true, id: result.lastInsertRowid, combined_uncertainty: combined, expanded_uncertainty: expanded, relative_uncertainty: relative });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 复检申请（节点 11）
+router.post('/samples/:id/retest', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { reason, retest_method } = req.body;
+    // 同步 samples
+    const sample = queryOne('SELECT sample_code FROM workflow_samples WHERE id=?', [id]);
+    if (sample) {
+      const exists = queryOne('SELECT id FROM samples WHERE id=?', [id]);
+      if (!exists) run('INSERT INTO samples (id, sample_code, sample_name) VALUES (?, ?, ?)', [id, sample.sample_code, sample.sample_name || '']);
+    }
+    const max = queryOne('SELECT MAX(id) as max_id FROM retest_records');
+    const nextId = (max && max.max_id) ? max.max_id + 1 : 1;
+    const retest_no = 'RT-' + String(nextId).padStart(5, '0');
+    // 从留样调取
+    const retain = queryOne('SELECT id FROM retain_samples WHERE sample_id=? AND destroy_status=?', [id, 'retained']);
+    const result = run(
+      'INSERT INTO retest_records (retest_no, original_sample_id, retest_retain_id, retest_reason, retest_method, requested_by) VALUES (?,?,?,?,?,?)',
+      [retest_no, id, retain ? retain.id : null, reason || 'qc_fail', retest_method || 'ICP', req.session.userId]
+    );
+    res.json({ success: true, id: result.lastInsertRowid, retest_no, retest_retain_id: retain ? retain.id : null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 留样销毁审批
+router.post('/retain-samples/:id/destroy', requireAdmin, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    run('UPDATE retain_samples SET destroy_status=?, destroyed_at=datetime(\'now\'), destroy_operator_id=?, destroy_remark=? WHERE id=?',
+      ['destroyed', req.session.userId, req.body.remark || '', id]);
     res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// POST /api/workflow/samples/:id/advance - 推进到下一阶段
-router.post('/samples/:id/advance', requireAuth, (req, res) => {
-  const sample = queryOne('SELECT * FROM workflow_samples WHERE id=?', [parseInt(req.params.id)]);
-  if (!sample) return res.status(404).json({ error: '样品不存在' });
-
-  const currentIdx = STAGES.indexOf(sample.current_stage);
-  if (currentIdx === -1) return res.status(400).json({ error: '当前阶段无效' });
-  if (currentIdx >= STAGES.length - 1) return res.status(400).json({ error: '样品已到达最终阶段' });
-
-  const nextStage = STAGES[currentIdx + 1];
-  const now = new Date().toISOString().slice(0, 10);
-
-  // 更新对应日期字段
-  const dateFieldMap = {
-    received: 'received_date',
-    encoded: 'encoded_date',
-    split: 'split_date',
-    testing: 'testing_date',
-    data_recorded: 'data_recorded_date',
-    report: 'report_date',
-    reviewed: 'reviewed_date',
-    archived: 'archived_date'
-  };
-
-  let updateSql = `UPDATE workflow_samples SET current_stage=?,updated_at=datetime('now')`;
-  const params = [nextStage];
-
-  if (dateFieldMap[nextStage]) {
-    updateSql += `,${dateFieldMap[nextStage]}=?`;
-    params.push(now);
-  }
-
-  updateSql += ' WHERE id=?';
-  params.push(parseInt(req.params.id));
-
-  try {
-    run(updateSql, params);
-    run(`INSERT INTO workflow_history (sample_id,from_stage,to_stage,action_user_id,remark)
-        VALUES (?,?,?,?,?)`,
-      [parseInt(req.params.id), sample.current_stage, nextStage, req.session.userId, req.body.remark || '']);
-    res.json({ success: true, from: sample.current_stage, to: nextStage });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// POST /api/workflow/samples/:id/revert - 退回上一阶段
-router.post('/samples/:id/revert', requireAuth, (req, res) => {
-  const sample = queryOne('SELECT * FROM workflow_samples WHERE id=?', [parseInt(req.params.id)]);
-  if (!sample) return res.status(404).json({ error: '样品不存在' });
-
-  const currentIdx = STAGES.indexOf(sample.current_stage);
-  if (currentIdx <= 0) return res.status(400).json({ error: '样品已回到起始阶段' });
-
-  const prevStage = STAGES[currentIdx - 1];
-
-  try {
-    run(`UPDATE workflow_samples SET current_stage=?,updated_at=datetime('now') WHERE id=?`,
-      [prevStage, parseInt(req.params.id)]);
-    run(`INSERT INTO workflow_history (sample_id,from_stage,to_stage,action_user_id,remark)
-        VALUES (?,?,?,?,?)`,
-      [parseInt(req.params.id), sample.current_stage, prevStage, req.session.userId, req.body.remark || '退回' ]);
-    res.json({ success: true, from: sample.current_stage, to: prevStage });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/workflow/samples/:id/history - 获取流转历史
-router.get('/samples/:id/history', requireAuth, (req, res) => {
-  const rows = queryAll(`
-    SELECT h.*, u.name as action_user_name
-    FROM workflow_history h
-    LEFT JOIN users u ON h.action_user_id=u.id
-    WHERE h.sample_id=?
-    ORDER BY h.id ASC
-  `, [parseInt(req.params.id)]);
-  res.json({ data: rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;

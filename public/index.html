@@ -538,7 +538,12 @@
         <h2><i data-lucide="clipboard-list"></i> 项目管理</h2>
         <div class="header-actions">
           <!-- 2026-08-11 ELN 电子实验记录本（核心能力：字段联动） -->
-          <button class="btn btn-primary" onclick="eln.open()" style="background: linear-gradient(90deg, #C9A96E, #D4A843); margin-right:6px;">
+          <!-- 2026-08-11 P0 客户管理（节点 1） -->
+          <button class="btn btn-primary" onclick="showModal('modal-clients-page');" style="background: linear-gradient(90deg, #8B6914, #B8860B); margin-right:6px;">
+            <i data-lucide="building" style="width:16px;height:16px;"></i> 客户管理
+          </button>
+          <!-- 2026-08-11 ELN 电子实验记录本（核心能力：字段联动） -->
+          <button class="btn btn-primary" onclick="eln.open()" style="background: linear-gradient(90deg, #C9A96E, #D4A843); margin-right:6px;"><button class="btn btn-primary" onclick="eln.open()" style="background: linear-gradient(90deg, #C9A96E, #D4A843); margin-right:6px;">
             <i data-lucide="notebook-pen" style="width:16px;height:16px;"></i> ELN 实验记录
           </button>
           <button class="btn btn-default" onclick="elnRecords.load(); elnRecords.render(); showModal('modal-eln-records');" style="margin-right:6px;">
@@ -1573,7 +1578,18 @@
       </div>
       <div class="content-header">
         <h2><i data-lucide="search"></i> 日常巡检</h2>
-        <div class="header-actions"> <button class="btn btn-default btn-export" onclick="exportToExcel('ehs-inspection')" style="margin-right:6px;">📥 导出</button>
+        <div class="header-actions">
+          <!-- 2026-08-11 阶段 2 P1 入口 -->
+          <button class="btn btn-primary" onclick="qcEngine.openManager()" style="background: linear-gradient(90deg, #4A7A4A, #5C9C5C); margin-right:6px;">
+            <i data-lucide="check-circle" style="width:16px;height:16px;"></i> QC 质控管理
+          </button>
+          <button class="btn btn-primary" onclick="capaManager.openList()" style="background: linear-gradient(90deg, #C04851, #D85861); margin-right:6px;">
+            <i data-lucide="alert-circle" style="width:16px;height:16px;"></i> CAPA 管理
+          </button>
+          <button class="btn btn-primary" onclick="approvalManager.openList()" style="background: linear-gradient(90deg, #4A6B8A, #5C8CB5); margin-right:6px;">
+            <i data-lucide="check-square" style="width:16px;height:16px;"></i> 审批工作台
+          </button>
+          <button class="btn btn-default btn-export" onclick="exportToExcel('ehs-inspection')" style="margin-right:6px;">📥 导出</button>
           <button class="btn btn-primary" onclick="document.getElementById('ehsi-id').value='';document.getElementById('ehsi-date').value='';document.getElementById('ehsi-inspector').value='';document.getElementById('ehsi-area').value='';document.getElementById('ehsi-fire').value='';document.getElementById('ehsi-temp').value='';document.getElementById('ehsi-humidity').value='';document.getElementById('ehsi-vent').value='';document.getElementById('ehsi-elec').value='';document.getElementById('ehsi-chem').value='';document.getElementById('ehsi-status').value='合格';document.getElementById('ehsi-findings').value='';document.getElementById('ehsi-next').value='';document.getElementById('ehsi-remark').value='';showModal('modal-ehs-inspection');">新增巡检</button>
         </div>
       </div>
@@ -2011,7 +2027,33 @@
 
 
 
-  </div><!-- end main-content -->
+  <!-- 2026-08-11 P0 客户管理 Modal -->
+<div id="modal-clients-page" class="modal-overlay">
+  <div class="modal-box" style="max-width:1100px; max-height:90vh; overflow:hidden; display:flex; flex-direction:column;">
+    <div class="modal-header">
+      <h3><i data-lucide="building"></i> 客户管理</h3>
+      <div style="margin-left:auto; display:flex; gap:8px;">
+        <input type="text" id="clients-search" class="form-control" placeholder="搜索客户名/编号/联系人" style="height:32px;padding:4px 10px;font-size:13px;" />
+        <button class="btn btn-sm btn-primary" onclick="clientsManager.openModal()">
+          <i data-lucide="plus" style="width:14px;height:14px;"></i> 新增客户
+        </button>
+      </div>
+      <button class="modal-close" onclick="hideModal('modal-clients-page');">&times;</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto; flex:1;">
+      <div id="clients-list">
+        <p style="text-align:center;color:#8B7355;padding:20px;">加载中...</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span style="color:#8B7355;font-size:13px;margin-right:auto;">
+        共 <strong id="clients-total">0</strong> 个客户
+      </span>
+      <button class="btn btn-default" onclick="hideModal('modal-clients-page');">关闭</button>
+    </div>
+  </div>
+</div>
+</div><!-- end main-content -->
 </div><!-- end main-ui -->
 
 <!-- ========== SCRIPTS ========== -->
@@ -2030,6 +2072,32 @@
 <script src="/js/pagination.js?v=20260811"></script>
 <!-- 2026-08-11 报告生成器（PDF/水印/电子签章） -->
 <script src="/js/report-generator.js?v=20260811"></script>
+<!-- 2026-08-11 P0 客户管理 -->
+<script src="/js/clients-manager.js?v=20260811"></script>
+<!-- 2026-08-11 阶段 2 P1 - QC 引擎 + Levey-Jennings -->
+<script src="/js/qc-engine.js?v=20260811"></script>
+<!-- 2026-08-11 阶段 2 P1 - CAPA + 2 级审批 -->
+<script src="/js/capa-approval.js?v=20260811"></script>
+<script>
+const _origShowCM = window.showModal;
+window.showModal = function(id) {
+  if (_origShowCM) _origShowCM(id);
+  if (id === 'modal-clients-page') {
+    setTimeout(function() {
+      clientsManager.render();
+      const totalEl = document.getElementById('clients-total');
+      if (totalEl) totalEl.textContent = '0';
+    }, 50);
+  }
+};
+document.getElementById('clients-search')?.addEventListener('input', function(e) {
+  const kw = e.target.value.toLowerCase();
+  const rows = document.querySelectorAll('#clients-list tbody tr');
+  rows.forEach(r => {
+    r.style.display = r.textContent.toLowerCase().includes(kw) ? '' : 'none';
+  });
+});
+</script>
 <script src="/js/app.js?v=20260804"></script>
 <!-- Lucide 兜底：内联初始化（确保 DOMContentLoaded 后图标渲染） -->
   <script>

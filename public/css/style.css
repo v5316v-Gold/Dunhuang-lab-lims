@@ -3887,3 +3887,167 @@ label.required::after,
   .filter-card-row { flex-direction: column; }
   .data-table th, .data-table td { padding: 8px 8px !important; font-size: 12px; }
 }
+
+
+/* ============================================================
+   2026-08-11 阶段 2 - QC 引擎 + CAPA + 审批样式
+   ============================================================ */
+
+/* QC 统计卡片 */
+.qc-stat-card {
+  background: linear-gradient(135deg, #FAF6EF 0%, #fff 100%);
+  border: 1px solid #E5DFD0;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+}
+.qc-stat-card .qc-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #4A6B8A;
+  font-family: 'SF Mono', Consolas, monospace;
+  line-height: 1.2;
+}
+.qc-stat-card .qc-stat-label {
+  font-size: 12px;
+  color: #8B7355;
+  margin-top: 4px;
+}
+.qc-stat-card.qc-stat-success .qc-stat-value { color: #4A7A4A; }
+.qc-stat-card.qc-stat-warning .qc-stat-value { color: #D4A843; }
+.qc-stat-card.qc-stat-danger .qc-stat-value { color: #C04851; }
+
+/* Levey-Jennings 图容器 */
+.lj-chart-container {
+  background: #fff;
+  border: 1px solid #E5DFD0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(44, 24, 16, 0.06);
+}
+.lj-chart-container h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3D2B1F;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lj-chart-container h4 i {
+  color: #C9A96E;
+}
+
+/* CAPA 状态流程 */
+.capa-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.capa-status-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.capa-status-open { color: #C04851; background: #FBE7E9; }
+.capa-status-in_progress { color: #D4A843; background: #FBF4DC; }
+.capa-status-closed { color: #4A6B8A; background: #E4ECF4; }
+.capa-status-verified { color: #4A7A4A; background: #E8F2E8; }
+
+/* 审批流程指示器 */
+.approval-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+.approval-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 6px;
+  background: #F5EDD6;
+  border: 1px solid #E5DFD0;
+}
+.approval-step.approved {
+  background: #E8F2E8;
+  border-color: #4A7A4A;
+}
+.approval-step.rejected {
+  background: #FBE7E9;
+  border-color: #C04851;
+}
+.approval-step.current {
+  background: linear-gradient(135deg, #C9A96E 0%, #D4A843 100%);
+  color: #fff;
+  border-color: #B8860B;
+}
+.approval-step .step-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: #3D2B1F;
+}
+.approval-step.approved .step-num, .approval-step.rejected .step-num, .approval-step.current .step-num {
+  color: inherit;
+}
+.approval-step .step-label {
+  font-size: 12px;
+  color: #8B7355;
+}
+.approval-step.current .step-label, .approval-step.approved .step-label, .approval-step.rejected .step-label {
+  color: inherit;
+}
+.approval-arrow {
+  color: #C9A96E;
+  font-size: 18px;
+}
+
+/* 审批历史时间线 */
+.approval-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+}
+.approval-timeline::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, #C9A96E 0%, #E5DFD0 100%);
+}
+.approval-timeline li {
+  position: relative;
+  padding: 8px 0 8px 32px;
+  list-style: none;
+}
+.approval-timeline li::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #C9A96E;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px #C9A96E;
+}
+.approval-timeline li.approved::before { background: #4A7A4A; box-shadow: 0 0 0 1px #4A7A4A; }
+.approval-timeline li.rejected::before { background: #C04851; box-shadow: 0 0 0 1px #C04851; }
+.timeline-time { font-size: 12px; color: #8B7355; }
+.timeline-actor { font-size: 14px; color: #3D2B1F; font-weight: 500; }
+.timeline-comment { font-size: 13px; color: #8B7355; margin-top: 4px; }

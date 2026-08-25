@@ -1505,7 +1505,8 @@ function addExportButton() {
     if (!page) return;
     var actions = page.querySelector('.header-actions');
     if (!actions) return;
-    if (actions.querySelector('.btn-export-' + table)) return;
+    // 不重复加（检查 JS 注入的 btn-export-{table} 或 HTML 自带的 btn-export）
+    if (actions.querySelector('.btn-export-' + table) || actions.querySelector('.btn-export')) return;
     var btn = document.createElement('button');
     btn.className = 'btn btn-default btn-export-' + table;
     btn.style.marginLeft = '8px';
@@ -1561,8 +1562,8 @@ function addAllAddButtons() {
     if (!page) { return; }
     var actions = page.querySelector('.header-actions');
     if (!actions) { return; }
-    // 不重复加
-    if (actions.querySelector('.btn-add-' + tab)) { return; }
+    // 不重复加：检测 JS 注入的 btn-add-{tab} 或 HTML 自带的 btn-add-record
+    if (actions.querySelector('.btn-add-' + tab) || actions.querySelector('.btn-add-record')) { return; }
     var modal = modalMap[tab];
     var btn = document.createElement('button');
     btn.className = 'btn btn-primary btn-add-record btn-add-' + tab;

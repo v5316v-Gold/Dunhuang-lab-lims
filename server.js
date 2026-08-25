@@ -228,6 +228,18 @@ app.use('/api', fumehoodTrainingRoutes.fumehood);    // /api/fumehood, /api/fume
 app.use('/api', fumehoodTrainingRoutes.training);     // /api/training-annual, /api/training-records
 app.use('/api', ehsRoutes);            // /api/ehs-inspection, /api/ehs-incident, /api/ehs-hazard
 app.use('/api', workflowRoutes);   // /api/workflow/*
+// 2026-08-11 P0 工作流路由
+app.use('/api', require('./routes/clients'));        // 客户管理 (GET /clients)
+app.use('/api/workflow', require('./routes/workflow'));  // 工作流 (POST /projects/:id/submit 等)
+// 2026-08-11 阶段 2 P1 质控引擎
+app.use('/api', require('./routes/qc'));           // QC 质控 + Westgard + LJ图
+// 2026-08-11 阶段 2 P1 CAPA 流程
+app.use('/api', require('./routes/capa'));         // CAPA 纠正预防
+// 2026-08-11 阶段 2 P1 2 级审批
+app.use('/api', require('./routes/approval'));     // 一级核验 + 二级审核
+// 2026-08-11 阶段 2 - 任务分派（节点 4）
+app.use('/api', require('./routes/task-assign'));
+
 app.use('/api/permissions', require('./routes/permissions'));  // 阶段 1.2 - 8 岗位 RBAC
 app.use('/api/excel', require('./routes/excel'));   // /api/excel/*
 
@@ -565,9 +577,13 @@ async function initDB() {
   // 阶段 1.2: db instance shim disabled - using global __db wrapper
 
     // Load schema
-    const { createTables, runMigrations } = require('./db/schema');
+    const { createTables, runMigrations, applyP0Migration } = require('./db/schema');
     createTables(db);
     runMigrations(db);
+    // 2026-08-11: Apply P0 workflow migration
+    if (typeof applyP0Migration === 'function') {
+      applyP0Migration(db);
+    }
 
     // Initialize audit chain (P0-2 CNAS compliance)
     // 必须先于 seedData()，因为 seedData 内部可能写 audit
