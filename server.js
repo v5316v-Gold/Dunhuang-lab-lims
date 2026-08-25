@@ -239,6 +239,10 @@ app.use('/api', require('./routes/capa'));         // CAPA 纠正预防
 app.use('/api', require('./routes/approval'));     // 一级核验 + 二级审核
 // 2026-08-11 阶段 2 - 任务分派（节点 4）
 app.use('/api', require('./routes/task-assign'));
+// 2026-08-11 阶段 3 - 设备 IoT（节点 6）
+app.use('/api', require('./routes/device-iot'));
+// 2026-08-11 阶段 3 - 不确定度 A/B 类评定
+app.use('/api', require('./routes/uncertainty'));
 
 app.use('/api/permissions', require('./routes/permissions'));  // 阶段 1.2 - 8 岗位 RBAC
 app.use('/api/excel', require('./routes/excel'));   // /api/excel/*
