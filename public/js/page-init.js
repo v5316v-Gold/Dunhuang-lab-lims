@@ -92,8 +92,10 @@ function initDepartments() {
 
   // 2026-08-11 增加：分页器
   if (window.Paginator) {
-    const wrap = document.querySelector('#table-departments').parentElement;
-    new Paginator('#table-departments', { pageSize: 20 });
+    const tableEl = document.getElementById('table-departments');
+    if (tableEl && tableEl.parentElement) {
+      new Paginator('#table-departments', { pageSize: 20 });
+    }
   }
 }
 

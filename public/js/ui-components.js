@@ -210,8 +210,10 @@ document.addEventListener('DOMContentLoaded', function() {
 class AdvancedFilter {
   constructor(container, options) {
     this.container = typeof container === 'string' ? document.querySelector(container) : container;
-    this.options = options;
+    this.options = options || { fields: [] };
     this.values = {};
+    // 2026-08-11 修复：container 不存在时跳过
+    if (!this.container) return;
     this.render();
   }
 
@@ -297,18 +299,32 @@ class BatchOperations {
   constructor(tableSelector, batchBarSelector, options = {}) {
     this.table = typeof tableSelector === 'string' ? document.querySelector(tableSelector) : tableSelector;
     this.batchBar = typeof batchBarSelector === 'string' ? document.querySelector(batchBarSelector) : batchBarSelector;
-    this.options = options;
+    this.options = options || {};
     this.selectedIds = new Set();
+    // 2026-08-11 修复：如果 table 或 batchBar 不存在，延迟到元素出现时初始化
+    if (!this.table || !this.batchBar) {
+      // 元素可能还没渲染，延迟 200ms 再试
+      var self = this;
+      setTimeout(function() {
+        self.table = typeof tableSelector === 'string' ? document.querySelector(tableSelector) : tableSelector;
+        self.batchBar = typeof batchBarSelector === 'string' ? document.querySelector(batchBarSelector) : batchBarSelector;
+        if (self.table && self.batchBar) {
+          self.bindEvents();
+        }
+      }, 200);
+      return;
+    }
     window.__batchInstance = this;
     this.bindEvents();
   }
 
   bindEvents() {
+    if (!this.table) return; // 2026-08-11 修复：表格不存在时直接返回
     const checkAll = this.table.querySelector('thead input[type="checkbox"][data-check-all]');
     if (checkAll) {
       checkAll.addEventListener('change', (e) => {
         const checked = e.target.checked;
-        this.table.querySelectorAll('tbody input[type="checkbox"][data-id]').forEach(cb => {
+        if (this.table) this.table.querySelectorAll('tbody input[type="checkbox"][data-id]').forEach(cb => {
           cb.checked = checked;
           if (checked) this.selectedIds.add(cb.dataset.id);
           else this.selectedIds.delete(cb.dataset.id);
@@ -316,7 +332,7 @@ class BatchOperations {
         this.updateBatchBar();
       });
     }
-    this.table.querySelectorAll('tbody input[type="checkbox"][data-id]').forEach(cb => {
+    if (this.table) this.table.querySelectorAll('tbody input[type="checkbox"][data-id]').forEach(cb => {
       cb.addEventListener('change', (e) => {
         if (e.target.checked) this.selectedIds.add(e.target.dataset.id);
         else this.selectedIds.delete(e.target.dataset.id);
@@ -326,6 +342,7 @@ class BatchOperations {
   }
 
   updateBatchBar() {
+    if (!this.batchBar) return; // 2026-08-11 修复：batchBar 不存在时跳过
     const count = this.selectedIds.size;
     if (count === 0) { this.batchBar.classList.remove('active'); return; }
     this.batchBar.classList.add('active');
@@ -354,7 +371,7 @@ class BatchOperations {
 
   clearSelection() {
     this.selectedIds.clear();
-    this.table.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    if (this.table) this.table.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     this.updateBatchBar();
   }
 
