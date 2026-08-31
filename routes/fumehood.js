@@ -100,4 +100,18 @@ training.delete('/training-records/:id', requireAuth, (req, res) => {
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// 2026-08-14：培训列表路由（前端实验数据报告菜单用）
+training.get('/training', requireAuth, (req, res) => {
+  try {
+    const data = queryAll(
+      `SELECT t.*, u.name as employee_name, d.name as dept_name
+       FROM training_records t
+       LEFT JOIN users u ON t.employee_id = u.id
+       LEFT JOIN departments d ON u.dept = d.name
+       ORDER BY t.id DESC LIMIT 500`
+    );
+    res.json({ data });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = { fumehood, training };

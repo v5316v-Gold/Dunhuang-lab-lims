@@ -233,7 +233,9 @@ app.use('/api', fumehoodTrainingRoutes.training);     // /api/training-annual, /
 app.use('/api', ehsRoutes);            // /api/ehs-inspection, /api/ehs-incident, /api/ehs-hazard
 app.use('/api', workflowRoutes);   // /api/workflow/*
 // 2026-08-11 P0 工作流路由
-app.use('/api', require('./routes/clients'));        // 客户管理 (GET /clients)
+app.use('/api', require('./routes/clients'));
+// 2026-08-14：修复 sample.js 未挂载（导致 /api/samples /api/appointments 等 404）
+app.use('/api', require('./routes/sample'));        // 客户管理 (GET /clients)
 app.use('/api/workflow', require('./routes/workflow'));  // 工作流 (POST /projects/:id/submit 等)
 // 2026-08-11 阶段 2 P1 质控引擎
 app.use('/api', require('./routes/qc'));           // QC 质控 + Westgard + LJ图
@@ -273,6 +275,12 @@ app.get('/api/dashboard/stats', (req, res) => {
 // ============================================================
 // Experimental Data Reports
 // ============================================================
+// 2026-08-14：实验数据报告别名（前端菜单用）
+app.get('/api/experimental-data', requireAuth, (req, res) => {
+  const rows = queryAll(`SELECT r.*, u.name as analyst_name, u2.name as reviewer_name FROM experimental_data_reports r LEFT JOIN users u ON r.analyst_id=u.id LEFT JOIN users u2 ON r.reviewer_id=u2.id ORDER BY r.id DESC LIMIT 500`);
+  res.json({ data: rows });
+});
+
 app.get('/api/experimental-data-reports', requireAuth, (req, res) => {
   const rows = queryAll(`
     SELECT r.*, u.name as analyst_name, s.name as supervisor_name,
