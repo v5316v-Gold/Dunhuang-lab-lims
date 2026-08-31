@@ -31,6 +31,9 @@ const { AuditChain } = require('./lib/audit-chain');
 const crypto = require('crypto');
 
 const app = express();
+// 2026-08-14：trust proxy（支持反向代理后 session cookie 正确传递）
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
 const PORT = parseInt(process.env.PORT || '3000', 10);
 // 优先使用 .env 中的路径；否则用历史硬编码（向后兼容）
 const DB_DATA_PATH = process.env.DB_DATA_PATH || 'D:\\lims_data\\lims_cnas.data';

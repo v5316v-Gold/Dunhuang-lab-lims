@@ -90,7 +90,7 @@
         <option value="admin">系统管理员</option>
       </select>
     </div>
-    <button id="btn-login" class="btn btn-primary btn-login">登录系统</button>
+    <button type="button" id="btn-login" class="btn btn-primary btn-login">登录系统</button>
     <div class="login-hint">CNAS 认证实验室信息管理系统 &copy; 敦煌金检测中心</div>
   </div>
 </div>
@@ -110,26 +110,15 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data && data.user) return null;  // 已有 session, 不需要登录
-        // 自动登录 admin
-        return fetch('/api/auth/login', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'admin', password: 'admin123' })
-        });
-      })
-      .then(function(r) {
-        if (!r) return null;
-        return r.json();
-      })
-      .then(function(data) {
-        if (data && data.success) {
-          // 登录成功 → 刷新页面让 main-ui 的 session check 生效
-          console.log('[autoBoot] Login as admin OK, reloading...');
-          location.reload();
-        } else if (data && data.error) {
-          console.warn('[autoBoot] Login failed:', data.error);
-        }
+        // 2026-08-14：禁用硬编码 admin/admin123 — 改为显示登录页让用户输入
+        console.log('[autoBoot] No session, please login manually');
+        // 显示提示 toast（延迟一下让页面加载完）
+        setTimeout(function() {
+          if (typeof showToast === 'function') {
+            showToast('请登录系统（默认账号 admin/admin123）', 'info', 5000);
+          }
+        }, 500);
+        return null;
       })
       .catch(function(e) { console.warn('[autoBoot] error:', e); });
   } catch (e) { console.warn('[autoBoot] outer error:', e); }
