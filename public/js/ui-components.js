@@ -234,8 +234,17 @@ class AdvancedFilter {
     `;
     this.container.innerHTML = html;
     this.container.querySelector('[data-action="apply"]').addEventListener('click', () => self.apply());
-    this.container.querySelector('[data-action="reset"]').addEventListener('click', () => self.reset());
+    this.container.querySelector('[data-action="reset"]').addEventListener('reset', () => self.reset());
     if (window.lucide) window.lucide.createIcons();
+
+    // 2026-08-14 修复：实时搜索（输入即触发 apply，无需点"查询"按钮）
+    this.container.querySelectorAll('[data-field]').forEach(input => {
+      input.addEventListener('input', () => {
+        clearTimeout(self._searchTimer);
+        self._searchTimer = setTimeout(() => self.apply(), 200); // 200ms 防抖
+      });
+      input.addEventListener('change', () => self.apply()); // select/date 也支持
+    });
   }
 
   renderField(field) {

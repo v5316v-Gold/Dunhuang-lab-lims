@@ -277,19 +277,48 @@ function filterTable(tableId, values) {
   if (!table) return;
   const tbody = table.querySelector('tbody');
   if (!tbody) return;
-  const rows = tbody.querySelectorAll('tr');
+  const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => !r.querySelector('td[colspan]'));
+  const isEmpty = !values || Object.keys(values).length === 0;
 
-  rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
-    let match = true;
-    for (const key in values) {
-      if (!text.includes(String(values[key]).toLowerCase())) {
-        match = false;
-        break;
+  // 2026-08-14 修复：用 Paginator.setFilter 实现跨页搜索
+  // 找到该 table 对应的 Paginator（通过遍历全局实例）
+  let paginator = null;
+  if (window.Paginator && window.Paginator.instances) {
+    paginator = window.Paginator.instances.find(p => {
+      try {
+        return p.tableWrap && (p.tableWrap.id === tableId || p.tableWrap.querySelector('#' + tableId + ' table'));
+      } catch (e) { return false; }
+    });
+  }
+
+  if (paginator && !isEmpty) {
+    // 用 Paginator 的 setFilter：自动跨页搜索
+    paginator.setFilter(row => {
+      const text = row.textContent.toLowerCase();
+      for (const key in values) {
+        if (!text.includes(String(values[key]).toLowerCase())) return false;
       }
-    }
-    row.style.display = match ? '' : 'none';
-  });
+      return true;
+    });
+  } else if (paginator && isEmpty) {
+    // 清空过滤
+    paginator.filteredRows = [...paginator.allRows];
+    paginator.goToPage(1);
+  } else {
+    // 降级到当前页过滤（无 Paginator）
+    rows.forEach(row => {
+      if (isEmpty) {
+        row.style.display = '';
+      } else {
+        const text = row.textContent.toLowerCase();
+        let match = true;
+        for (const key in values) {
+          if (!text.includes(String(values[key]).toLowerCase())) { match = false; break; }
+        }
+        row.style.display = match ? '' : 'none';
+      }
+    });
+  }
 }
 
 // 给状态文字加彩色 Tag

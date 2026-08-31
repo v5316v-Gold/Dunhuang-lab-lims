@@ -274,7 +274,7 @@
         </div>
         <div class="home-search">
           <i data-lucide="search" style="width:14px;height:14px;"></i>
-          <input type="text" placeholder="全局搜索（样品/设备/人员...）" id="home-global-search" />
+          <input type="text" placeholder="全局搜索（样品/设备/人员...）" id="home-global-search" onkeydown="if(event.key==='Enter'){globalSearch(this.value);this.blur();}" />
         </div>
         <button class="home-action-btn" title="消息中心">
           <i data-lucide="bell"></i>

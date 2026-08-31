@@ -243,6 +243,62 @@ function renderHomeListInspections(records) {
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
+// 2026-08-14 全局搜索（首页顶部搜索框）
+function globalSearch(query) {
+  if (!query || query.length < 2) { showToast('请输入至少 2 个字符', 'info'); return; }
+  var targets = [
+    { tab: 'personnel', path: '/personnel' },
+    { tab: 'equipment', path: '/equipment' },
+    { tab: 'reagents', path: '/reagents' },
+    { tab: 'consumables', path: '/consumables' },
+    { tab: 'glassware', path: '/glassware' },
+    { tab: 'gases', path: '/gases' },
+    { tab: 'samples', path: '/sample-processing' }
+  ];
+  showGlobalSearchResults(query, targets);
+}
+
+async function showGlobalSearchResults(query, targets) {
+  var q = query.toLowerCase();
+  var results = { total: 0, items: [] };
+  for (var i = 0; i < targets.length; i++) {
+    var t = targets[i];
+    try {
+      var resp = await fetch('/api' + t.path, { credentials: 'include' });
+      var r = await resp.json();
+      var data = r.data || r || [];
+      if (!Array.isArray(data)) continue;
+      for (var j = 0; j < data.length; j++) {
+        var row = data[j];
+        var text = JSON.stringify(row).toLowerCase();
+        if (text.indexOf(q) >= 0) {
+          results.total++;
+          if (results.items.length < 50) {
+            var name = row.name || row.client_name || row.equipment_no || row.sample_code || row.reagent_name || ('ID:' + row.id);
+            results.items.push({ tab: t.tab, name: name, type: t.path.slice(1), row: row });
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  // 显示结果 Modal
+  var div = document.createElement('div');
+  div.id = 'modal-global-search';
+  div.className = 'modal-overlay';
+  div.innerHTML = '<div class="modal-box" style="max-width:700px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">' +
+    '<div class="modal-header"><h3><i data-lucide='search'></i> 全局搜索：' + query + '</h3>' +
+    '<button class="modal-close" onclick="hideModal('modal-global-search');document.getElementById('modal-global-search').remove();">×</button></div>' +
+    '<div class="modal-body" style="overflow-y:auto;flex:1;padding:16px;">' +
+    '<p style="margin:0 0 12px;color:#8B7355;">共找到 <strong>' + results.total + '</strong> 条匹配记录</p>' +
+    (results.items.length ? results.items.map(function(it) {
+      return '<div class="card" style="padding:10px 14px;margin-bottom:8px;cursor:pointer;background:#fff;border:1px solid #E5DFD0;border-radius:6px;" onclick="switchTab(\'' + it.tab + '\');hideModal('modal-global-search');document.getElementById('modal-global-search').remove();"><div style="font-weight:600;color:#3D2B1F;">' + it.name + '</div><div style="font-size:12px;color:#8B7355;margin-top:4px;">' + it.type + '</div></div>';
+    }).join('') : '<p style="color:#8B7355;text-align:center;padding:20px;">无匹配记录</p>') +
+    '</div></div>';
+  document.body.appendChild(div);
+  showModal('modal-global-search');
+  if (window.lucide) window.lucide.createIcons();
+}
+
 function updateClock() {
   var now = new Date();
   var dateStr = now.getFullYear() + '年' + pad2(now.getMonth()+1) + '月' + pad2(now.getDate()) + '日';

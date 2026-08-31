@@ -24,6 +24,10 @@ class Paginator {
     this.allRows = [];
     this.filteredRows = [];
     this.init();
+    // 2026-08-14：注册到全局供 filterTable 跨页搜索用
+    if (!window.Paginator) window.Paginator = Paginator;
+    window.Paginator.instances = window.Paginator.instances || [];
+    window.Paginator.instances.push(this);
   }
 
   init() {
